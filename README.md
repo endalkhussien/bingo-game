@@ -17,20 +17,23 @@ Electron · Next.js 15 · TypeScript · SQLite · Drizzle ORM · Tailwind CSS
 ## Quick Start
 
 ```bash
-# Install dependencies
 npm install
 
-# Development (browser UI — mock data)
+# Option 1: Desktop app (native window) — RECOMMENDED
+npm run desktop:dev
+
+# Option 2: Browser only (quick UI preview, mock data)
 npm run dev:next
-# Open http://localhost:3000
+# → http://localhost:3000
 
-# Development (full Electron app)
-npm run dev
+# Production desktop
+npm run desktop
 
-# Production build
-npm run build
-npm start
+# Windows installer (.exe) — run on Windows
+npm run dist:win
 ```
+
+See [docs/DESKTOP.md](./docs/DESKTOP.md) for how Next.js + Electron works as a desktop app.
 
 ## Demo Credentials
 

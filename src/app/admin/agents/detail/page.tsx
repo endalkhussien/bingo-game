@@ -1,19 +1,23 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { Suspense, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { ipc } from '@/presentation/lib/ipc';
 import { PageHeader } from '@/presentation/components/shared/page-header';
 import { StatCard } from '@/presentation/components/shared/stat-card';
 
-export default function AgentDetailPage() {
-  const { id } = useParams<{ id: string }>();
+function AgentDetailContent() {
+  const searchParams = useSearchParams();
+  const id = searchParams.get('id') ?? '';
   const [agent, setAgent] = useState<Record<string, unknown> | null>(null);
   const [depositAmt, setDepositAmt] = useState('100');
   const [newPw, setNewPw] = useState('');
 
-  useEffect(() => { if (id) ipc<Record<string, unknown> | null>('agents:detail', id).then(setAgent); }, [id]);
+  useEffect(() => {
+    if (id) ipc<Record<string, unknown> | null>('agents:detail', id).then(setAgent);
+  }, [id]);
 
+  if (!id) return <p className="text-gray-500">No agent selected.</p>;
   if (!agent) return <div className="flex h-64 items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" /></div>;
 
   const handleDeposit = async () => {
@@ -48,5 +52,13 @@ export default function AgentDetailPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function AgentDetailPage() {
+  return (
+    <Suspense fallback={<div className="flex h-64 items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" /></div>}>
+      <AgentDetailContent />
+    </Suspense>
   );
 }
