@@ -1,80 +1,83 @@
-# Desktop App Guide
+# Desktop Guide
 
-## Can we use Next.js for desktop?
-
-**Next.js alone is not a desktop app** — it is a web framework. To run offline on Windows as a real `.exe` desktop program, you need a **desktop shell** that wraps the UI.
-
-This project uses the **simplest reliable pattern**:
+## How it works
 
 ```
-┌─────────────────────────────────────┐
-│  Electron (desktop shell)           │
-│  ├── Main process: SQLite, IPC, DB  │
-│  └── Window loads Next.js static UI │
-└─────────────────────────────────────┘
+┌─────────────────────────────────────────┐
+│  Electron Window (Minch Bingo)          │
+│                                         │
+│  ┌───────────────────────────────────┐  │
+│  │  Next.js UI (React pages)         │  │
+│  │  Login → Agent/Admin dashboards   │  │
+│  └──────────────┬────────────────────┘  │
+│                 │ IPC                   │
+│  ┌──────────────▼────────────────────┐  │
+│  │  SQLite database (offline)        │  │
+│  │  Auth, games, wallet, agents...   │  │
+│  └───────────────────────────────────┘  │
+└─────────────────────────────────────────┘
 ```
 
-- **UI:** Next.js 15 → built as **static HTML/JS** (`out/` folder)
-- **Desktop:** Electron opens that UI in a native window
-- **Database:** SQLite in Electron main process (offline, no internet)
+## Run commands
 
-You keep Next.js for the UI. Electron only provides the window, file access, and database.
+| What you want | Command |
+|---------------|---------|
+| **Develop desktop app** | `npm start` |
+| **Production desktop** | `npm run desktop` |
+| **Browser UI only** | `npm run dev:next` |
+| **Run tests** | `npm test` |
+| **Quick smoke test** | `npm run test:smoke` |
+| **Build Windows .exe** | `npm run dist:win` |
 
-## Commands
+## Windows double-click
 
-| Command | What it does |
-|---------|--------------|
-| `npm run dev:next` | Browser only (http://localhost:3000) — quick UI preview |
-| `npm run desktop:dev` | **Real desktop window** + hot reload (recommended for dev) |
-| `npm run desktop` | Production desktop app (built static files) |
-| `npm run dist:win` | Build Windows installer (.exe) |
+| File | Action |
+|------|--------|
+| `Start Minch Bingo.bat` | Install (if needed) + launch desktop app |
+| `Run Tests.bat` | Run automated smoke tests |
 
-## Development (desktop window)
+## Testing
+
+### Automated (recommended)
 
 ```bash
-npm install
-npm run desktop:dev
+# Full Playwright test suite (starts dev server automatically)
+npm test
+
+# Quick 6-check smoke test
+npm run test:smoke
+
+# Interactive test UI
+npm run test:ui
 ```
 
-A native **Minch Bingo** window opens. Login: `agent` / `agent123` or `admin` / `admin123`.
+### Manual test checklist
 
-## Production desktop
+**Agent (`agent` / `agent123`):**
+1. Login → Dashboard shows wallet balance
+2. Game Board → select numbers → Create Game → Draw
+3. Cards → Create New Card
+4. Recharge → enter `VOUCHER100`
+5. Reports → see game history
 
-```bash
-npm run desktop
-```
+**Admin (`admin` / `admin123`):**
+1. Login → Dashboard shows agent stats
+2. Agents → view list, create agent
+3. Recharge → approve a pending request
+4. Pricing → view card packs and memberships
+5. Settings → Backup → Create Backup
 
-## Windows installer
+## Troubleshooting
 
-On a Windows machine:
+| Problem | Fix |
+|---------|-----|
+| `better-sqlite3` error on install | Run `npm run setup` again |
+| Blank window | Run `npm run build` then `npm run desktop` |
+| Port 3000 in use | Kill other apps on port 3000, or set `UI_URL=http://localhost:3001` |
+| Browser shows mock data | Use `npm start` for real desktop with SQLite |
 
-```bash
-npm run dist:win
-```
+## Data location
 
-Output: `release/Minch Bingo Setup.exe`
-
-## Alternatives (if you want even simpler later)
-
-| Stack | Pros | Cons |
-|-------|------|------|
-| **Electron + Next.js (current)** | Keep all UI code, works offline, mature | ~150MB app size |
-| **Electron + Vite + React** | Simpler build, no Next.js | Must rewrite routes (no App Router) |
-| **Tauri + React** | Smaller binary (~10MB) | Rust setup, more migration work |
-| **PWA in browser** | No install | Not true offline desktop, no SQLite native |
-
-**Recommendation:** Stay on **Electron + Next.js static export** (current setup). It is the standard approach used by many desktop apps and matches your original requirements.
-
-## Architecture
-
-```
-User clicks button in UI (Next.js/React)
-        ↓
-window.electronAPI.invoke('games:create', ...)
-        ↓
-Electron IPC → Service → SQLite
-        ↓
-Response back to UI
-```
-
-In browser-only mode (`npm run dev:next`), a mock IPC layer simulates the database so you can test UI without Electron.
+Database is stored at:
+- **Windows:** `%APPDATA%/bingo-management-platform/data/bingo.db`
+- **Linux:** `~/.config/bingo-management-platform/data/bingo.db`

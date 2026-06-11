@@ -6,7 +6,6 @@ release/
 src/**/*.js
 !src/**/*.config.js
 data/
-out/
 *.db
 *.db-wal
 *.db-shm
@@ -14,4 +13,5 @@ out/
 .env.local
 .DS_Store
 *.log
-release/
+test-results/
+playwright-report/

@@ -1,68 +1,93 @@
-# Minch Bingo — Bingo Management Platform
+# Minch Bingo — Desktop Bingo Management Platform
 
-Offline-first desktop bingo management application built with Electron, Next.js 15, SQLite, and Drizzle ORM.
+Offline desktop app for bingo operators. Built with **Electron + Next.js + SQLite**.
 
-## Features
+---
 
-- **Game Board** — 150-number grid, bet configuration, auto/manual draw, live game control
-- **Bingo Cards** — Create, update, delete 5×5 bingo cards with B-I-N-G-O layout
-- **Reports** — Game history, profit tracking, date/status filters
-- **Recharge Balance** — Voucher-based wallet recharge
-- **Agent Dashboard** — Wallet balance, commission tracking
+## Easiest Way to Run (Windows)
 
-## Tech Stack
+**Double-click:** `Start Minch Bingo.bat`
 
-Electron · Next.js 15 · TypeScript · SQLite · Drizzle ORM · Tailwind CSS
+That's it. First run installs dependencies automatically, then opens the desktop app.
 
-## Quick Start
+---
+
+## Easiest Way to Test (Windows)
+
+**Double-click:** `Run Tests.bat`
+
+Runs automated smoke tests (login, game board, cards, admin).
+
+---
+
+## Command Line
 
 ```bash
-npm install
+# One-time setup
+npm run setup
 
-# Option 1: Desktop app (native window) — RECOMMENDED
-npm run desktop:dev
+# ▶ Run desktop app (native window) — USE THIS
+npm start
 
-# Option 2: Browser only (quick UI preview, mock data)
-npm run dev:next
-# → http://localhost:3000
-
-# Production desktop
+# Run production desktop (no hot reload)
 npm run desktop
 
-# Windows installer (.exe) — run on Windows
+# Browser preview only (mock data, no SQLite)
+npm run dev:next
+
+# Run automated tests
+npm test
+
+# Quick smoke test
+npm run test:smoke
+
+# Windows installer
 npm run dist:win
 ```
 
-See [docs/DESKTOP.md](./docs/DESKTOP.md) for how Next.js + Electron works as a desktop app.
+---
 
-## Demo Credentials
+## Login Credentials
 
 | Role | Username | Password |
 |------|----------|----------|
 | Agent | `agent` | `agent123` |
 | Admin | `admin` | `admin123` |
 
-## Demo Voucher Codes
+**Demo vouchers:** `VOUCHER100` · `VOUCHER500` · `VOUCHER1000` · `DEMO2024`
 
-| Code | Amount |
-|------|--------|
-| VOUCHER100 | 100 ETB |
-| VOUCHER500 | 500 ETB |
-| VOUCHER1000 | 1000 ETB |
-| DEMO2024 | 250 ETB |
+---
 
-## Architecture
+## Desktop vs Browser
 
-See [`docs/architecture/`](./docs/architecture/) for full system design documentation.
+| Command | What you get |
+|---------|-------------|
+| `npm start` | **Real desktop app** — SQLite database, full features |
+| `npm run dev:next` | Browser preview — mock data, for quick UI checks |
+
+Look for the badge in the header:
+- **● Desktop** = real app with database
+- **○ Browser Preview** = mock mode
+
+---
+
+## Requirements
+
+- **Node.js 20+** — https://nodejs.org
+- **Windows 10/11** (for `.exe` installer)
+
+---
 
 ## Project Structure
 
 ```
-electron/          # Electron main process, IPC, services
-src/
-  app/             # Next.js pages (agent, admin, login)
-  domain/          # Business logic (bingo engine, card generator)
-  infrastructure/  # Database schema, connection, seed
-  presentation/    # UI components, hooks, providers
-  shared/          # Constants and utilities
+Start Minch Bingo.bat   ← double-click to run (Windows)
+Run Tests.bat           ← double-click to test (Windows)
+start.sh                ← run on Mac/Linux
+
+electron/               ← desktop shell + SQLite + IPC
+src/app/                ← Next.js UI pages
+out/                    ← built static UI (after npm run build)
 ```
+
+More details: [docs/DESKTOP.md](./docs/DESKTOP.md)
