@@ -1,0 +1,15 @@
+appId: com.minchbingo.app
+productName: Minch Bingo
+directories:
+  output: release
+  buildResources: public
+files:
+  - dist-electron/**/*
+  - .next/**/*
+  - package.json
+win:
+  target: nsis
+  icon: public/icons/icon.ico
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
