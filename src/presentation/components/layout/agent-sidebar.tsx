@@ -2,18 +2,31 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Gamepad2, CreditCard, BarChart3, Wallet } from 'lucide-react';
+import { LayoutDashboard, Gamepad2, CreditCard, BarChart3, Wallet, RefreshCw, Settings, Bell, LogOut } from 'lucide-react';
 import { cn } from '@/presentation/lib/utils';
+import { useAuth } from '@/presentation/providers/auth-provider';
+import { useEffect, useState } from 'react';
+import { ipc } from '@/presentation/lib/ipc';
 
 const navItems = [
+  { href: '/agent/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/agent/game-board', label: 'Game Board', icon: Gamepad2 },
   { href: '/agent/cards', label: 'Bingo Cards', icon: CreditCard },
+  { href: '/agent/games', label: 'Games', icon: Gamepad2 },
+  { href: '/agent/wallet', label: 'Wallet', icon: Wallet },
+  { href: '/agent/recharge', label: 'Recharge', icon: RefreshCw },
   { href: '/agent/reports', label: 'Reports', icon: BarChart3 },
-  { href: '/agent/recharge', label: 'Recharge Balance', icon: Wallet },
+  { href: '/agent/settings', label: 'Settings', icon: Settings },
 ];
 
 export function AgentSidebar() {
   const pathname = usePathname();
+  const { logout } = useAuth();
+  const [unread, setUnread] = useState(0);
+
+  useEffect(() => {
+    ipc<number>('notifications:unread-count').then(setUnread).catch(() => {});
+  }, [pathname]);
 
   return (
     <aside className="flex w-56 flex-col bg-sidebar text-white">
@@ -26,20 +39,28 @@ export function AgentSidebar() {
       </div>
       <nav className="flex-1 space-y-1 px-3 py-4">
         {navItems.map((item) => {
-          const active = pathname.startsWith(item.href);
+          const active = pathname === item.href || (item.href !== '/agent/dashboard' && pathname.startsWith(item.href));
           const Icon = item.icon;
           return (
             <Link key={item.href} href={item.href}
-              className={cn(
-                'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-                active ? 'bg-sidebar-active text-white' : 'text-gray-300 hover:bg-sidebar-hover hover:text-white'
-              )}>
-              <Icon className="h-5 w-5" />
-              {item.label}
+              className={cn('flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                active ? 'bg-sidebar-active text-white' : 'text-gray-300 hover:bg-sidebar-hover hover:text-white')}>
+              <Icon className="h-5 w-5" />{item.label}
             </Link>
           );
         })}
       </nav>
+      <div className="border-t border-white/10 px-3 py-3 space-y-1">
+        <Link href="/agent/notifications"
+          className="flex items-center justify-between rounded-lg px-3 py-2 text-sm text-gray-300 hover:bg-sidebar-hover">
+          <span className="flex items-center gap-3"><Bell className="h-4 w-4" />Notifications</span>
+          {unread > 0 && <span className="rounded-full bg-blue-500 px-2 py-0.5 text-xs">{unread}</span>}
+        </Link>
+        <button onClick={() => logout()}
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-300 hover:bg-sidebar-hover">
+          <LogOut className="h-4 w-4" />Logout
+        </button>
+      </div>
     </aside>
   );
 }

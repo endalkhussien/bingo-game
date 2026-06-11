@@ -12,7 +12,7 @@ export default function Home() {
     if (isLoading) return;
     if (!user) { router.replace('/login'); return; }
     if (user.role === 'SUPER_ADMIN') router.replace('/admin/dashboard');
-    else router.replace('/agent/game-board');
+    else router.replace('/agent/dashboard');
   }, [user, isLoading, router]);
 
   return (

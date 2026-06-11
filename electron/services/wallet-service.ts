@@ -56,3 +56,33 @@ export async function redeemVoucher(agentId: string, code: string) {
 
   return { success: true, data: { amount: voucher.amount, newBalance } };
 }
+
+async function adjustWallet(agentId: string, amount: number, type: string, description: string) {
+  const db = getDb();
+  const now = Math.floor(Date.now() / 1000);
+  const agent = await db.select().from(agents).where(eq(agents.id, agentId)).get();
+  if (!agent) throw new Error('Agent not found');
+  const newBalance = agent.walletBalance + amount;
+  if (newBalance < 0) throw new Error('Insufficient balance');
+  await db.update(agents).set({ walletBalance: newBalance, updatedAt: now }).where(eq(agents.id, agentId));
+  await db.insert(walletTransactions).values({
+    id: uuid(), agentId, amount, transactionType: type,
+    description, balanceAfter: newBalance, createdAt: now,
+  });
+  return newBalance;
+}
+
+export async function adminDeposit(agentId: string, amount: number, description: string) {
+  const balance = await adjustWallet(agentId, amount, 'DEPOSIT', description || 'Admin deposit');
+  return { success: true, data: { newBalance: balance } };
+}
+
+export async function adminWithdraw(agentId: string, amount: number, description: string) {
+  const balance = await adjustWallet(agentId, -amount, 'WITHDRAWAL', description || 'Admin withdrawal');
+  return { success: true, data: { newBalance: balance } };
+}
+
+export async function adminAdjust(agentId: string, amount: number, description: string) {
+  const balance = await adjustWallet(agentId, amount, 'ADJUSTMENT', description || 'Admin adjustment');
+  return { success: true, data: { newBalance: balance } };
+}

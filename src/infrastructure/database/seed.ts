@@ -80,4 +80,21 @@ export async function seedDatabase(db: BetterSQLite3Database<typeof schema>) {
       updatedAt: now,
     });
   }
+
+  const pricingPlans = [
+    { name: '1 Card', planType: 'CARD_PACK', price: 5, cardLimit: 1 },
+    { name: '10 Cards', planType: 'CARD_PACK', price: 40, cardLimit: 10 },
+    { name: '50 Cards', planType: 'CARD_PACK', price: 180, cardLimit: 50 },
+    { name: 'Daily', planType: 'MEMBERSHIP', price: 100, duration: 'DAILY', durationDays: 1 },
+    { name: 'Weekly', planType: 'MEMBERSHIP', price: 500, duration: 'WEEKLY', durationDays: 7 },
+    { name: 'Monthly', planType: 'MEMBERSHIP', price: 1500, duration: 'MONTHLY', durationDays: 30 },
+  ];
+  for (const p of pricingPlans) {
+    await db.insert(schema.pricingPlans).values({
+      id: uuid(), name: p.name, planType: p.planType, price: p.price,
+      cardLimit: p.cardLimit ?? null, duration: p.duration ?? null,
+      durationDays: p.durationDays ?? null, isActive: true, isPromotional: false,
+      createdAt: now, updatedAt: now,
+    });
+  }
 }

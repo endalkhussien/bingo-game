@@ -118,6 +118,56 @@ export const gameRevenue = sqliteTable('game_revenue', {
   calculatedAt: integer('calculated_at').notNull(),
 });
 
+export const rechargeRequests = sqliteTable('recharge_requests', {
+  id: text('id').primaryKey(),
+  agentId: text('agent_id').notNull().references(() => agents.id),
+  amount: real('amount').notNull(),
+  paymentMethod: text('payment_method').notNull(),
+  referenceNumber: text('reference_number'),
+  status: text('status').notNull().default('PENDING'),
+  reviewedBy: text('reviewed_by').references(() => users.id),
+  rejectionReason: text('rejection_reason'),
+  requestedAt: integer('requested_at').notNull(),
+  reviewedAt: integer('reviewed_at'),
+});
+
+export const pricingPlans = sqliteTable('pricing_plans', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  planType: text('plan_type').notNull(),
+  price: real('price').notNull(),
+  cardLimit: integer('card_limit'),
+  duration: text('duration'),
+  durationDays: integer('duration_days'),
+  isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+  isPromotional: integer('is_promotional', { mode: 'boolean' }).notNull().default(false),
+  createdAt: integer('created_at').notNull(),
+  updatedAt: integer('updated_at').notNull(),
+});
+
+export const notifications = sqliteTable('notifications', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id),
+  type: text('type').notNull(),
+  title: text('title').notNull(),
+  message: text('message').notNull(),
+  referenceType: text('reference_type'),
+  referenceId: text('reference_id'),
+  isRead: integer('is_read', { mode: 'boolean' }).notNull().default(false),
+  createdAt: integer('created_at').notNull(),
+});
+
+export const auditLogs = sqliteTable('audit_logs', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id),
+  action: text('action').notNull(),
+  entityType: text('entity_type').notNull(),
+  entityId: text('entity_id'),
+  oldValue: text('old_value'),
+  newValue: text('new_value'),
+  createdAt: integer('created_at').notNull(),
+});
+
 export const systemSettings = sqliteTable('system_settings', {
   key: text('key').primaryKey(),
   value: text('value').notNull(),

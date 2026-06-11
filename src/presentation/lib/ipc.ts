@@ -7,7 +7,8 @@ declare global {
   }
 }
 
-export async function ipc<T = unknown>(channel: string, ...args: unknown[]): Promise<T> {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function ipc<T = any>(channel: string, ...args: unknown[]): Promise<T> {
   if (typeof window !== 'undefined' && window.electronAPI) {
     return window.electronAPI.invoke(channel, ...args) as Promise<T>;
   }

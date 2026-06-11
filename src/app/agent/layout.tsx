@@ -12,6 +12,7 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     if (!isLoading && !user) router.replace('/login');
+    if (!isLoading && user && user.role === 'SUPER_ADMIN') router.replace('/admin/dashboard');
   }, [user, isLoading, router]);
 
   if (isLoading) {

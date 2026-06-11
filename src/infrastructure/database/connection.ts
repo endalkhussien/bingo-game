@@ -95,6 +95,29 @@ export function runMigrations(database: BetterSQLite3Database<typeof schema>) {
       platform_revenue REAL NOT NULL, agent_revenue REAL NOT NULL, commission_revenue REAL NOT NULL,
       calculated_at INTEGER NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS recharge_requests (
+      id TEXT PRIMARY KEY, agent_id TEXT NOT NULL REFERENCES agents(id),
+      amount REAL NOT NULL, payment_method TEXT NOT NULL, reference_number TEXT,
+      status TEXT NOT NULL DEFAULT 'PENDING', reviewed_by TEXT REFERENCES users(id),
+      rejection_reason TEXT, requested_at INTEGER NOT NULL, reviewed_at INTEGER
+    );
+    CREATE TABLE IF NOT EXISTS pricing_plans (
+      id TEXT PRIMARY KEY, name TEXT NOT NULL, plan_type TEXT NOT NULL, price REAL NOT NULL,
+      card_limit INTEGER, duration TEXT, duration_days INTEGER,
+      is_active INTEGER NOT NULL DEFAULT 1, is_promotional INTEGER NOT NULL DEFAULT 0,
+      created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS notifications (
+      id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id),
+      type TEXT NOT NULL, title TEXT NOT NULL, message TEXT NOT NULL,
+      reference_type TEXT, reference_id TEXT, is_read INTEGER NOT NULL DEFAULT 0,
+      created_at INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS audit_logs (
+      id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id),
+      action TEXT NOT NULL, entity_type TEXT NOT NULL, entity_id TEXT,
+      old_value TEXT, new_value TEXT, created_at INTEGER NOT NULL
+    );
     CREATE TABLE IF NOT EXISTS system_settings (
       key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at INTEGER NOT NULL
     );

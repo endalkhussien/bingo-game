@@ -85,3 +85,15 @@ export async function logout(token: string) {
   await db.delete(sessions).where(eq(sessions.tokenHash, hashToken(token)));
   return { success: true };
 }
+
+export async function changePassword(userId: string, oldPassword: string, newPassword: string) {
+  const db = getDb();
+  const user = await db.select().from(users).where(eq(users.id, userId)).get();
+  if (!user) return { success: false, error: 'User not found' };
+  const valid = await bcrypt.compare(oldPassword, user.passwordHash);
+  if (!valid) return { success: false, error: 'Current password is incorrect' };
+  const hash = await bcrypt.hash(newPassword, 12);
+  await db.update(users).set({ passwordHash: hash, updatedAt: Math.floor(Date.now() / 1000) })
+    .where(eq(users.id, userId));
+  return { success: true };
+}

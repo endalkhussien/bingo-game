@@ -20,7 +20,7 @@ export default function LoginPage() {
     const result = await login(username, password, rememberMe);
     setLoading(false);
     if (result.success) {
-      router.push(username === 'admin' ? '/admin/dashboard' : '/agent/game-board');
+      router.push(username === 'admin' ? '/admin/dashboard' : '/agent/dashboard');
     } else {
       setError(result.error ?? 'Login failed');
     }
