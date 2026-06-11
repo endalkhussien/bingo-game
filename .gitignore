@@ -1,0 +1,15 @@
+node_modules/
+.next/
+dist-electron/
+src/**/*.js
+!src/**/*.config.js
+data/
+out/
+*.db
+*.db-wal
+*.db-shm
+.env
+.env.local
+.DS_Store
+*.log
+release/

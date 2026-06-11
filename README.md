@@ -1,41 +1,65 @@
-# Bingo Management Platform
+# Minch Bingo — Bingo Management Platform
 
-Enterprise-grade, offline-first desktop application for bingo operators and agents. Built with Electron, Next.js 15, SQLite, and Drizzle ORM.
+Offline-first desktop bingo management application built with Electron, Next.js 15, SQLite, and Drizzle ORM.
 
-## Status
+## Features
 
-**Architecture Phase** — System design is complete and awaiting review before implementation begins.
-
-## Architecture Documentation
-
-All architecture documents are in [`docs/architecture/`](./docs/architecture/):
-
-| Document | Description |
-|----------|-------------|
-| [Overview](./docs/architecture/01-system-overview.md) | High-level architecture and technology stack |
-| [ERD](./docs/architecture/02-erd.md) | Entity relationship diagram |
-| [Database Schema](./docs/architecture/03-database-schema.md) | Complete Drizzle-ready schema |
-| [Folder Structure](./docs/architecture/04-folder-structure.md) | Project layout and clean architecture layers |
-| [RBAC Matrix](./docs/architecture/05-rbac-permission-matrix.md) | Role-based access control |
-| [Page Map](./docs/architecture/06-page-map.md) | Routes, navigation, and UI layouts |
-| [Service Architecture](./docs/architecture/07-service-architecture.md) | Application and domain services |
-| [Repository Architecture](./docs/architecture/08-repository-architecture.md) | Data access layer design |
-| [Design Decisions](./docs/architecture/09-design-decisions.md) | ADRs and migration strategy |
+- **Game Board** — 150-number grid, bet configuration, auto/manual draw, live game control
+- **Bingo Cards** — Create, update, delete 5×5 bingo cards with B-I-N-G-O layout
+- **Reports** — Game history, profit tracking, date/status filters
+- **Recharge Balance** — Voucher-based wallet recharge
+- **Agent Dashboard** — Wallet balance, commission tracking
 
 ## Tech Stack
 
-- **Desktop:** Electron
-- **Frontend:** Next.js 15 (App Router), TypeScript, Tailwind CSS, shadcn/ui
-- **Database:** SQLite + Drizzle ORM
-- **Forms:** React Hook Form + Zod
-- **Real-time:** Socket.IO (local)
-- **Settings:** electron-store
+Electron · Next.js 15 · TypeScript · SQLite · Drizzle ORM · Tailwind CSS
 
-## User Roles
+## Quick Start
 
-- **Super Admin** — Manages agents, pricing, commissions, settings, reports, backup
-- **Agent** — Manages wallet, cards, games, and views own reports
+```bash
+# Install dependencies
+npm install
 
-## License
+# Development (browser UI — mock data)
+npm run dev:next
+# Open http://localhost:3000
 
-Proprietary
+# Development (full Electron app)
+npm run dev
+
+# Production build
+npm run build
+npm start
+```
+
+## Demo Credentials
+
+| Role | Username | Password |
+|------|----------|----------|
+| Agent | `agent` | `agent123` |
+| Admin | `admin` | `admin123` |
+
+## Demo Voucher Codes
+
+| Code | Amount |
+|------|--------|
+| VOUCHER100 | 100 ETB |
+| VOUCHER500 | 500 ETB |
+| VOUCHER1000 | 1000 ETB |
+| DEMO2024 | 250 ETB |
+
+## Architecture
+
+See [`docs/architecture/`](./docs/architecture/) for full system design documentation.
+
+## Project Structure
+
+```
+electron/          # Electron main process, IPC, services
+src/
+  app/             # Next.js pages (agent, admin, login)
+  domain/          # Business logic (bingo engine, card generator)
+  infrastructure/  # Database schema, connection, seed
+  presentation/    # UI components, hooks, providers
+  shared/          # Constants and utilities
+```
