@@ -1,4 +1,6 @@
-export type AudioSyncEvent = 'lock' | 'unlock' | 'audio-start' | 'audio-end' | 'cooldown-start' | 'cooldown-end';
+import { stopCurrentAudio } from './amharic-audio';
+
+export type AudioSyncEvent = 'lock' | 'unlock' | 'audio-start' | 'audio-end' | 'cooldown-start' | 'cooldown-end' | 'abort';
 
 export interface AudioSyncManagerOptions {
   /** Delay after audio finishes before the next call (default 3000ms). */
@@ -10,11 +12,23 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function abortableDelay(ms: number, isAborted: () => boolean): Promise<void> {
+  if (ms <= 0) return;
+  const step = 50;
+  let elapsed = 0;
+  while (elapsed < ms && !isAborted()) {
+    const chunk = Math.min(step, ms - elapsed);
+    await delay(chunk);
+    elapsed += chunk;
+  }
+}
+
 /**
  * Ensures ball calls never overlap: play audio → wait until finished → cooldown → unlock.
  */
 export class AudioSyncManager {
   private locked = false;
+  private aborted = false;
   private cooldownMs: number;
   private readonly onEvent?: (event: AudioSyncEvent) => void;
 
@@ -35,6 +49,15 @@ export class AudioSyncManager {
     this.cooldownMs = Math.max(0, ms);
   }
 
+  /** Stop audio/cooldown immediately — used when a player claims BINGO. */
+  abort(): void {
+    this.aborted = true;
+    stopCurrentAudio();
+    this.locked = false;
+    this.emit('abort');
+    this.emit('unlock');
+  }
+
   private emit(event: AudioSyncEvent): void {
     this.onEvent?.(event);
   }
@@ -50,23 +73,24 @@ export class AudioSyncManager {
   ): Promise<void> {
     if (this.locked) return;
 
+    this.aborted = false;
     this.locked = true;
     this.emit('lock');
 
     try {
       this.emit('audio-start');
-      await playAudio(number);
+      if (!this.aborted) await playAudio(number);
       this.emit('audio-end');
 
       const waitMs = cooldownMs ?? this.cooldownMs;
-      if (waitMs > 0) {
+      if (waitMs > 0 && !this.aborted) {
         this.emit('cooldown-start');
-        await delay(waitMs);
-        this.emit('cooldown-end');
+        await abortableDelay(waitMs, () => this.aborted);
+        if (!this.aborted) this.emit('cooldown-end');
       }
     } finally {
       this.locked = false;
-      this.emit('unlock');
+      if (!this.aborted) this.emit('unlock');
     }
   }
 }
@@ -104,9 +128,11 @@ export async function runAutoCallLoop(
     }
 
     const drawn = await options.drawNumber();
-    if (!drawn || !options.shouldContinue()) break;
+    if (!drawn || !options.shouldContinue() || options.isPaused()) break;
 
     options.onDraw(drawn);
+
+    if (options.isPaused() || !options.shouldContinue()) break;
 
     await syncManager.callNumber(
       drawn.number,

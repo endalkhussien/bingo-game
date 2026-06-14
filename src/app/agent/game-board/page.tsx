@@ -10,6 +10,7 @@ import { CheckCardModal } from '@/presentation/components/bingo/check-card-modal
 import { WINNING_PATTERNS, DRAW_INTERVALS, VOICE_TYPES, MIN_BET, DEFAULT_JACKPOT_MAX_CALLS, DEFAULT_CALL_COOLDOWN_MS } from '@/shared/constants';
 import { DRAW_BALL_COUNT } from '@/shared/brand';
 import { speakBallCall, speakCartella, loadVoices } from '@/presentation/lib/tts';
+import { stopCurrentAudio } from '@/presentation/lib/amharic-audio';
 import { AudioSyncManager, runAutoCallLoop } from '@/presentation/lib/audio-sync-manager';
 import { CallingEngine } from '@/domain/services/calling-engine';
 import { getBallLabel } from '@/domain/services/bingo-engine';
@@ -67,6 +68,7 @@ export default function GameBoardPage() {
   const [isPaused, setIsPaused] = useState(false);
   const [callerLocked, setCallerLocked] = useState(false);
   const [checkModalOpen, setCheckModalOpen] = useState(false);
+  const [bingoClaimActive, setBingoClaimActive] = useState(false);
   const [calledModalOpen, setCalledModalOpen] = useState(false);
   const [gameWinners, setGameWinners] = useState<GameWinner[]>([]);
 
@@ -272,12 +274,18 @@ export default function GameBoardPage() {
 
   const handleBingoClaim = async () => {
     if (!activeGame) return;
+
+    // Stop calling immediately before server round-trip
     setAutoDraw(false);
-    if (!isPaused) {
-      await ipc('games:pause', activeGame.id);
-      setIsPaused(true);
-      setActiveGame((g) => g ? { ...g, status: 'PAUSED' } : g);
-    }
+    autoDrawRef.current = false;
+    isPausedRef.current = true;
+    setIsPaused(true);
+    syncManagerRef.current.abort();
+    stopCurrentAudio();
+    setBingoClaimActive(true);
+
+    await ipc('games:pause', activeGame.id);
+    setActiveGame((g) => g ? { ...g, status: 'PAUSED' } : g);
     setCheckModalOpen(true);
   };
 
@@ -294,9 +302,12 @@ export default function GameBoardPage() {
       totalPot?: number;
       calledCountAtWin?: number;
       winningPattern?: string;
+      grid?: number[][] | null;
+      calledNumbers?: number[];
     }>('games:validate-winner', activeGame.id, cardNumber);
 
     if (result.valid && result.prizeAmount) {
+      setBingoClaimActive(false);
       setActiveGame((g) => g ? { ...g, status: 'PAUSED' } : g);
       const winner: GameWinner = {
         cardNumber: result.cardNumber ?? cardNumber,
@@ -319,11 +330,17 @@ export default function GameBoardPage() {
       totalPot: result.totalPot ?? totalPot,
       calledCountAtWin: result.calledCountAtWin,
       winningPattern: result.winningPattern,
+      grid: result.grid,
+      calledNumbers: result.calledNumbers ?? called,
     };
   };
 
+  const handleInvalidBingoClaim = () => {
+    setBingoClaimActive(false);
+  };
+
   const handleResume = async () => {
-    if (!activeGame) return;
+    if (!activeGame || bingoClaimActive) return;
     await ipc('games:resume', activeGame.id);
     setIsPaused(false);
     setCheckModalOpen(false);
@@ -352,7 +369,7 @@ export default function GameBoardPage() {
         <div className="mb-4 flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-gradient-to-r from-indigo-600 to-blue-700 p-5 text-white shadow-lg">
           <div>
             <p className="text-sm opacity-80">
-              {activeGame.gameCode} · {isPaused ? 'PAUSED' : callerLocked ? 'CALLING…' : 'LIVE'}
+              {activeGame.gameCode} · {isPaused ? (bingoClaimActive ? 'BINGO CLAIM — PAUSED' : 'PAUSED') : callerLocked ? 'CALLING…' : 'LIVE'}
             </p>
             <p className="text-4xl font-black tracking-tight">{drawCount}/{maxBalls}</p>
             <p className="text-sm opacity-80">{remainingCount} balls remaining</p>
@@ -453,14 +470,12 @@ export default function GameBoardPage() {
               className="inline-flex items-center gap-1 rounded-lg bg-yellow-500 px-4 py-2 text-sm font-bold text-white hover:bg-yellow-600">
               <Megaphone className="h-4 w-4" /> BINGO!
             </button>
-            {isPaused && (
+            {isPaused && !bingoClaimActive && gameWinners.length === 0 && (
               <button onClick={handleResume}
                 className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white">
-                <Play className="h-4 w-4" /> Resume
+                <Play className="h-4 w-4" /> Resume calling
               </button>
             )}
-            <button onClick={() => setCheckModalOpen(true)} disabled={!isPaused}
-              className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-40">Check Card</button>
             <button onClick={handleEndGame}
               className="rounded-lg bg-red-500 px-4 py-2 text-sm font-semibold text-white">End Game</button>
           </div>
@@ -515,8 +530,13 @@ export default function GameBoardPage() {
 
       <CheckCardModal
         open={checkModalOpen}
-        onClose={() => setCheckModalOpen(false)}
+        onClose={() => {
+          setCheckModalOpen(false);
+          if (!gameWinners.length) setBingoClaimActive(false);
+        }}
+        calledNumbers={called}
         onValidate={handleValidateCard}
+        onInvalidClaim={handleInvalidBingoClaim}
       />
     </div>
   );
