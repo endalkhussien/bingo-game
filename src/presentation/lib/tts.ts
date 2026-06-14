@@ -1,5 +1,6 @@
-import { buildAnnouncement, buildCartellaAnnouncement } from '@/shared/tts/voice-map';
-import { playAmharicBall, playAmharicBallCall } from './amharic-audio';
+import { buildCartellaAnnouncement } from '@/shared/tts/voice-map';
+import { getBallCallSpeechParts } from '@/shared/tts/ball-call';
+import { playAmharicBall, playBallCallAudio, playEnglishBingoLetter } from './amharic-audio';
 import { ipc, isElectron } from './ipc';
 import { DRAW_BALL_COUNT } from '@/shared/brand';
 
@@ -49,46 +50,69 @@ async function speakBrowser(text: string, lang: string, preferFemale: boolean): 
 
   const voices = await waitForBrowserVoices();
   return new Promise((resolve) => {
-    window.speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
     u.lang = lang;
     u.rate = preferFemale ? 1.0 : 0.95;
     const voice = pickVoice(voices, lang, preferFemale);
     if (voice) u.voice = voice;
-    u.onend = () => resolve(!!voice || true);
+    u.onend = () => resolve(true);
     u.onerror = () => resolve(false);
     window.speechSynthesis.speak(u);
   });
 }
 
-/** Speak drawn bingo number — Amharic uses bundled audio; English uses Windows SAPI / Web Speech */
+async function speakBallCall(number: number, voiceType: string, language: string): Promise<void> {
+  const preferFemale = voiceType.includes('FEMALE');
+  const { letter, numberText, numberLang } = getBallCallSpeechParts(number, language);
+
+  if (isElectron()) {
+    const result = await ipc<{ success: boolean }>('tts:speak-ball-call', number, language, voiceType);
+    if (result?.success) return;
+  }
+
+  if (number <= DRAW_BALL_COUNT && await playBallCallAudio(number, language)) {
+    if (language === 'en') {
+      await speakBrowser(numberText, 'en-US', preferFemale);
+    }
+    return;
+  }
+
+  if (letter) {
+    const letterOk = await playEnglishBingoLetter(letter);
+    if (!letterOk) await speakBrowser(letter, 'en-US', preferFemale);
+  }
+
+  if (language === 'am') {
+    if (!(await playAmharicBall(number))) {
+      await speakBrowser(numberText, numberLang, preferFemale);
+    }
+  } else {
+    await speakBrowser(numberText, 'en-US', preferFemale);
+  }
+}
+
 export function speakBall(number: number, voiceType: string, language: string): void {
   enqueueSpeak(number, voiceType, language, 'ball');
 }
 
-/** Speak cartella number when agent selects a player card on the game board */
 export function speakCartella(number: number, voiceType: string, language: string): void {
   enqueueSpeak(number, voiceType, language, 'cartella');
 }
 
 function enqueueSpeak(number: number, voiceType: string, language: string, mode: SpeakMode): void {
   queue = queue.then(async () => {
-    const payload = mode === 'ball'
-      ? buildAnnouncement(number, voiceType, language)
-      : buildCartellaAnnouncement(number, voiceType, language);
+    if (mode === 'ball') {
+      await speakBallCall(number, voiceType, language);
+      return;
+    }
 
-    if (payload.isAmharic && number <= DRAW_BALL_COUNT) {
-      if (mode === 'ball') {
-        if (await playAmharicBallCall(number)) return;
-      } else if (await playAmharicBall(number)) {
-        return;
-      }
+    const payload = buildCartellaAnnouncement(number, voiceType, language);
+    if (payload.isAmharic && number <= DRAW_BALL_COUNT && await playAmharicBall(number)) {
+      return;
     }
 
     if (isElectron()) {
-      const result = await ipc<{ success: boolean; engine?: string }>(
-        'tts:speak', number, voiceType, language, mode,
-      );
+      const result = await ipc<{ success: boolean }>('tts:speak', number, voiceType, language, mode);
       if (result?.success) return;
     }
 
@@ -100,22 +124,19 @@ function enqueueSpeak(number: number, voiceType: string, language: string, mode:
 }
 
 export async function testVoice(voiceType: string, language: string, sample = 42): Promise<string> {
-  const p = buildAnnouncement(sample, voiceType, language);
-
-  if (p.isAmharic && await playAmharicBallCall(sample)) {
-    return `Spoken via bundled Amharic audio: "${p.text}"`;
-  }
+  const { letter, numberText } = getBallCallSpeechParts(sample, language);
+  const label = `${letter} ${numberText}`;
 
   if (isElectron()) {
-    const result = await ipc<{ success: boolean; engine?: string; error?: string; text?: string }>(
-      'tts:test', voiceType, language, sample,
+    const result = await ipc<{ success: boolean; engine?: string; error?: string }>(
+      'tts:speak-ball-call', sample, language, voiceType,
     );
-    if (result?.success) return `Spoken via ${result.engine}: "${result.text ?? p.text}"`;
+    if (result?.success) return `Spoken via ${result.engine}: "${label}"`;
     return result?.error ?? 'TTS failed';
   }
 
   speakBall(sample, voiceType, language);
-  return `Browser TTS: "${p.text}"`;
+  return `Ball call: "${label}" (English letter, then ${language === 'am' ? 'Amharic' : 'English'} number)`;
 }
 
 export function loadVoices(): void {

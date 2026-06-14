@@ -7,12 +7,17 @@ export const CURRENCY = 'ETB';
 export const CURRENCY_LABEL = 'Birr';
 
 export const WINNING_PATTERNS = [
-  { value: 'SINGLE_LINE', label: '1 line' },
-  { value: 'DOUBLE_LINE', label: '2 lines' },
+  { value: 'FIRST_LINE', label: 'First line (1 row)' },
+  { value: 'TWO_LINES', label: 'Two lines (2 rows)' },
+  { value: 'FULL_HOUSE', label: 'Full house' },
+  { value: 'EARLY_JACKPOT', label: 'Early jackpot (full house before N calls)' },
+  { value: 'SINGLE_LINE', label: '1 line (legacy)' },
+  { value: 'DOUBLE_LINE', label: '2 lines (legacy)' },
   { value: 'FOUR_CORNERS', label: '4 corners' },
   { value: 'X_PATTERN', label: 'X pattern' },
-  { value: 'FULL_HOUSE', label: 'Full house' },
 ] as const;
+
+export const DEFAULT_JACKPOT_MAX_CALLS = 45;
 
 export const DRAW_INTERVALS = [
   { value: 1000, label: '1 second' },

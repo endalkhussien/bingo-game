@@ -13,8 +13,7 @@ import { getOrganizationKeyForDisplay, setOrganizationVoucherSecret } from '../s
 import * as backup from '../services/backup-service';
 import * as notifications from '../services/notification-service';
 import * as audit from '../services/audit-service';
-import { speakNumber, listInstalledVoices } from '../tts/tts-engine';
-import { buildAnnouncement } from '../../src/shared/tts/voice-map';
+import { speakNumber, speakBallCall, listInstalledVoices } from '../tts/tts-engine';
 
 const sessions = new Map<number, string>();
 
@@ -198,14 +197,18 @@ export function registerIpcHandlers() {
   // ── TTS (Amharic + English) ──
   ipcMain.handle('tts:speak', async (event, number: number, voiceType: string, language: string, mode?: 'ball' | 'cartella') => {
     await requireAuth(event);
-    return speakNumber(number, voiceType, language, mode ?? 'ball');
+    return speakNumber(number, voiceType, language, mode ?? 'cartella');
+  });
+  ipcMain.handle('tts:speak-ball-call', async (event, number: number, language: string, voiceType: string) => {
+    await requireAuth(event);
+    return speakBallCall(number, language, voiceType);
   });
   ipcMain.handle('tts:test', async (event, voiceType: string, language: string, sample?: number) => {
     await requireAuth(event);
     const n = sample ?? 42;
-    const { text } = buildAnnouncement(n, voiceType, language);
-    const result = await speakNumber(n, voiceType, language);
-    return { ...result, text };
+    const result = await speakBallCall(n, language, voiceType);
+    const { letter, numberText } = (await import('../../src/shared/tts/ball-call')).getBallCallSpeechParts(n, language);
+    return { ...result, text: `${letter} ${numberText}` };
   });
   ipcMain.handle('tts:list-voices', async (event) => {
     await requireAuth(event);

@@ -7,7 +7,7 @@ import { useAuth } from '@/presentation/providers/auth-provider';
 import { NumberGrid } from '@/presentation/components/bingo/number-grid';
 import { CalledNumbersModal } from '@/presentation/components/bingo/called-numbers-modal';
 import { CheckCardModal } from '@/presentation/components/bingo/check-card-modal';
-import { WINNING_PATTERNS, DRAW_INTERVALS, VOICE_TYPES, MIN_BET } from '@/shared/constants';
+import { WINNING_PATTERNS, DRAW_INTERVALS, VOICE_TYPES, MIN_BET, DEFAULT_JACKPOT_MAX_CALLS } from '@/shared/constants';
 import { DRAW_BALL_COUNT } from '@/shared/brand';
 import { speakBall, speakCartella, loadVoices } from '@/presentation/lib/tts';
 import { getBallLabel } from '@/domain/services/bingo-engine';
@@ -33,7 +33,8 @@ export default function GameBoardPage() {
   const { agent, refreshBalance } = useAuth();
   const [betAmount, setBetAmount] = useState('10');
   const [interval, setInterval_] = useState(2000);
-  const [pattern, setPattern] = useState('SINGLE_LINE');
+  const [pattern, setPattern] = useState('FIRST_LINE');
+  const [jackpotMaxCalls, setJackpotMaxCalls] = useState(String(DEFAULT_JACKPOT_MAX_CALLS));
   const [voice, setVoice] = useState('AMHARIC_MALE');
   const [language, setLanguage] = useState('am');
   const [selected, setSelected] = useState<number[]>([]);
@@ -142,6 +143,7 @@ export default function GameBoardPage() {
       voiceType: voice,
       language,
       commissionRate: commission,
+      jackpotMaximumCalls: parseInt(jackpotMaxCalls, 10) || DEFAULT_JACKPOT_MAX_CALLS,
       selectedNumbers: selected,
     });
 
@@ -166,16 +168,31 @@ export default function GameBoardPage() {
     if (!activeGame || isPaused) return;
     const result = await ipc<{
       success: boolean;
-      data?: { number: number; drawCount: number; maxBalls: number; voiceType: string; language: string };
+      data?: {
+        number: number;
+        drawCount: number;
+        maxBalls: number;
+        voiceType: string;
+        language: string;
+        winners?: Array<{ cardNumber: string; prizeAmount: number }>;
+        gamePaused?: boolean;
+      };
       error?: string;
     }>('games:draw', activeGame.id);
 
     if (result.success && result.data) {
-      const { number, voiceType, language: lang } = result.data;
+      const { number, voiceType, language: lang, winners, gamePaused } = result.data;
       setCalled((prev) => [...prev, number]);
       setLastDrawn(number);
       setCalledModalOpen(true);
       speakBall(number, voiceType ?? voice, lang ?? language);
+      if (gamePaused || (winners && winners.length > 0)) {
+        setAutoDraw(false);
+        setIsPaused(true);
+        if (winners?.length) {
+          setCheckModalOpen(true);
+        }
+      }
     }
   }, [activeGame, isPaused, voice, language]);
 
@@ -281,6 +298,20 @@ export default function GameBoardPage() {
             {WINNING_PATTERNS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
           </select>
         </div>
+        {pattern === 'EARLY_JACKPOT' && (
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Jackpot max calls</label>
+            <input
+              type="number"
+              min={1}
+              max={75}
+              value={jackpotMaxCalls}
+              onChange={(e) => setJackpotMaxCalls(e.target.value)}
+              disabled={!!activeGame}
+              className="w-full rounded-lg border px-3 py-2 text-sm disabled:bg-gray-100"
+            />
+          </div>
+        )}
         <div>
           <label className="mb-1 block text-sm font-medium text-gray-700">Voice</label>
           <select value={voice} onChange={(e) => handleVoiceChange(e.target.value)} disabled={!!activeGame}

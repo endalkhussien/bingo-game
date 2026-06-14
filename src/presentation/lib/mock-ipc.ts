@@ -293,7 +293,8 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
 
   'audit:list': async () => mockAuditLogs,
 
-  'tts:speak': async (_n: unknown, _v: unknown, _l: unknown) => ({ success: true, engine: 'browser-mock' }),
-  'tts:test': async (_v: unknown, _l: unknown, _s: unknown) => ({ success: true, engine: 'browser-mock', text: 'ቁጥር አርባ ሁለት' }),
+  'tts:speak': async (_n: unknown, _v: unknown, _l: unknown, _m: unknown) => ({ success: true, engine: 'browser-mock' }),
+  'tts:speak-ball-call': async () => ({ success: true, engine: 'browser-mock' }),
+  'tts:test': async (_v: unknown, _l: unknown, _s: unknown) => ({ success: true, engine: 'browser-mock', text: 'N ሰላሳ አራት' }),
   'tts:list-voices': async () => ['Microsoft Amharic [am-ET] (mock)'],
 };

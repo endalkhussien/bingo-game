@@ -140,6 +140,29 @@ export function runMigrations(database: BetterSQLite3Database<typeof schema>) {
   if (!gameCols.some((c) => c.name === 'commission_rate')) {
     client.exec(`ALTER TABLE games ADD COLUMN commission_rate REAL NOT NULL DEFAULT 20`);
   }
+  if (!gameCols.some((c) => c.name === 'jackpot_maximum_calls')) {
+    client.exec(`ALTER TABLE games ADD COLUMN jackpot_maximum_calls INTEGER DEFAULT 45`);
+  }
+
+  const gameCardCols = client.prepare(`PRAGMA table_info(game_cards)`).all() as { name: string }[];
+  if (!gameCardCols.some((c) => c.name === 'status')) {
+    client.exec(`ALTER TABLE game_cards ADD COLUMN status TEXT NOT NULL DEFAULT 'ACTIVE'`);
+  }
+
+  const winnerCols = client.prepare(`PRAGMA table_info(winners)`).all() as { name: string }[];
+  for (const col of [
+    ['winning_call_number', 'INTEGER'],
+    ['called_count_at_win', 'INTEGER'],
+    ['verified_at', 'INTEGER'],
+    ['verification_result', 'TEXT'],
+    ['tie_group_id', 'TEXT'],
+  ] as const) {
+    if (!winnerCols.some((c) => c.name === col[0])) {
+      client.exec(`ALTER TABLE winners ADD COLUMN ${col[0]} ${col[1]}`);
+    }
+  }
+
+  client.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_drawn_game_number_unique ON drawn_numbers(game_id, number)`);
 
   const usedCols = client.prepare(`PRAGMA table_info(used_offline_vouchers)`).all() as { name: string }[];
   if (usedCols.length > 0 && !usedCols.some((c) => c.name === 'code_hash')) {
