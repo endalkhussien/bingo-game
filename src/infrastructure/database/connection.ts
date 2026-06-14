@@ -1,22 +1,29 @@
+import fs from 'fs';
+import path from 'path';
 import Database from 'better-sqlite3';
 import { drizzle, BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import * as schema from './schema';
 
 let db: BetterSQLite3Database<typeof schema> | null = null;
 
+function getElectronUserData(): string | null {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { app } = require('electron') as typeof import('electron');
+    return app?.getPath?.('userData') ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export function getDbPath(): string {
-  const path = require('path');
-  const { app } = require('electron');
-  const userData = app?.getPath?.('userData') ?? path.join(process.cwd(), 'data');
-  const fs = require('fs');
+  const userData = getElectronUserData() ?? path.join(process.cwd(), 'data');
   const dataDir = path.join(userData, 'data');
   if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
   return path.join(dataDir, 'bingo.db');
 }
 
 export function createDatabase(dbPath?: string): BetterSQLite3Database<typeof schema> {
-  const path = require('path');
-  const fs = require('fs');
   const finalPath = dbPath ?? path.join(process.cwd(), 'data', 'bingo.db');
   const dir = path.dirname(finalPath);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
