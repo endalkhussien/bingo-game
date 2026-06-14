@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Eye, EyeOff, Pause, Play, Megaphone } from 'lucide-react';
+import { Eye, EyeOff, Pause, Play, Megaphone, ListOrdered } from 'lucide-react';
 import { ipc } from '@/presentation/lib/ipc';
 import { useAuth } from '@/presentation/providers/auth-provider';
 import { NumberGrid } from '@/presentation/components/bingo/number-grid';
+import { CalledNumbersModal } from '@/presentation/components/bingo/called-numbers-modal';
 import { CheckCardModal } from '@/presentation/components/bingo/check-card-modal';
 import { WINNING_PATTERNS, DRAW_INTERVALS, VOICE_TYPES, MIN_BET } from '@/shared/constants';
 import { DRAW_BALL_COUNT } from '@/shared/brand';
@@ -46,6 +47,7 @@ export default function GameBoardPage() {
   const [autoDraw, setAutoDraw] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [checkModalOpen, setCheckModalOpen] = useState(false);
+  const [calledModalOpen, setCalledModalOpen] = useState(false);
   const [commissionPercent, setCommissionPercent] = useState('20');
   const [gameCommission, setGameCommission] = useState({ rate: 20, pot: 0, agentCut: 0 });
   const autoDrawRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -172,6 +174,7 @@ export default function GameBoardPage() {
       const { number, voiceType, language: lang } = result.data;
       setCalled((prev) => [...prev, number]);
       setLastDrawn(number);
+      setCalledModalOpen(true);
       speakBall(number, voiceType ?? voice, lang ?? language);
     }
   }, [activeGame, isPaused, voice, language]);
@@ -224,6 +227,7 @@ export default function GameBoardPage() {
       setCalled([]);
       setLastDrawn(null);
       setCheckModalOpen(false);
+      setCalledModalOpen(false);
       await refreshBalance();
     }
   };
@@ -320,6 +324,10 @@ export default function GameBoardPage() {
           </button>
         ) : (
           <div className="flex flex-wrap gap-2">
+            <button onClick={() => setCalledModalOpen(true)}
+              className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">
+              <ListOrdered className="h-4 w-4" /> Called ({drawCount}/{maxBalls})
+            </button>
             <button onClick={handleDraw} disabled={isPaused}
               className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">Draw</button>
             <button onClick={() => setAutoDraw(!autoDraw)} disabled={isPaused}
@@ -357,8 +365,17 @@ export default function GameBoardPage() {
         )}
       </div>
 
-      <NumberGrid selected={selected} called={called} onToggle={toggleNumber}
+      <NumberGrid selected={selected} onToggle={toggleNumber}
         onClear={() => setSelected([])} disabled={!!activeGame} />
+
+      <CalledNumbersModal
+        open={calledModalOpen && !!activeGame}
+        onClose={() => setCalledModalOpen(false)}
+        called={called}
+        lastDrawn={lastDrawn}
+        maxBalls={maxBalls}
+        language={language}
+      />
 
       <CheckCardModal
         open={checkModalOpen}
