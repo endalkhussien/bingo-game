@@ -8,7 +8,7 @@ Use this when handing the app to hall agents. They only need the **installer fil
 
 | File | Where it comes from |
 |------|---------------------|
-| **`TEBIB-Bingo-1.0.0-win-x64.exe`** | Build once on Windows (`npm run pack:win`) |
+| **`TEBIB-Bingo-Setup-1.0.0.exe`** | Build once on Windows (`npm run pack:win`) |
 | **`AGENTS-QUICK-GUIDE.txt`** | Copy from repo root |
 
 Optional: USB stick with both files.
@@ -28,8 +28,8 @@ npm run validate:release
 npm run pack:win
 ```
 
-**Output:** `release/TEBIB-Bingo-1.0.0-win-x64.exe` (installer)  
-Also: portable build in the same folder (no install — double-click to run)
+**Output:** `release/TEBIB-Bingo-Setup-1.0.0.exe` (installer)  
+Also: `release/TEBIB-Bingo-Portable-1.0.0.exe` (no install — USB copy)
 
 Copy either file to agents.
 
@@ -37,7 +37,7 @@ Copy either file to agents.
 
 ## Agent install (2 minutes)
 
-1. Double-click **`TEBIB-Bingo-1.0.0-win-x64.exe`**
+1. Double-click **`TEBIB-Bingo-Setup-1.0.0.exe`**
 2. If Windows warns “Unknown publisher” → **More info** → **Run anyway**
 3. Click **Install** → finish
 4. Open **TEBIB-Bingo** from Desktop
