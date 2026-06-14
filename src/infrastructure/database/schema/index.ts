@@ -52,6 +52,31 @@ export const rechargeVouchers = sqliteTable('recharge_vouchers', {
   createdAt: integer('created_at').notNull(),
 });
 
+/** Tracks offline signed codes redeemed on this PC (prevents reuse) */
+export const usedOfflineVouchers = sqliteTable('used_offline_vouchers', {
+  id: text('id').primaryKey(),
+  nonce: text('nonce').notNull().unique(),
+  codeHash: text('code_hash').notNull().unique(),
+  amount: real('amount').notNull(),
+  agentId: text('agent_id').notNull().references(() => agents.id),
+  redeemedAt: integer('redeemed_at').notNull(),
+});
+
+/** Admin ledger of codes issued (admin PC only) */
+export const issuedOfflineVouchers = sqliteTable('issued_offline_vouchers', {
+  id: text('id').primaryKey(),
+  code: text('code').notNull(),
+  codeHash: text('code_hash').notNull().unique(),
+  amount: real('amount').notNull(),
+  forUsername: text('for_username').notNull(),
+  nonce: text('nonce').notNull().unique(),
+  expiresAt: integer('expires_at').notNull(),
+  status: text('status').notNull().default('ISSUED'),
+  issuedBy: text('issued_by').notNull().references(() => users.id),
+  issuedAt: integer('issued_at').notNull(),
+  redeemedAt: integer('redeemed_at'),
+});
+
 export const bingoCards = sqliteTable('bingo_cards', {
   id: text('id').primaryKey(),
   cardNumber: text('card_number').notNull(),
@@ -73,6 +98,7 @@ export const games = sqliteTable('games', {
   language: text('language').notNull().default('en'),
   numberRangeMax: integer('number_range_max').notNull().default(150),
   maxPlayers: integer('max_players').notNull().default(150),
+  commissionRate: real('commission_rate').notNull().default(20),
   status: text('status').notNull().default('DRAFT'),
   selectedNumbers: text('selected_numbers'),
   startedAt: integer('started_at'),

@@ -4,7 +4,7 @@ cd "$(dirname "$0")"
 
 echo ""
 echo "  ========================================"
-echo "    Minch Bingo - Desktop Application"
+echo "    TEBIB-Bingo - Desktop Application"
 echo "  ========================================"
 echo ""
 

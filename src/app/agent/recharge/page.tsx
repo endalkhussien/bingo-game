@@ -49,18 +49,28 @@ export default function RechargePage() {
       </div>
       {tab === 'voucher' ? (
         <div className="max-w-lg">
+          <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+            <p className="font-semibold">Secure offline recharge</p>
+            <p className="mt-1">1. Save the <strong>organization key</strong> from admin in Settings (once per PC).</p>
+            <p>2. Pay admin by cash or Telebirr. Admin sends you a unique <strong>TBG-</strong> code.</p>
+            <p>3. Paste the code below — each code works once, for your account only.</p>
+          </div>
           <input type="text" value={code} onChange={(e) => { setCode(e.target.value); setError(''); }}
-            placeholder="Enter Voucher Code" className="mb-4 w-full rounded-lg border px-4 py-3 text-sm" />
+            placeholder="Paste recharge code from admin (TBG-...)" className="mb-4 w-full rounded-lg border px-4 py-3 text-sm font-mono" />
           <button onClick={handleVoucher} disabled={loading} className="rounded-lg bg-blue-600 px-8 py-2.5 text-sm font-semibold text-white disabled:opacity-50">
             {loading ? 'Processing...' : 'Recharge'}
           </button>
           <div className="mt-6 rounded-lg bg-gray-100 p-4 text-xs text-gray-500">
-            <p className="font-medium text-gray-700 mb-1">Demo vouchers:</p>
+            <p className="font-medium text-gray-700 mb-1">Demo codes (same PC only):</p>
             <p>VOUCHER100 · VOUCHER500 · VOUCHER1000 · DEMO2024</p>
           </div>
         </div>
       ) : (
         <div className="max-w-lg space-y-4">
+          <div className="mb-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+            Recharge requests only work when admin uses the <strong>same computer</strong> as you.
+            If you are on a separate PC, ask admin for an <strong>offline recharge code</strong> instead.
+          </div>
           <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Amount (ETB)" className="w-full rounded-lg border px-4 py-3 text-sm" />
           <select value={method} onChange={(e) => setMethod(e.target.value)} className="w-full rounded-lg border px-4 py-3 text-sm">
             <option>Bank Transfer</option><option>Mobile Money</option><option>Cash</option>

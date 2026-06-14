@@ -72,7 +72,8 @@ export function runMigrations(database: BetterSQLite3Database<typeof schema>) {
       game_name TEXT NOT NULL, bet_amount REAL NOT NULL, winning_pattern TEXT NOT NULL,
       draw_speed_ms INTEGER NOT NULL DEFAULT 2000, voice_type TEXT NOT NULL DEFAULT 'AMHARIC_MALE',
       language TEXT NOT NULL DEFAULT 'en', number_range_max INTEGER NOT NULL DEFAULT 150,
-      max_players INTEGER NOT NULL DEFAULT 150, status TEXT NOT NULL DEFAULT 'DRAFT',
+      max_players INTEGER NOT NULL DEFAULT 150, commission_rate REAL NOT NULL DEFAULT 20,
+      status TEXT NOT NULL DEFAULT 'DRAFT',
       selected_numbers TEXT, started_at INTEGER, completed_at INTEGER,
       created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL
     );
@@ -120,6 +121,43 @@ export function runMigrations(database: BetterSQLite3Database<typeof schema>) {
     );
     CREATE TABLE IF NOT EXISTS system_settings (
       key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS used_offline_vouchers (
+      id TEXT PRIMARY KEY, nonce TEXT NOT NULL UNIQUE, code_hash TEXT NOT NULL UNIQUE,
+      amount REAL NOT NULL, agent_id TEXT NOT NULL REFERENCES agents(id), redeemed_at INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS issued_offline_vouchers (
+      id TEXT PRIMARY KEY, code TEXT NOT NULL, code_hash TEXT NOT NULL UNIQUE,
+      amount REAL NOT NULL, for_username TEXT NOT NULL, nonce TEXT NOT NULL UNIQUE,
+      expires_at INTEGER NOT NULL, status TEXT NOT NULL DEFAULT 'ISSUED',
+      issued_by TEXT NOT NULL REFERENCES users(id), issued_at INTEGER NOT NULL,
+      redeemed_at INTEGER
+    );
+  `);
+
+  // Incremental migrations for existing databases
+  const gameCols = client.prepare(`PRAGMA table_info(games)`).all() as { name: string }[];
+  if (!gameCols.some((c) => c.name === 'commission_rate')) {
+    client.exec(`ALTER TABLE games ADD COLUMN commission_rate REAL NOT NULL DEFAULT 20`);
+  }
+
+  const usedCols = client.prepare(`PRAGMA table_info(used_offline_vouchers)`).all() as { name: string }[];
+  if (usedCols.length > 0 && !usedCols.some((c) => c.name === 'code_hash')) {
+    client.exec(`ALTER TABLE used_offline_vouchers ADD COLUMN code_hash TEXT`);
+    client.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_used_offline_code_hash ON used_offline_vouchers(code_hash)`);
+  }
+
+  client.exec(`
+    CREATE TABLE IF NOT EXISTS used_offline_vouchers (
+      id TEXT PRIMARY KEY, nonce TEXT NOT NULL UNIQUE, code_hash TEXT NOT NULL UNIQUE,
+      amount REAL NOT NULL, agent_id TEXT NOT NULL REFERENCES agents(id), redeemed_at INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS issued_offline_vouchers (
+      id TEXT PRIMARY KEY, code TEXT NOT NULL, code_hash TEXT NOT NULL UNIQUE,
+      amount REAL NOT NULL, for_username TEXT NOT NULL, nonce TEXT NOT NULL UNIQUE,
+      expires_at INTEGER NOT NULL, status TEXT NOT NULL DEFAULT 'ISSUED',
+      issued_by TEXT NOT NULL REFERENCES users(id), issued_at INTEGER NOT NULL,
+      redeemed_at INTEGER
     );
   `);
 }

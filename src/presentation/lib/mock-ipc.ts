@@ -1,5 +1,4 @@
 // In-memory mock store for browser development without Electron
-type Session = { user: { id: string; fullName: string; username: string; role: string }; agent: { id: string; walletBalance: number; commissionRate: number } | null };
 
 const SESSION_KEY = 'bingo_mock_session';
 
@@ -25,7 +24,11 @@ const mockGames: Array<Record<string, unknown>> = [];
 const mockAgents = [
   { id: 'agent-1', userId: 'u1', fullName: 'Demo Agent', username: 'agent', phone: '+251900000000', commissionRate: 20, walletBalance: 500, status: 'ACTIVE', userStatus: 'ACTIVE', totalGames: 0, totalProfit: 0, createdAt: Date.now() / 1000 },
 ];
+type Session = { user: { id: string; fullName: string; username: string; role: string }; agent: { id: string; walletBalance: number; commissionRate: number } | null };
+
 const mockRechargeRequests: Array<Record<string, unknown>> = [];
+const mockIssuedCodes: Array<{ id: string; code: string; amount: number; forUsername: string; expiresAt: number; issuedAt: number; status: string }> = [];
+const mockUsedOfflineCodes = new Set<string>();
 const mockNotifications: Array<Record<string, unknown>> = [];
 const mockAuditLogs: Array<Record<string, unknown>> = [];
 const mockPricingPlans = [
@@ -43,7 +46,7 @@ const mockSettings: Record<string, string> = {
 const mockTxs: Array<Record<string, unknown>> = [];
 
 function generateCard(): number[][] {
-  const cols = [[1, 15], [16, 30], [31, 45], [46, 60], [61, 75]] as const;
+  const cols = [[1, 30], [31, 60], [61, 90], [91, 120], [121, 150]] as const;
   const grid: number[][] = Array.from({ length: 5 }, () => Array(5).fill(0));
   cols.forEach(([min, max], ci) => {
     const nums = Array.from({ length: max - min + 1 }, (_, i) => min + i).sort(() => Math.random() - 0.5).slice(0, ci === 2 ? 4 : 5).sort((a, b) => a - b);
@@ -103,10 +106,59 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
   'wallet:balance': async () => { requireSession(); return mockBalance; },
   'wallet:transactions': async () => mockTxs,
   'wallet:redeem': async (code: unknown) => {
+    requireSession();
     const amounts: Record<string, number> = { VOUCHER100: 100, VOUCHER500: 500, VOUCHER1000: 1000, DEMO2024: 250 };
-    const c = String(code).toUpperCase();
-    if (amounts[c]) { mockBalance += amounts[c]; if (currentSession?.agent) currentSession.agent.walletBalance = mockBalance; return { success: true, data: { amount: amounts[c], newBalance: mockBalance } }; }
+    const c = String(code).trim();
+    const upper = c.toUpperCase();
+    if (amounts[upper]) {
+      mockBalance += amounts[upper];
+      if (currentSession?.agent) currentSession.agent.walletBalance = mockBalance;
+      return { success: true, data: { amount: amounts[upper], newBalance: mockBalance } };
+    }
+    if (upper.startsWith('TBG-')) {
+      const issued = mockIssuedCodes.find((x) => x.code.toUpperCase() === upper);
+      if (!issued) return { success: false, error: 'Unknown offline code (generate from admin in this session)' };
+      if (mockUsedOfflineCodes.has(upper)) return { success: false, error: 'Code already used' };
+      if (issued.forUsername !== 'any agent' && issued.forUsername !== currentSession?.user.username) {
+        return { success: false, error: 'Code is for a different agent' };
+      }
+      mockUsedOfflineCodes.add(upper);
+      mockBalance += issued.amount;
+      if (currentSession?.agent) currentSession.agent.walletBalance = mockBalance;
+      return { success: true, data: { amount: issued.amount, newBalance: mockBalance } };
+    }
     return { success: false, error: 'Invalid voucher' };
+  },
+  'vouchers:generate': async (amount: unknown, forUsername: unknown) => {
+    requireSession();
+    if (!forUsername) return { success: false, error: 'Select an agent' };
+    const amt = Number(amount);
+    const user = String(forUsername);
+    const nonce = Math.random().toString(36).slice(2, 18).toUpperCase().padEnd(16, '0');
+    const code = `TBG-${amt}-${nonce}-${(Math.floor(Date.now()/1000)+1209600).toString(36).toUpperCase()}-${user}-MOCKSIGNATUREMOCKSIGNATUREMOCKSIG`;
+    const row = {
+      id: `v-${mockIssuedCodes.length}`,
+      code,
+      amount: amt,
+      forUsername: user,
+      expiresAt: Math.floor(Date.now() / 1000) + 86400 * 14,
+      issuedAt: Math.floor(Date.now() / 1000),
+      status: 'ISSUED',
+    };
+    mockIssuedCodes.unshift(row);
+    return { success: true, data: { code, amount: amt, expiresAt: row.expiresAt, forUsername: user } };
+  },
+  'vouchers:list-issued': async () => mockIssuedCodes,
+  'vouchers:org-key': async () => 'mock-org-key-for-browser-preview-only-32chars',
+  'vouchers:revoke': async (id: unknown) => {
+    const r = mockIssuedCodes.find((x) => x.id === id);
+    if (r) r.status = 'REVOKED';
+    return { success: true };
+  },
+  'settings:set-org-recharge-key': async (key: unknown) => {
+    requireSession();
+    if (String(key).length < 32) return { success: false, error: 'Key too short' };
+    return { success: true };
   },
   'wallet:deposit': async (_id: unknown, amount: unknown) => { mockBalance += Number(amount); return { success: true, data: { newBalance: mockBalance } }; },
   'wallet:withdraw': async () => ({ success: true }),
@@ -138,13 +190,14 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
   'cards:generate': async (count: unknown) => { const r = []; for (let i = 0; i < Number(count); i++) r.push(await mockHandlers['cards:create']()); return r; },
 
   'games:create': async (config: unknown) => {
-    const c = config as { betAmount: number; selectedNumbers: number[]; voiceType?: string; language?: string };
+    const c = config as { betAmount: number; selectedNumbers: number[]; voiceType?: string; language?: string; commissionRate?: number };
+    const rate = c.commissionRate ?? 20;
     const pot = c.betAmount * (c.selectedNumbers?.length ?? 0);
     const game = {
       id: `game-${mockGames.length + 1}`, gameCode: `TBG-${1000 + mockGames.length}`, status: 'RUNNING',
       betAmount: c.betAmount, playerCount: c.selectedNumbers?.length ?? 0,
       selectedNumbers: c.selectedNumbers, drawnNumbers: [], voiceType: c.voiceType ?? 'AMHARIC_MALE',
-      language: c.language ?? 'am', commissionRate: 20, totalPot: pot, agentCommission: pot * 0.2, maxBalls: 75,
+      language: c.language ?? 'am', commissionRate: rate, totalPot: pot, agentCommission: pot * (rate / 100), maxBalls: 150,
     };
     mockGames.push(game);
     mockBalance -= pot;
@@ -154,14 +207,14 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
   'games:active': async () => mockGames.find(g => g.status === 'RUNNING' || g.status === 'PAUSED') ?? null,
   'games:draw': async (_id: unknown) => {
     const g = mockGames.find(x => x.status === 'RUNNING');
-    const n = Math.floor(Math.random() * 75) + 1;
+    const n = Math.floor(Math.random() * 150) + 1;
     if (g) {
       const drawn = ((g as { drawnNumbers?: number[] }).drawnNumbers ?? []);
       drawn.push(n);
       (g as { drawnNumbers: number[] }).drawnNumbers = drawn;
-      return { success: true, data: { number: n, drawOrder: drawn.length, drawCount: drawn.length, maxBalls: 75, voiceType: (g as { voiceType?: string }).voiceType ?? 'AMHARIC_MALE', language: (g as { language?: string }).language ?? 'am', winners: [] } };
+      return { success: true, data: { number: n, drawOrder: drawn.length, drawCount: drawn.length, maxBalls: 150, voiceType: (g as { voiceType?: string }).voiceType ?? 'AMHARIC_MALE', language: (g as { language?: string }).language ?? 'am', winners: [] } };
     }
-    return { success: true, data: { number: n, drawOrder: 1, drawCount: 1, maxBalls: 75, voiceType: 'AMHARIC_MALE', language: 'am', winners: [] } };
+    return { success: true, data: { number: n, drawOrder: 1, drawCount: 1, maxBalls: 150, voiceType: 'AMHARIC_MALE', language: 'am', winners: [] } };
   },
   'games:pause': async (id: unknown) => { const g = mockGames.find(x => x.id === id); if (g) g.status = 'PAUSED'; return { success: true }; },
   'games:resume': async (id: unknown) => { const g = mockGames.find(x => x.id === id); if (g) g.status = 'RUNNING'; return { success: true }; },
@@ -193,4 +246,8 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
   'notifications:mark-all-read': async () => { mockNotifications.forEach(n => { n.isRead = true; }); },
 
   'audit:list': async () => mockAuditLogs,
+
+  'tts:speak': async (_n: unknown, _v: unknown, _l: unknown) => ({ success: true, engine: 'browser-mock' }),
+  'tts:test': async (_v: unknown, _l: unknown, _s: unknown) => ({ success: true, engine: 'browser-mock', text: 'ቁጥር አርባ ሁለት' }),
+  'tts:list-voices': async () => ['Microsoft Amharic [am-ET] (mock)'],
 };

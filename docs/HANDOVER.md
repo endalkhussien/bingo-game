@@ -1,6 +1,6 @@
 # Developer Handover Guide
 
-This document explains the **Minch Bingo Management Platform** so a new developer can run, understand, and extend it without confusion.
+This document explains the **TEBIB-Bingo Management Platform** so a new developer can run, understand, and extend it without confusion.
 
 ---
 
@@ -25,7 +25,7 @@ This document explains the **Minch Bingo Management Platform** so a new develope
 
 ## 1. What this system is
 
-**Minch Bingo** is an **offline-first Windows desktop app** for bingo operators.
+**TEBIB-Bingo** is an **offline-first Windows desktop app** for bingo operators.
 
 | User | What they do |
 |------|----------------|
@@ -104,7 +104,7 @@ Think of it as a **web app inside a desktop window**, not a traditional desktop 
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│  ELECTRON WINDOW ("Minch Bingo")                             │
+│  ELECTRON WINDOW ("TEBIB-Bingo")                             │
 │                                                              │
 │  ┌────────────────────────────────────────────────────────┐  │
 │  │  NEXT.JS UI (src/app/)                                 │  │
@@ -177,7 +177,7 @@ workspace/
 ├── tests/e2e/                   ← Playwright browser tests
 ├── scripts/                     ← wait-for-next, smoke-test
 ├── docs/                        ← YOU ARE HERE
-├── Start Minch Bingo.bat        ← Windows double-click launcher
+├── Start TEBIB-Bingo.bat        ← Windows double-click launcher
 └── package.json
 ```
 
@@ -419,7 +419,7 @@ npm run dist:win     # Windows NSIS installer → release/
 ```
 
 Config: `electron-builder.yml`  
-Windows launcher: `Start Minch Bingo.bat`
+Windows launcher: `Start TEBIB-Bingo.bat`
 
 ---
 

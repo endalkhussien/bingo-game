@@ -9,9 +9,12 @@ import * as pricing from '../services/pricing-service';
 import * as dashboard from '../services/dashboard-service';
 import * as reports from '../services/reports-service';
 import * as settings from '../services/settings-service';
+import { getOrganizationKeyForDisplay, setOrganizationVoucherSecret } from '../services/voucher-secret-service';
 import * as backup from '../services/backup-service';
 import * as notifications from '../services/notification-service';
 import * as audit from '../services/audit-service';
+import { speakNumber, listInstalledVoices } from '../tts/tts-engine';
+import { buildAnnouncement } from '../../src/shared/tts/voice-map';
 
 const sessions = new Map<number, string>();
 
@@ -99,6 +102,24 @@ export function registerIpcHandlers() {
   ipcMain.handle('wallet:balance', async (event) => requireAgent(event).then((s) => wallet.getBalance(s.agent!.id)));
   ipcMain.handle('wallet:transactions', async (event) => requireAgent(event).then((s) => wallet.getTransactions(s.agent!.id)));
   ipcMain.handle('wallet:redeem', async (event, code: string) => requireAgent(event).then((s) => wallet.redeemVoucher(s.agent!.id, code)));
+  ipcMain.handle('vouchers:generate', async (event, amount: number, forUsername: string) =>
+    requireAdmin(event).then((s) => wallet.createOfflineRechargeCode(s.user.id, amount, forUsername)));
+  ipcMain.handle('vouchers:list-issued', async (event) => {
+    await requireAdmin(event);
+    return wallet.listIssuedOfflineCodes();
+  });
+  ipcMain.handle('vouchers:revoke', async (event, id: string) => {
+    await requireAdmin(event);
+    return wallet.revokeOfflineCode(id);
+  });
+  ipcMain.handle('vouchers:org-key', async (event) => {
+    await requireAdmin(event);
+    return getOrganizationKeyForDisplay();
+  });
+  ipcMain.handle('settings:set-org-recharge-key', async (event, key: string) => {
+    await requireAuth(event);
+    return setOrganizationVoucherSecret(key);
+  });
   ipcMain.handle('wallet:deposit', async (event, agentId: string, amount: number, desc: string) => {
     await requireAdmin(event);
     return wallet.adminDeposit(agentId, amount, desc);
@@ -170,6 +191,23 @@ export function registerIpcHandlers() {
   ipcMain.handle('notifications:unread-count', async (event) => requireAuth(event).then((s) => notifications.countUnread(s.user.id)));
   ipcMain.handle('notifications:mark-read', async (event, id: string) => requireAuth(event).then((s) => notifications.markRead(id, s.user.id)));
   ipcMain.handle('notifications:mark-all-read', async (event) => requireAuth(event).then((s) => notifications.markAllRead(s.user.id)));
+
+  // ── TTS (Amharic + English) ──
+  ipcMain.handle('tts:speak', async (event, number: number, voiceType: string, language: string) => {
+    await requireAuth(event);
+    return speakNumber(number, voiceType, language);
+  });
+  ipcMain.handle('tts:test', async (event, voiceType: string, language: string, sample?: number) => {
+    await requireAuth(event);
+    const n = sample ?? 42;
+    const { text } = buildAnnouncement(n, voiceType, language);
+    const result = await speakNumber(n, voiceType, language);
+    return { ...result, text };
+  });
+  ipcMain.handle('tts:list-voices', async (event) => {
+    await requireAuth(event);
+    return listInstalledVoices();
+  });
 
   // ── Audit ──
   ipcMain.handle('audit:list', async (event, filters) => { await requireAdmin(event); return audit.listAuditLogs(filters); });

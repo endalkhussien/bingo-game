@@ -10,6 +10,7 @@ import { WINNING_PATTERNS, DRAW_INTERVALS, VOICE_TYPES, MIN_BET } from '@/shared
 import { DRAW_BALL_COUNT } from '@/shared/brand';
 import { speakBall, loadVoices } from '@/presentation/lib/tts';
 import { getBallLabel } from '@/domain/services/bingo-engine';
+import { toAmharicNumberWord } from '@/shared/tts/voice-map';
 
 interface ActiveGame {
   id: string;
@@ -45,16 +46,38 @@ export default function GameBoardPage() {
   const [autoDraw, setAutoDraw] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [checkModalOpen, setCheckModalOpen] = useState(false);
+  const [commissionPercent, setCommissionPercent] = useState('20');
   const [gameCommission, setGameCommission] = useState({ rate: 20, pot: 0, agentCut: 0 });
   const autoDrawRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const commissionRate = agent?.commissionRate ?? gameCommission.rate;
+  const commissionRate = activeGame?.commissionRate ?? (parseFloat(commissionPercent || '0') || gameCommission.rate);
   const totalPot = activeGame?.totalPot ?? selected.length * parseFloat(betAmount || '0');
   const agentCut = activeGame?.agentCommission ?? totalPot * (commissionRate / 100);
   const maxBalls = activeGame?.maxBalls ?? DRAW_BALL_COUNT;
   const drawCount = called.length;
 
   useEffect(() => { loadVoices(); }, []);
+
+  useEffect(() => {
+    if (agent?.commissionRate != null && !activeGame) {
+      setCommissionPercent(String(agent.commissionRate));
+    }
+  }, [agent?.commissionRate, activeGame]);
+
+  const handleLanguageChange = (lang: string) => {
+    setLanguage(lang);
+    if (lang === 'en') {
+      setVoice('ENGLISH');
+    } else if (voice === 'ENGLISH') {
+      setVoice('AMHARIC_MALE');
+    }
+  };
+
+  const handleVoiceChange = (v: string) => {
+    setVoice(v);
+    if (v === 'ENGLISH') setLanguage('en');
+    else setLanguage('am');
+  };
 
   useEffect(() => {
     ipc<ActiveGame | null>('games:active').then((game) => {
@@ -70,6 +93,9 @@ export default function GameBoardPage() {
           pot: game.totalPot ?? 0,
           agentCut: game.agentCommission ?? 0,
         });
+        if (game.voiceType) setVoice(game.voiceType);
+        if (game.language) setLanguage(game.language);
+        if (game.commissionRate != null) setCommissionPercent(String(game.commissionRate));
       }
     });
   }, []);
@@ -89,6 +115,11 @@ export default function GameBoardPage() {
       setBetError('Select at least one card number.');
       return;
     }
+    const commission = parseFloat(commissionPercent);
+    if (isNaN(commission) || commission < 0 || commission > 100) {
+      setBetError('Commission must be between 0% and 100%.');
+      return;
+    }
     setBetError('');
     setCreating(true);
 
@@ -102,6 +133,7 @@ export default function GameBoardPage() {
       drawSpeedMs: interval,
       voiceType: voice,
       language,
+      commissionRate: commission,
       selectedNumbers: selected,
     });
 
@@ -204,6 +236,9 @@ export default function GameBoardPage() {
             <div className="flex h-20 w-20 flex-col items-center justify-center rounded-full bg-white/20 backdrop-blur">
               <span className="text-xs font-medium">{getBallLabel(lastDrawn).split('-')[0] || 'N'}</span>
               <span className="text-3xl font-bold">{lastDrawn}</span>
+              {language === 'am' && (
+                <span className="mt-0.5 text-[10px] font-medium leading-tight">{toAmharicNumberWord(lastDrawn)}</span>
+              )}
             </div>
           )}
           <div className="text-right text-sm">
@@ -239,23 +274,37 @@ export default function GameBoardPage() {
         </div>
         <div>
           <label className="mb-1 block text-sm font-medium text-gray-700">Voice</label>
-          <select value={voice} onChange={(e) => setVoice(e.target.value)} disabled={!!activeGame}
+          <select value={voice} onChange={(e) => handleVoiceChange(e.target.value)} disabled={!!activeGame}
             className="rounded-lg border px-3 py-2 text-sm disabled:bg-gray-100">
             {VOICE_TYPES.map((v) => <option key={v.value} value={v.value}>{v.label}</option>)}
           </select>
         </div>
         <div>
           <label className="mb-1 block text-sm font-medium text-gray-700">Language</label>
-          <select value={language} onChange={(e) => setLanguage(e.target.value)} disabled={!!activeGame}
+          <select value={language} onChange={(e) => handleLanguageChange(e.target.value)} disabled={!!activeGame}
             className="rounded-lg border px-3 py-2 text-sm disabled:bg-gray-100">
             <option value="am">Amharic</option>
             <option value="en">English</option>
           </select>
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700">Commission</label>
+          <label className="mb-1 block text-sm font-medium text-gray-700">Commission %</label>
+          <input
+            type="number"
+            min={0}
+            max={100}
+            step={1}
+            value={commissionPercent}
+            onChange={(e) => setCommissionPercent(e.target.value)}
+            disabled={!!activeGame}
+            className="w-full rounded-lg border px-3 py-2 text-sm disabled:bg-gray-100"
+          />
+          <p className="mt-1 text-xs text-gray-500">Your cut: {agentCut.toFixed(0)} ETB from pot</p>
+        </div>
+        <div>
+          <label className="mb-1 block text-sm font-medium text-gray-700">Est. earnings</label>
           <div className="rounded-lg border bg-gray-50 px-3 py-2 text-sm font-semibold text-indigo-700">
-            {commissionRate}% · Est. {agentCut.toFixed(0)} ETB
+            {commissionRate}% · {agentCut.toFixed(0)} ETB
           </div>
         </div>
         {!activeGame ? (
