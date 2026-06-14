@@ -57,7 +57,7 @@ export default function AgentsPage() {
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex gap-2">
-                    <Link href={`/admin/agents/${a.id}`} className="text-blue-600 hover:underline text-xs">View</Link>
+                    <Link href={`/admin/agents/detail?id=${a.id}`} className="text-blue-600 hover:underline text-xs">View</Link>
                     {a.status === 'ACTIVE'
                       ? <button onClick={() => handleSuspend(a.id)} className="text-red-500 text-xs hover:underline">Suspend</button>
                       : <button onClick={() => handleActivate(a.id)} className="text-green-600 text-xs hover:underline">Activate</button>}

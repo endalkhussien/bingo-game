@@ -1,65 +1,42 @@
-# Minch Bingo — Bingo Management Platform
+# Minch Bingo — Desktop Bingo Management Platform
 
-Offline-first desktop bingo management application built with Electron, Next.js 15, SQLite, and Drizzle ORM.
+> **New to desktop apps?** Read **[docs/GETTING-STARTED.md](./docs/GETTING-STARTED.md)** first — it explains the process in web-dev terms.
 
-## Features
+Offline desktop app for bingo operators. Built with **Electron + Next.js + SQLite**.
 
-- **Game Board** — 150-number grid, bet configuration, auto/manual draw, live game control
-- **Bingo Cards** — Create, update, delete 5×5 bingo cards with B-I-N-G-O layout
-- **Reports** — Game history, profit tracking, date/status filters
-- **Recharge Balance** — Voucher-based wallet recharge
-- **Agent Dashboard** — Wallet balance, commission tracking
+---
 
-## Tech Stack
-
-Electron · Next.js 15 · TypeScript · SQLite · Drizzle ORM · Tailwind CSS
-
-## Quick Start
+## Quick Start (4 commands)
 
 ```bash
-# Install dependencies
-npm install
-
-# Development (browser UI — mock data)
-npm run dev:next
-# Open http://localhost:3000
-
-# Development (full Electron app)
-npm run dev
-
-# Production build
-npm run build
-npm start
+npm run setup          # ① Once — install everything
+npm run web            # ② Daily — UI work in browser (like normal web dev)
+npm start              # ③ Test — real desktop window + database
+npm test               # ④ Verify — automated tests
 ```
 
-## Demo Credentials
+| Command | Opens | Like web dev? |
+|---------|-------|---------------|
+| `npm run web` | Browser → http://localhost:3000 | **Yes — start here** |
+| `npm start` | Desktop window "Minch Bingo" | Real app with SQLite |
+
+**Windows:** double-click `Start Minch Bingo.bat` instead of `npm start`.
+
+---
+
+## Login
 
 | Role | Username | Password |
 |------|----------|----------|
 | Agent | `agent` | `agent123` |
 | Admin | `admin` | `admin123` |
 
-## Demo Voucher Codes
+---
 
-| Code | Amount |
-|------|--------|
-| VOUCHER100 | 100 ETB |
-| VOUCHER500 | 500 ETB |
-| VOUCHER1000 | 1000 ETB |
-| DEMO2024 | 250 ETB |
+## Docs
 
-## Architecture
-
-See [`docs/architecture/`](./docs/architecture/) for full system design documentation.
-
-## Project Structure
-
-```
-electron/          # Electron main process, IPC, services
-src/
-  app/             # Next.js pages (agent, admin, login)
-  domain/          # Business logic (bingo engine, card generator)
-  infrastructure/  # Database schema, connection, seed
-  presentation/    # UI components, hooks, providers
-  shared/          # Constants and utilities
-```
+| Guide | What's inside |
+|-------|---------------|
+| **[GETTING-STARTED.md](./docs/GETTING-STARTED.md)** | Full process for web developers |
+| [DESKTOP.md](./docs/DESKTOP.md) | Technical architecture |
+| [architecture/](./docs/architecture/) | System design docs |

@@ -2,12 +2,16 @@
 
 import { User } from 'lucide-react';
 import { useAuth } from '@/presentation/providers/auth-provider';
+import { ModeBadge } from '@/presentation/components/shared/mode-badge';
 
 export function AdminHeader() {
   const { user } = useAuth();
   return (
     <header className="flex items-center justify-between border-b border-gray-200 bg-white px-6 py-3">
-      <div className="text-sm text-gray-500">Bingo Management Platform</div>
+      <div className="flex items-center gap-3">
+        <span className="text-sm text-gray-500">Bingo Management Platform</span>
+        <ModeBadge />
+      </div>
       <div className="flex items-center gap-3">
         <select className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm">
           <option>English</option>

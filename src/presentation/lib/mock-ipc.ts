@@ -1,7 +1,23 @@
 // In-memory mock store for browser development without Electron
 type Session = { user: { id: string; fullName: string; username: string; role: string }; agent: { id: string; walletBalance: number; commissionRate: number } | null };
 
-let currentSession: Session | null = null;
+const SESSION_KEY = 'bingo_mock_session';
+
+function saveSession(session: Session | null) {
+  if (typeof localStorage === 'undefined') return;
+  if (session) localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  else localStorage.removeItem(SESSION_KEY);
+}
+
+function loadSession(): Session | null {
+  if (typeof localStorage === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(SESSION_KEY);
+    return raw ? JSON.parse(raw) as Session : null;
+  } catch { return null; }
+}
+
+let currentSession: Session | null = loadSession();
 let mockBalance = 500;
 let cardCounter = 0;
 const mockCards: Array<{ id: string; cardNumber: string; grid: number[][]; cardData: string; agentId: string; createdAt: number; updatedAt: number }> = [];
@@ -46,16 +62,18 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
   'auth:login': async (username: unknown, password: unknown) => {
     if (username === 'agent' && password === 'agent123') {
       currentSession = { user: { id: 'u1', fullName: 'Demo Agent', username: 'agent', role: 'AGENT' }, agent: { id: 'agent-1', walletBalance: mockBalance, commissionRate: 20 } };
+      saveSession(currentSession);
       return { success: true, data: { token: 'mock', user: currentSession.user, agent: currentSession.agent } };
     }
     if (username === 'admin' && password === 'admin123') {
       currentSession = { user: { id: 'admin1', fullName: 'System Administrator', username: 'admin', role: 'SUPER_ADMIN' }, agent: null };
+      saveSession(currentSession);
       return { success: true, data: { token: 'mock', user: currentSession.user, agent: null } };
     }
     return { success: false, error: 'Invalid credentials' };
   },
-  'auth:session': async () => currentSession,
-  'auth:logout': async () => { currentSession = null; return { success: true }; },
+  'auth:session': async () => { currentSession = loadSession(); return currentSession; },
+  'auth:logout': async () => { currentSession = null; saveSession(null); return { success: true }; },
   'auth:change-password': async () => ({ success: true }),
 
   'dashboard:admin': async () => ({

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { RefreshCw, Eye, EyeOff, User } from 'lucide-react';
 import { useAuth } from '@/presentation/providers/auth-provider';
+import { ModeBadge } from '@/presentation/components/shared/mode-badge';
 
 export function AgentHeader() {
   const { user, agent, refreshBalance } = useAuth();
@@ -18,6 +19,7 @@ export function AgentHeader() {
 
   return (
     <header className="flex items-center justify-end gap-4 border-b border-gray-200 bg-white px-6 py-3">
+      <ModeBadge />
       <button onClick={handleRefresh} className="rounded-full p-1.5 text-gray-500 hover:bg-gray-100" title="Refresh">
         <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
       </button>

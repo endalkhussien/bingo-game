@@ -1,19 +1,25 @@
 {
   "name": "bingo-management-platform",
   "version": "1.0.0",
-  "description": "Offline Bingo Management Platform",
+  "description": "Offline Bingo Management Platform - Minch Bingo",
   "main": "dist-electron/electron/main.js",
   "scripts": {
-    "dev": "npm run build:electron && concurrently -k \"npm run dev:next\" \"npm run dev:electron\"",
-    "dev:next": "next dev -p 3000",
-    "dev:electron": "wait-on http://localhost:3000 && cross-env NODE_ENV=development electron .",
+    "setup": "npm install && npm run build:electron",
+    "postinstall": "npm run build:electron",
+    "start": "npm run desktop:dev",
+    "dev": "npm run desktop:dev",
+    "web": "next dev -p 3000",
+    "dev:next": "npm run web",
+    "desktop:dev": "npm run build:electron && concurrently -k -n NEXT,ELECTRON -c blue,magenta \"npm run dev:next\" \"npm run dev:electron\"",
+    "dev:electron": "node scripts/wait-for-next.mjs && cross-env NODE_ENV=development electron .",
     "build": "npm run build:next && npm run build:electron",
-    "build:next": "next build",
+    "build:next": "cross-env NODE_ENV=production next build",
     "build:electron": "tsc -p tsconfig.electron.json",
-    "start": "cross-env NODE_ENV=production electron .",
-    "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx src/infrastructure/database/migrate.ts",
-    "lint": "next lint",
+    "desktop": "npm run build && cross-env NODE_ENV=production electron .",
+    "dist:win": "npm run build && electron-builder --win --config electron-builder.yml",
+    "test": "playwright test",
+    "test:smoke": "node scripts/smoke-test.mjs",
+    "test:ui": "playwright test --ui",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.electron.json --noEmit"
   },
   "dependencies": {
@@ -42,6 +48,7 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/better-sqlite3": "^7.6.12",
     "@types/node": "^22.10.5",
@@ -58,7 +65,6 @@
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.2",
-    "wait-on": "^8.0.2"
+    "typescript": "^5.7.2"
   }
 }
