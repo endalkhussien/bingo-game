@@ -79,9 +79,10 @@ export default function AgentsPage() {
               </div>
             ))}
             <div>
-              <label className="mb-1 block text-xs font-medium">Commission %</label>
+              <label className="mb-1 block text-xs font-medium">Default commission %</label>
               <input type="number" value={form.commissionRate} onChange={(e) => setForm({ ...form, commissionRate: e.target.value })}
-                className="w-full rounded-lg border px-3 py-2 text-sm" />
+                className="w-full rounded-lg border px-3 py-2 text-sm" placeholder="20" />
+              <p className="mt-1 text-xs text-gray-500">Starting value — agent can change per game</p>
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium">Starting Wallet (ETB)</label>

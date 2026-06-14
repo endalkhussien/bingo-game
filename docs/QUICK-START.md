@@ -165,7 +165,7 @@ C:\Users\YOUR_NAME\AppData\Roaming\bingo-management-platform\data\bingo.db
 When you want a `.exe` for other PCs:
 
 ```bash
-npm run dist:win
+npm run pack:win
 ```
 
 Output: `release/TEBIB-Bingo Setup.exe`

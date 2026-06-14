@@ -27,7 +27,13 @@ npm run electron:only
 | Agent | `agent` | `agent123` |
 | Admin | `admin` | `admin123` |
 
-**Game:** Agent → Game Board → Language **Amharic** → select cards → Start Game → Draw (up to **150** balls).
+## Install on other PCs (no Node.js needed)
+
+**[docs/INSTALL.md](./docs/INSTALL.md)** — give users the `.exe` installer.
+
+**Build the installer** (on Windows): `npm run pack:win` → see **[docs/BUILD-INSTALLER.md](./docs/BUILD-INSTALLER.md)**
+
+**Compare with Ethiopian bingo apps:** **[docs/ETHIOPIAN-BINGO-COMPARISON.md](./docs/ETHIOPIAN-BINGO-COMPARISON.md)**
 
 ---
 
@@ -63,6 +69,9 @@ npm run electron:only   # real desktop app (use with npm run web)
 | Document | Purpose |
 |----------|---------|
 | **[docs/QUICK-START.md](./docs/QUICK-START.md)** | **Step-by-step install & run (read this first)** |
+| **[docs/INSTALL.md](./docs/INSTALL.md)** | **Install .exe on other PCs (end users)** |
+| **[docs/BUILD-INSTALLER.md](./docs/BUILD-INSTALLER.md)** | Build Windows installer |
+| **[docs/ETHIOPIAN-BINGO-COMPARISON.md](./docs/ETHIOPIAN-BINGO-COMPARISON.md)** | vs Bingo 10:20, Ade Bingo, etc. |
 | [docs/HANDOVER.md](./docs/HANDOVER.md) | Developer handover |
 | [docs/GETTING-STARTED.md](./docs/GETTING-STARTED.md) | Web-dev workflow |
 | [docs/DESKTOP.md](./docs/DESKTOP.md) | Run, test, package |

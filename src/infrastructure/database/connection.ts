@@ -72,7 +72,8 @@ export function runMigrations(database: BetterSQLite3Database<typeof schema>) {
       game_name TEXT NOT NULL, bet_amount REAL NOT NULL, winning_pattern TEXT NOT NULL,
       draw_speed_ms INTEGER NOT NULL DEFAULT 2000, voice_type TEXT NOT NULL DEFAULT 'AMHARIC_MALE',
       language TEXT NOT NULL DEFAULT 'en', number_range_max INTEGER NOT NULL DEFAULT 150,
-      max_players INTEGER NOT NULL DEFAULT 150, status TEXT NOT NULL DEFAULT 'DRAFT',
+      max_players INTEGER NOT NULL DEFAULT 150, commission_rate REAL NOT NULL DEFAULT 20,
+      status TEXT NOT NULL DEFAULT 'DRAFT',
       selected_numbers TEXT, started_at INTEGER, completed_at INTEGER,
       created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL
     );
@@ -122,4 +123,10 @@ export function runMigrations(database: BetterSQLite3Database<typeof schema>) {
       key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at INTEGER NOT NULL
     );
   `);
+
+  // Incremental migrations for existing databases
+  const columns = client.prepare(`PRAGMA table_info(games)`).all() as { name: string }[];
+  if (!columns.some((c) => c.name === 'commission_rate')) {
+    client.exec(`ALTER TABLE games ADD COLUMN commission_rate REAL NOT NULL DEFAULT 20`);
+  }
 }

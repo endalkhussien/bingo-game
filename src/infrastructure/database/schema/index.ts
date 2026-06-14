@@ -73,6 +73,7 @@ export const games = sqliteTable('games', {
   language: text('language').notNull().default('en'),
   numberRangeMax: integer('number_range_max').notNull().default(150),
   maxPlayers: integer('max_players').notNull().default(150),
+  commissionRate: real('commission_rate').notNull().default(20),
   status: text('status').notNull().default('DRAFT'),
   selectedNumbers: text('selected_numbers'),
   startedAt: integer('started_at'),

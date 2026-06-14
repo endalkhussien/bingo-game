@@ -20,6 +20,7 @@ export async function createGame(agentId: string, config: {
   drawSpeedMs: number;
   voiceType: string;
   language?: string;
+  commissionRate?: number;
   selectedNumbers: number[];
 }) {
   const db = getDb();
@@ -38,6 +39,11 @@ export async function createGame(agentId: string, config: {
     return { success: false, error: `Insufficient wallet balance. Need ${gameCost} ETB.` };
   }
 
+  const commissionRate = config.commissionRate ?? agent.commissionRate ?? 20;
+  if (commissionRate < 0 || commissionRate > 100) {
+    return { success: false, error: 'Commission must be between 0% and 100%.' };
+  }
+
   const id = uuid();
   const gameCode = generateGameCode();
 
@@ -53,6 +59,7 @@ export async function createGame(agentId: string, config: {
     language: config.language ?? 'am',
     numberRangeMax: DRAW_BALL_COUNT,
     maxPlayers: DRAW_BALL_COUNT,
+    commissionRate,
     status: 'RUNNING',
     selectedNumbers: JSON.stringify(config.selectedNumbers),
     startedAt: now,
@@ -78,7 +85,6 @@ export async function createGame(agentId: string, config: {
     }
   }
 
-  const commissionRate = agent.commissionRate;
   const totalPot = config.betAmount * playerCount;
   const agentCommission = totalPot * (commissionRate / 100);
 
@@ -107,8 +113,8 @@ async function formatActiveGame(game: typeof games.$inferSelect) {
   const agent = await db.select().from(agents).where(eq(agents.id, game.agentId)).get();
   const gameCardRows = await db.select().from(gameCards).where(eq(gameCards.gameId, game.id)).all();
   const playerCount = gameCardRows.length;
+  const commissionRate = game.commissionRate ?? agent?.commissionRate ?? 20;
   const totalPot = game.betAmount * playerCount;
-  const commissionRate = agent?.commissionRate ?? 20;
 
   return {
     ...game,
@@ -243,7 +249,7 @@ export async function validateWinner(gameId: string, agentId: string, cardNumber
   const playerCount = gameCardRows.length;
   const totalBets = game.betAmount * playerCount;
   const agent = await db.select().from(agents).where(eq(agents.id, agentId)).get();
-  const commissionRate = agent?.commissionRate ?? 20;
+  const commissionRate = game.commissionRate ?? agent?.commissionRate ?? 20;
   const commission = totalBets * (commissionRate / 100);
   const prize = totalBets - commission;
 
@@ -276,7 +282,7 @@ export async function endGame(gameId: string, agentId: string) {
   if (!game || game.agentId !== agentId) return { success: false, error: 'Game not found' };
 
   const agent = await db.select().from(agents).where(eq(agents.id, agentId)).get();
-  const commissionRate = agent?.commissionRate ?? 20;
+  const commissionRate = game.commissionRate ?? agent?.commissionRate ?? 20;
 
   const gameCardRows = await db.select().from(gameCards).where(eq(gameCards.gameId, gameId)).all();
   const playerCount = gameCardRows.length;
@@ -322,8 +328,6 @@ export async function endGame(gameId: string, agentId: string) {
 export async function listGames(agentId: string, filters?: { status?: string; startDate?: number; endDate?: number }) {
   const db = getDb();
   const allGames = await db.select().from(games).where(eq(games.agentId, agentId)).orderBy(desc(games.createdAt)).all();
-  const agent = await db.select().from(agents).where(eq(agents.id, agentId)).get();
-  const commissionRate = agent?.commissionRate ?? 20;
 
   const results = [];
   for (const game of allGames) {
@@ -340,7 +344,7 @@ export async function listGames(agentId: string, filters?: { status?: string; st
       date: game.createdAt,
       betAmount: game.betAmount,
       playersNumber: gameCardRows.length,
-      commissionPercent: commissionRate,
+      commissionPercent: game.commissionRate ?? 20,
       profit: revenue?.agentRevenue ?? 0,
       status: game.status,
     });

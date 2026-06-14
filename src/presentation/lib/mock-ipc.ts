@@ -138,13 +138,14 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
   'cards:generate': async (count: unknown) => { const r = []; for (let i = 0; i < Number(count); i++) r.push(await mockHandlers['cards:create']()); return r; },
 
   'games:create': async (config: unknown) => {
-    const c = config as { betAmount: number; selectedNumbers: number[]; voiceType?: string; language?: string };
+    const c = config as { betAmount: number; selectedNumbers: number[]; voiceType?: string; language?: string; commissionRate?: number };
+    const rate = c.commissionRate ?? 20;
     const pot = c.betAmount * (c.selectedNumbers?.length ?? 0);
     const game = {
       id: `game-${mockGames.length + 1}`, gameCode: `TBG-${1000 + mockGames.length}`, status: 'RUNNING',
       betAmount: c.betAmount, playerCount: c.selectedNumbers?.length ?? 0,
       selectedNumbers: c.selectedNumbers, drawnNumbers: [], voiceType: c.voiceType ?? 'AMHARIC_MALE',
-      language: c.language ?? 'am', commissionRate: 20, totalPot: pot, agentCommission: pot * 0.2, maxBalls: 150,
+      language: c.language ?? 'am', commissionRate: rate, totalPot: pot, agentCommission: pot * (rate / 100), maxBalls: 150,
     };
     mockGames.push(game);
     mockBalance -= pot;

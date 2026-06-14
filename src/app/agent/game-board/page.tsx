@@ -46,16 +46,23 @@ export default function GameBoardPage() {
   const [autoDraw, setAutoDraw] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [checkModalOpen, setCheckModalOpen] = useState(false);
+  const [commissionPercent, setCommissionPercent] = useState('20');
   const [gameCommission, setGameCommission] = useState({ rate: 20, pot: 0, agentCut: 0 });
   const autoDrawRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const commissionRate = agent?.commissionRate ?? gameCommission.rate;
+  const commissionRate = activeGame?.commissionRate ?? (parseFloat(commissionPercent || '0') || gameCommission.rate);
   const totalPot = activeGame?.totalPot ?? selected.length * parseFloat(betAmount || '0');
   const agentCut = activeGame?.agentCommission ?? totalPot * (commissionRate / 100);
   const maxBalls = activeGame?.maxBalls ?? DRAW_BALL_COUNT;
   const drawCount = called.length;
 
   useEffect(() => { loadVoices(); }, []);
+
+  useEffect(() => {
+    if (agent?.commissionRate != null && !activeGame) {
+      setCommissionPercent(String(agent.commissionRate));
+    }
+  }, [agent?.commissionRate, activeGame]);
 
   const handleLanguageChange = (lang: string) => {
     setLanguage(lang);
@@ -88,6 +95,7 @@ export default function GameBoardPage() {
         });
         if (game.voiceType) setVoice(game.voiceType);
         if (game.language) setLanguage(game.language);
+        if (game.commissionRate != null) setCommissionPercent(String(game.commissionRate));
       }
     });
   }, []);
@@ -107,6 +115,11 @@ export default function GameBoardPage() {
       setBetError('Select at least one card number.');
       return;
     }
+    const commission = parseFloat(commissionPercent);
+    if (isNaN(commission) || commission < 0 || commission > 100) {
+      setBetError('Commission must be between 0% and 100%.');
+      return;
+    }
     setBetError('');
     setCreating(true);
 
@@ -120,6 +133,7 @@ export default function GameBoardPage() {
       drawSpeedMs: interval,
       voiceType: voice,
       language,
+      commissionRate: commission,
       selectedNumbers: selected,
     });
 
@@ -274,9 +288,23 @@ export default function GameBoardPage() {
           </select>
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700">Commission</label>
+          <label className="mb-1 block text-sm font-medium text-gray-700">Commission %</label>
+          <input
+            type="number"
+            min={0}
+            max={100}
+            step={1}
+            value={commissionPercent}
+            onChange={(e) => setCommissionPercent(e.target.value)}
+            disabled={!!activeGame}
+            className="w-full rounded-lg border px-3 py-2 text-sm disabled:bg-gray-100"
+          />
+          <p className="mt-1 text-xs text-gray-500">Your cut: {agentCut.toFixed(0)} ETB from pot</p>
+        </div>
+        <div>
+          <label className="mb-1 block text-sm font-medium text-gray-700">Est. earnings</label>
           <div className="rounded-lg border bg-gray-50 px-3 py-2 text-sm font-semibold text-indigo-700">
-            {commissionRate}% · Est. {agentCut.toFixed(0)} ETB
+            {commissionRate}% · {agentCut.toFixed(0)} ETB
           </div>
         </div>
         {!activeGame ? (

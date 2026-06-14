@@ -17,9 +17,10 @@ export interface SpeakResult {
 /** Bundled offline Amharic MP3 clips (public/sounds/am/{n}.mp3) */
 async function playBundledAmharic(number: number): Promise<boolean> {
   const candidates = [
-    path.join(process.cwd(), 'public', 'sounds', 'am', `${number}.mp3`),
-    path.join(process.cwd(), 'out', 'sounds', 'am', `${number}.mp3`),
     path.join(app.getAppPath(), 'out', 'sounds', 'am', `${number}.mp3`),
+    path.join(process.resourcesPath, 'app.asar.unpacked', 'out', 'sounds', 'am', `${number}.mp3`),
+    path.join(process.cwd(), 'out', 'sounds', 'am', `${number}.mp3`),
+    path.join(process.cwd(), 'public', 'sounds', 'am', `${number}.mp3`),
     path.join(app.getAppPath(), 'public', 'sounds', 'am', `${number}.mp3`),
   ];
 

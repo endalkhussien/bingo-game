@@ -26,7 +26,7 @@ async function loadUi(win: BrowserWindow) {
     return;
   }
 
-  const outDir = path.join(__dirname, '../../out');
+  const outDir = path.join(app.getAppPath(), 'out');
   const { url, close } = await startStaticServer(outDir);
   closeStaticServer = close;
   await win.loadURL(url);
