@@ -12,7 +12,15 @@ const openDevTools = process.env.ELECTRON_DEVTOOLS === '1';
 
 async function loadUi(win: BrowserWindow) {
   if (isDev) {
-    const devUrl = process.env.UI_URL ?? 'http://localhost:3000';
+    let devUrl = process.env.UI_URL ?? 'http://127.0.0.1:3000';
+    try {
+      const fs = require('fs');
+      const portPath = path.join(__dirname, '../../.dev-port');
+      if (!process.env.UI_URL && fs.existsSync(portPath)) {
+        const content = fs.readFileSync(portPath, 'utf8').trim();
+        devUrl = content.startsWith('http') ? content : `http://127.0.0.1:${content}`;
+      }
+    } catch { /* use default */ }
     await win.loadURL(devUrl);
     if (openDevTools) win.webContents.openDevTools();
     return;
