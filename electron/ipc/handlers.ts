@@ -12,6 +12,8 @@ import * as settings from '../services/settings-service';
 import * as backup from '../services/backup-service';
 import * as notifications from '../services/notification-service';
 import * as audit from '../services/audit-service';
+import { speakNumber, listInstalledVoices } from '../tts/tts-engine';
+import { buildAnnouncement } from '../../src/shared/tts/voice-map';
 
 const sessions = new Map<number, string>();
 
@@ -170,6 +172,23 @@ export function registerIpcHandlers() {
   ipcMain.handle('notifications:unread-count', async (event) => requireAuth(event).then((s) => notifications.countUnread(s.user.id)));
   ipcMain.handle('notifications:mark-read', async (event, id: string) => requireAuth(event).then((s) => notifications.markRead(id, s.user.id)));
   ipcMain.handle('notifications:mark-all-read', async (event) => requireAuth(event).then((s) => notifications.markAllRead(s.user.id)));
+
+  // ── TTS (Amharic + English) ──
+  ipcMain.handle('tts:speak', async (event, number: number, voiceType: string, language: string) => {
+    await requireAuth(event);
+    return speakNumber(number, voiceType, language);
+  });
+  ipcMain.handle('tts:test', async (event, voiceType: string, language: string, sample?: number) => {
+    await requireAuth(event);
+    const n = sample ?? 42;
+    const { text } = buildAnnouncement(n, voiceType, language);
+    const result = await speakNumber(n, voiceType, language);
+    return { ...result, text };
+  });
+  ipcMain.handle('tts:list-voices', async (event) => {
+    await requireAuth(event);
+    return listInstalledVoices();
+  });
 
   // ── Audit ──
   ipcMain.handle('audit:list', async (event, filters) => { await requireAdmin(event); return audit.listAuditLogs(filters); });

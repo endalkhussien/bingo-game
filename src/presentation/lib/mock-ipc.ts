@@ -193,4 +193,8 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
   'notifications:mark-all-read': async () => { mockNotifications.forEach(n => { n.isRead = true; }); },
 
   'audit:list': async () => mockAuditLogs,
+
+  'tts:speak': async (_n: unknown, _v: unknown, _l: unknown) => ({ success: true, engine: 'browser-mock' }),
+  'tts:test': async (_v: unknown, _l: unknown, _s: unknown) => ({ success: true, engine: 'browser-mock', text: 'ቁጥር አርባ ሁለት' }),
+  'tts:list-voices': async () => ['Microsoft Amharic [am-ET] (mock)'],
 };

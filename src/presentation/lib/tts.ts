@@ -1,44 +1,92 @@
-import { getBallLabel } from '@/domain/services/bingo-engine';
+import { buildAnnouncement } from '@/shared/tts/voice-map';
+import { ipc, isElectron } from './ipc';
 
-const AMHARIC_ONES = ['', 'አንድ', 'ሁለት', 'ሶስት', 'አራት', 'አምስት', 'ስድስት', 'ሰባት', 'ስምንት', 'ዘጠኝ'];
-const AMHARIC_TENS = ['', 'አስር', 'ሀያ', 'ሰላሳ', 'አርባ', 'ሀምሳ', 'ስልሳ', 'ሰባ', 'ሰማንያ', 'ዘጠኝ'];
-
-function toAmharic(n: number): string {
-  if (n < 10) return AMHARIC_ONES[n];
-  if (n < 100) {
-    const t = Math.floor(n / 10);
-    const o = n % 10;
-    return o === 0 ? AMHARIC_TENS[t] : `${AMHARIC_TENS[t]} ${AMHARIC_ONES[o]}`;
-  }
-  return String(n);
-}
-
-function buildText(number: number, voiceType: string, language: string): { text: string; lang: string } {
-  const amharic = voiceType.startsWith('AMHARIC') || language === 'am';
-  if (amharic) return { text: `ቁጥር ${toAmharic(number)}`, lang: 'am-ET' };
-  const label = getBallLabel(number);
-  const parts = label.split('-');
-  const text = parts.length === 2 ? `${parts[0]} ${parts[1]}` : `Number ${number}`;
-  return { text, lang: 'en-US' };
-}
-
+let voicesReady = false;
 let queue: Promise<void> = Promise.resolve();
 
-export function speakBall(number: number, voiceType: string, language: string): void {
-  if (typeof window === 'undefined' || !window.speechSynthesis) return;
-  const { text, lang } = buildText(number, voiceType, language);
-  queue = queue.then(() => new Promise<void>((resolve) => {
+function waitForBrowserVoices(): Promise<SpeechSynthesisVoice[]> {
+  if (typeof window === 'undefined' || !window.speechSynthesis) return Promise.resolve([]);
+
+  return new Promise((resolve) => {
+    const existing = window.speechSynthesis.getVoices();
+    if (existing.length > 0) {
+      voicesReady = true;
+      resolve(existing);
+      return;
+    }
+    const onVoices = () => {
+      voicesReady = true;
+      window.speechSynthesis.removeEventListener('voiceschanged', onVoices);
+      resolve(window.speechSynthesis.getVoices());
+    };
+    window.speechSynthesis.addEventListener('voiceschanged', onVoices);
+    window.speechSynthesis.getVoices();
+    setTimeout(() => {
+      window.speechSynthesis.removeEventListener('voiceschanged', onVoices);
+      resolve(window.speechSynthesis.getVoices());
+    }, 2000);
+  });
+}
+
+function pickVoice(voices: SpeechSynthesisVoice[], lang: string, preferFemale: boolean): SpeechSynthesisVoice | undefined {
+  const prefix = lang.slice(0, 2);
+  const langVoices = voices.filter((v) =>
+    v.lang === lang || v.lang.startsWith(prefix) || v.lang.replace('_', '-').startsWith(prefix),
+  );
+  if (!langVoices.length) return undefined;
+  if (preferFemale) {
+    return langVoices.find((v) => /female|woman/i.test(v.name)) ?? langVoices[0];
+  }
+  return langVoices.find((v) => /male|man/i.test(v.name)) ?? langVoices[0];
+}
+
+async function speakBrowser(text: string, lang: string, preferFemale: boolean): Promise<boolean> {
+  if (typeof window === 'undefined' || !window.speechSynthesis) return false;
+
+  const voices = await waitForBrowserVoices();
+  return new Promise((resolve) => {
     window.speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
     u.lang = lang;
-    u.rate = voiceType.includes('FEMALE') ? 1.05 : 0.95;
-    const voices = window.speechSynthesis.getVoices();
-    const v = voices.find((x) => x.lang.startsWith(lang.slice(0, 2)));
-    if (v) u.voice = v;
-    u.onend = () => resolve();
-    u.onerror = () => resolve();
+    u.rate = preferFemale ? 1.0 : 0.95;
+    const voice = pickVoice(voices, lang, preferFemale);
+    if (voice) u.voice = voice;
+    u.onend = () => resolve(!!voice || true);
+    u.onerror = () => resolve(false);
     window.speechSynthesis.speak(u);
-  }));
+  });
+}
+
+/** Speak drawn bingo number — Electron uses Windows SAPI / espeak-ng; browser uses Web Speech */
+export function speakBall(number: number, voiceType: string, language: string): void {
+  queue = queue.then(async () => {
+    const payload = buildAnnouncement(number, voiceType, language);
+
+    if (isElectron()) {
+      const result = await ipc<{ success: boolean; engine?: string }>(
+        'tts:speak', number, voiceType, language,
+      );
+      if (result?.success) return;
+    }
+
+    const ok = await speakBrowser(payload.text, payload.lang, payload.preferFemale);
+    if (!ok && payload.isAmharic) {
+      await speakBrowser(payload.text, 'en-US', payload.preferFemale);
+    }
+  });
+}
+
+export async function testVoice(voiceType: string, language: string, sample = 42): Promise<string> {
+  if (isElectron()) {
+    const result = await ipc<{ success: boolean; engine?: string; error?: string; text?: string }>(
+      'tts:test', voiceType, language, sample,
+    );
+    if (result?.success) return `Spoken via ${result.engine}: "${result.text}"`;
+    return result?.error ?? 'TTS failed';
+  }
+  speakBall(sample, voiceType, language);
+  const p = buildAnnouncement(sample, voiceType, language);
+  return `Browser TTS: "${p.text}"`;
 }
 
 export function loadVoices(): void {
