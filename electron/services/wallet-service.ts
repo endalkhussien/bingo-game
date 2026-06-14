@@ -86,3 +86,8 @@ export async function adminAdjust(agentId: string, amount: number, description: 
   const balance = await adjustWallet(agentId, amount, 'ADJUSTMENT', description || 'Admin adjustment');
   return { success: true, data: { newBalance: balance } };
 }
+
+export async function deductGameCost(agentId: string, amount: number, gameCode: string) {
+  const balance = await adjustWallet(agentId, -amount, 'GAME_BET', `Game stake: ${gameCode}`);
+  return { success: true, data: { newBalance: balance } };
+}

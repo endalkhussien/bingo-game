@@ -137,6 +137,10 @@ export function registerIpcHandlers() {
   ipcMain.handle('games:create', async (event, config) => requireAgent(event).then((s) => games.createGame(s.agent!.id, config)));
   ipcMain.handle('games:active', async (event) => requireAgent(event).then((s) => games.getActiveGame(s.agent!.id)));
   ipcMain.handle('games:draw', async (event, gameId: string) => requireAgent(event).then((s) => games.drawNumber(gameId, s.agent!.id)));
+  ipcMain.handle('games:pause', async (event, gameId: string) => requireAgent(event).then((s) => games.pauseGame(gameId, s.agent!.id)));
+  ipcMain.handle('games:resume', async (event, gameId: string) => requireAgent(event).then((s) => games.resumeGame(gameId, s.agent!.id)));
+  ipcMain.handle('games:validate-winner', async (event, gameId: string, cardNumber: string) =>
+    requireAgent(event).then((s) => games.validateWinner(gameId, s.agent!.id, cardNumber)));
   ipcMain.handle('games:end', async (event, gameId: string) => requireAgent(event).then((s) => games.endGame(gameId, s.agent!.id)));
   ipcMain.handle('games:list', async (event, filters) => {
     const s = await requireAuth(event);

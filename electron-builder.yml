@@ -1,5 +1,5 @@
 appId: com.minchbingo.app
-productName: Minch Bingo
+productName: TEBIB-Bingo
 directories:
   output: release
   buildResources: public
@@ -23,4 +23,4 @@ nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
-  shortcutName: Minch Bingo
+  shortcutName: TEBIB-Bingo

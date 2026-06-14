@@ -1,10 +1,10 @@
 @echo off
-title Minch Bingo - Desktop App
+title TEBIB-Bingo - Desktop App
 cd /d "%~dp0"
 
 echo.
 echo  ========================================
-echo    Minch Bingo - Desktop Application
+echo    TEBIB-Bingo - Desktop Application
 echo  ========================================
 echo.
 
