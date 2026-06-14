@@ -193,9 +193,9 @@ export function registerIpcHandlers() {
   ipcMain.handle('notifications:mark-all-read', async (event) => requireAuth(event).then((s) => notifications.markAllRead(s.user.id)));
 
   // ── TTS (Amharic + English) ──
-  ipcMain.handle('tts:speak', async (event, number: number, voiceType: string, language: string) => {
+  ipcMain.handle('tts:speak', async (event, number: number, voiceType: string, language: string, mode?: 'ball' | 'cartella') => {
     await requireAuth(event);
-    return speakNumber(number, voiceType, language);
+    return speakNumber(number, voiceType, language, mode ?? 'ball');
   });
   ipcMain.handle('tts:test', async (event, voiceType: string, language: string, sample?: number) => {
     await requireAuth(event);

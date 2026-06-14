@@ -4,7 +4,8 @@ import os from 'os';
 import path from 'path';
 import { promisify } from 'util';
 import { app } from 'electron';
-import { buildAnnouncement } from '../../src/shared/tts/voice-map';
+import { buildAnnouncement, buildCartellaAnnouncement } from '../../src/shared/tts/voice-map';
+import { DRAW_BALL_COUNT } from '../../src/shared/brand';
 
 const execFileAsync = promisify(execFile);
 
@@ -129,10 +130,13 @@ export async function speakNumber(
   number: number,
   voiceType: string,
   language: string,
+  mode: 'ball' | 'cartella' = 'ball',
 ): Promise<SpeakResult> {
-  const payload = buildAnnouncement(number, voiceType, language);
+  const payload = mode === 'ball'
+    ? buildAnnouncement(number, voiceType, language)
+    : buildCartellaAnnouncement(number, voiceType, language);
 
-  if (payload.isAmharic && await playBundledAmharic(number)) {
+  if (payload.isAmharic && number <= DRAW_BALL_COUNT && await playBundledAmharic(number)) {
     return { success: true, engine: 'bundled-amharic-audio' };
   }
 
