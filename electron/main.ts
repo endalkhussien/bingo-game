@@ -2,10 +2,8 @@ import { app, BrowserWindow, Menu, dialog } from 'electron';
 import path from 'path';
 import { initDatabase } from './services/database-service';
 import { registerIpcHandlers } from './ipc/handlers';
-import { startStaticServer } from './utils/static-server';
 
 let mainWindow: BrowserWindow | null = null;
-let closeStaticServer: (() => void) | null = null;
 
 const isDev = process.env.NODE_ENV === 'development';
 const openDevTools = process.env.ELECTRON_DEVTOOLS === '1';
@@ -26,37 +24,26 @@ async function loadUi(win: BrowserWindow) {
     return;
   }
 
-  const outDir = path.join(app.getAppPath(), 'out');
-  const { url, close } = await startStaticServer(outDir);
-  closeStaticServer = close;
-  await win.loadURL(url);
+  // loadFile is faster than starting a local HTTP server on every launch
+  const indexPath = path.join(app.getAppPath(), 'out', 'index.html');
+  await win.loadFile(indexPath);
 }
 
 async function createWindow() {
-  try {
-    await initDatabase();
-    registerIpcHandlers();
-  } catch (err) {
-    dialog.showErrorBox('Startup Error', `Database failed to initialize:\n${err}`);
-    app.quit();
-    return;
-  }
-
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
     minWidth: 1024,
     minHeight: 700,
     title: 'TEBIB-Bingo',
+    show: true,
+    backgroundColor: '#f9fafb',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
     },
-    show: false,
   });
-
-  mainWindow.once('ready-to-show', () => mainWindow?.show());
 
   Menu.setApplicationMenu(Menu.buildFromTemplate([
     { label: 'File', submenu: [{ role: 'reload' }, { type: 'separator' }, { role: 'quit' }] },
@@ -65,11 +52,20 @@ async function createWindow() {
     { label: 'Help', submenu: [{ label: 'TEBIB-Bingo v1.0' }] },
   ]));
 
-  try {
-    await loadUi(mainWindow);
-  } catch (err) {
+  const uiReady = loadUi(mainWindow).catch((err) => {
     dialog.showErrorBox('Load Error', `Failed to load UI:\n${err}\n\nRun: npm run build`);
     app.quit();
+  });
+
+  try {
+    await Promise.all([
+      initDatabase().then(() => registerIpcHandlers()),
+      uiReady,
+    ]);
+  } catch (err) {
+    dialog.showErrorBox('Startup Error', `Database failed to initialize:\n${err}`);
+    app.quit();
+    return;
   }
 
   mainWindow.on('closed', () => { mainWindow = null; });
@@ -78,7 +74,6 @@ async function createWindow() {
 app.whenReady().then(createWindow);
 
 app.on('window-all-closed', () => {
-  closeStaticServer?.();
   if (process.platform !== 'darwin') app.quit();
 });
 

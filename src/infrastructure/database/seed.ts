@@ -51,15 +51,16 @@ export async function seedDatabase(db: BetterSQLite3Database<typeof schema>) {
     updatedAt: now,
   });
 
-  for (let n = 1; n <= CARTELLA_MAX; n++) {
-    await db.insert(schema.bingoCards).values({
-      id: uuid(),
-      cardNumber: String(n),
-      agentId,
-      cardData: serializeCardData(generateBingoCard()),
-      createdAt: now,
-      updatedAt: now,
-    });
+  const cardRows = Array.from({ length: CARTELLA_MAX }, (_, i) => ({
+    id: uuid(),
+    cardNumber: String(i + 1),
+    agentId,
+    cardData: serializeCardData(generateBingoCard()),
+    createdAt: now,
+    updatedAt: now,
+  }));
+  for (let i = 0; i < cardRows.length; i += 50) {
+    await db.insert(schema.bingoCards).values(cardRows.slice(i, i + 50));
   }
 
   const vouchers = [
