@@ -4,8 +4,9 @@
   "description": "Offline Bingo Management Platform - Minch Bingo",
   "main": "dist-electron/electron/main.js",
   "scripts": {
-    "setup": "npm install && npm run build:electron",
-    "postinstall": "npm run build:electron",
+    "setup": "npm install && npm run build:electron && npm run rebuild:native",
+    "postinstall": "npm run build:electron && npm run rebuild:native",
+    "rebuild:native": "electron-builder install-app-deps",
     "start": "npm run desktop:dev",
     "dev": "npm run desktop:dev",
     "web": "node scripts/dev-web.mjs",
