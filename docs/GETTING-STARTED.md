@@ -42,17 +42,26 @@ Data:     SQLite file on your computer (offline, no internet)
 
 ## 2. The Right Development Process (Step by Step)
 
+> **Simplest path:** see **[QUICK-START.md](./QUICK-START.md)** for numbered install + run steps.
+
 ### Phase A — One-time setup (do once on your PC)
 
-1. Install **Node.js 20+** from https://nodejs.org
-2. Open terminal in the project folder
-3. Run:
+1. Install **Node.js 20 or 22 LTS** from https://nodejs.org
+2. Get the latest app branch:
 
 ```bash
-npm run setup
+git fetch origin
+git checkout cursor/fix-amharic-tts-2cae
 ```
 
-Wait until it finishes. This installs packages and builds the desktop backend.
+3. Install and rebuild native modules:
+
+```bash
+npm install
+npx electron-builder install-app-deps
+```
+
+Wait until both finish.
 
 ---
 
@@ -80,23 +89,38 @@ Then open in browser: **http://localhost:3000**
 
 ---
 
-#### Mode 2 — Real desktop app (full features)
+#### Mode 2 — Real desktop app (full features) — **recommended**
 
-**Use when:** testing login, wallet, games, saving data, offline behavior.
+**Use when:** testing login, wallet, games, Amharic voice, saving data.
+
+**Terminal 1:**
+
+```bash
+npm run web
+```
+
+**Terminal 2** (after Terminal 1 shows Ready):
+
+```bash
+npm run electron:only
+```
+
+A **TEBIB-Bingo** window opens (not a browser tab).
+
+| Pros | Cons |
+|------|------|
+| Real SQLite database | Two terminals (or use `.bat`) |
+| Amharic voice works | |
+| All features work | |
+| Header shows **● Desktop** | |
+
+**On Windows:** double-click **`Start TEBIB-Bingo.bat`**
+
+**Alternative (single command, can be slower):**
 
 ```bash
 npm start
 ```
-
-A **Minch Bingo** window opens (not a browser tab).
-
-| Pros | Cons |
-|------|------|
-| Real SQLite database | Slightly slower to start |
-| All features work | Two processes run (Next + Electron) |
-| Header shows **● Desktop** | |
-
-**On Windows you can also double-click:** `Start Minch Bingo.bat`
 
 ---
 
@@ -204,10 +228,13 @@ In **browser mode** (`npm run web`), data is fake and resets when you refresh.
 | Problem | Solution |
 |---------|----------|
 | "I only know web dev, this is confusing" | Use `npm run web` first — it's identical to web dev |
-| "Desktop window is blank" | Wait 10 seconds for Next.js to start, or run `npm run web` in browser to check UI |
+| "Desktop window is blank" | Use two terminals: `npm run web` then `npm run electron:only` |
+| "Next.js did not start within 60s" | Same — run `npm run web` in its own terminal first |
 | "Port 3000 already in use" | Close other apps using port 3000, or kill terminal running old `npm run web` |
-| "npm install fails on better-sqlite3" | Install [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) on Windows, then `npm run setup` again |
-| "Changes not showing in desktop" | Make sure you saved the file; restart with `npm start` |
+| "`better-sqlite3` / NODE_MODULE_VERSION" | Run `npx electron-builder install-app-deps` |
+| "npm install fails on better-sqlite3" | Install [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) on Windows, then reinstall |
+| "Amharic voice not working" | Use desktop mode; set **Language → Amharic** on Game Board |
+| "Changes not showing in desktop" | Make sure you saved the file; restart terminals |
 | "How do I know which mode I'm in?" | Look at header badge: **● Desktop** or **○ Browser Preview** |
 
 ---
@@ -245,13 +272,14 @@ Before release:
 
 ---
 
-## 9. Summary — Only 4 Commands to Remember
+## 9. Summary — commands to remember
 
 | Command | When |
 |---------|------|
-| `npm run setup` | First time on a new PC |
-| `npm run web` | Daily UI work (like normal web dev) |
-| `npm start` | Test real desktop app with database |
+| `npm install` + `npx electron-builder install-app-deps` | First time on a new PC |
+| `npm run web` | Terminal 1 — keep running |
+| `npm run electron:only` | Terminal 2 — desktop window |
+| `npm run web` only | UI work in browser (mock data) |
 | `npm test` | Quick automated check |
 
-That's the whole process.
+Full step-by-step: **[QUICK-START.md](./QUICK-START.md)**

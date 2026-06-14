@@ -1,15 +1,23 @@
-# Minch Bingo — Developer Documentation
+# TEBIB-Bingo — Developer Documentation
 
 **Give this folder to any developer who will build or extend the system.**
 
-Read the documents **in this order**. Do not jump around — each doc builds on the previous one.
+## Start here
+
+| Who you are | Read first |
+|-------------|------------|
+| **Operator / installer on Windows** | **[QUICK-START.md](./QUICK-START.md)** — install, run, play a game |
+| **Developer taking over the code** | **[HANDOVER.md](./HANDOVER.md)** — then IPC + routes below |
+
+Read developer docs **in this order**:
 
 | # | Document | Who needs it | Time |
 |---|----------|--------------|------|
-| 1 | **[HANDOVER.md](./HANDOVER.md)** | Everyone | 30 min |
+| 0 | **[QUICK-START.md](./QUICK-START.md)** | Everyone installing/running the app | 5 min |
+| 1 | **[HANDOVER.md](./HANDOVER.md)** | Developers | 30 min |
 | 2 | **[IPC-REFERENCE.md](./IPC-REFERENCE.md)** | Backend + full-stack | 15 min |
 | 3 | **[ROUTES-AND-SCREENS.md](./ROUTES-AND-SCREENS.md)** | Frontend | 10 min |
-| 4 | **[GETTING-STARTED.md](./GETTING-STARTED.md)** | First-time setup on Windows | 10 min |
+| 4 | **[GETTING-STARTED.md](./GETTING-STARTED.md)** | Web-dev workflow | 10 min |
 | 5 | **[DESKTOP.md](./DESKTOP.md)** | Run, test, package | 5 min |
 | 6 | **[architecture/](./architecture/)** | Deep design (optional) | As needed |
 
@@ -19,8 +27,8 @@ Read the documents **in this order**. Do not jump around — each doc builds on 
 
 | Question | Answer |
 |----------|--------|
-| What branch has the code? | `cursor/full-implementation-2cae` |
-| How do I run it? | `npm run setup` then `npm run web` or `npm start` |
+| What branch has the latest app? | `cursor/fix-amharic-tts-2cae` (merge into improvements branch via PR #7) |
+| How do I run it? | See **QUICK-START.md** — `npm run web` + `npm run electron:only` |
 | Where is the UI? | `src/app/` and `src/presentation/` |
 | Where is the backend? | `electron/services/` + `electron/ipc/handlers.ts` |
 | How does UI talk to DB? | `ipc('channel:name', ...args)` — never fetch API |

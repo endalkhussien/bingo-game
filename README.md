@@ -1,20 +1,25 @@
-# Minch Bingo — Desktop Bingo Management Platform
+# TEBIB-Bingo — Desktop Bingo Management Platform
 
 Offline desktop app for bingo operators. Built with **Electron + Next.js + SQLite**.
 
 ---
 
-## For developers taking over this project
+## Start here (clear process)
 
-**Start here:** **[docs/HANDOVER.md](./docs/HANDOVER.md)**
+**[docs/QUICK-START.md](./docs/QUICK-START.md)** — install, run, play a game, fix common errors.
 
-Then read in order: [docs/README.md](./docs/README.md) → IPC reference → Routes map.
+**Windows:** double-click **`Start TEBIB-Bingo.bat`**
 
 ```bash
-git checkout cursor/full-implementation-2cae
-npm run setup
-npm run web          # browser dev at http://localhost:3000
-npm start            # real desktop app
+git checkout cursor/fix-amharic-tts-2cae
+npm install
+npx electron-builder install-app-deps
+
+# Terminal 1
+npm run web
+
+# Terminal 2
+npm run electron:only
 ```
 
 | Role | Username | Password |
@@ -22,18 +27,34 @@ npm start            # real desktop app
 | Agent | `agent` | `agent123` |
 | Admin | `admin` | `admin123` |
 
+**Game:** Agent → Game Board → Language **Amharic** → select cards → Start Game → Draw (up to **150** balls).
+
 ---
 
-## Quick Start
+## For developers taking over this project
+
+**[docs/HANDOVER.md](./docs/HANDOVER.md)** — full technical guide.
 
 ```bash
-npm run setup          # ① Once — install everything
-npm run web            # ② Daily — UI work in browser (like normal web dev)
-npm start              # ③ Test — real desktop window + database
-npm test               # ④ Verify — automated tests
+git checkout cursor/fix-amharic-tts-2cae
+npm run setup
+npm run web          # browser dev at http://localhost:3000
+npm run electron:only   # real desktop app (use with npm run web)
 ```
 
-**Windows:** double-click `Start Minch Bingo.bat` instead of `npm start`.
+---
+
+## Quick commands
+
+| Command | When |
+|---------|------|
+| `npm install` + `npx electron-builder install-app-deps` | First time on a PC |
+| `npm run web` | Terminal 1 — UI server (keep running) |
+| `npm run electron:only` | Terminal 2 — desktop window |
+| `npm test` | Automated checks |
+| `npm run dist:win` | Build Windows installer |
+
+**Windows:** `Start TEBIB-Bingo.bat` or `Start Minch Bingo.bat`
 
 ---
 
@@ -41,9 +62,10 @@ npm test               # ④ Verify — automated tests
 
 | Document | Purpose |
 |----------|---------|
-| **[docs/HANDOVER.md](./docs/HANDOVER.md)** | **Main developer guide — read this first** |
-| [docs/IPC-REFERENCE.md](./docs/IPC-REFERENCE.md) | All backend API channels |
-| [docs/ROUTES-AND-SCREENS.md](./docs/ROUTES-AND-SCREENS.md) | All pages and screens |
-| [docs/GETTING-STARTED.md](./docs/GETTING-STARTED.md) | Web-dev workflow for desktop |
+| **[docs/QUICK-START.md](./docs/QUICK-START.md)** | **Step-by-step install & run (read this first)** |
+| [docs/HANDOVER.md](./docs/HANDOVER.md) | Developer handover |
+| [docs/GETTING-STARTED.md](./docs/GETTING-STARTED.md) | Web-dev workflow |
 | [docs/DESKTOP.md](./docs/DESKTOP.md) | Run, test, package |
-| [docs/architecture/](./docs/architecture/) | Original system design (ERD, ADRs) |
+| [docs/IPC-REFERENCE.md](./docs/IPC-REFERENCE.md) | Backend API channels |
+| [docs/ROUTES-AND-SCREENS.md](./docs/ROUTES-AND-SCREENS.md) | All pages |
+| [docs/architecture/](./docs/architecture/) | System design |

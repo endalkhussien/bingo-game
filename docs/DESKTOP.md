@@ -1,5 +1,7 @@
 # Desktop Guide
 
+> **Quick process:** [QUICK-START.md](./QUICK-START.md)
+
 ## How it works
 
 ```
@@ -22,9 +24,10 @@
 
 | What you want | Command |
 |---------------|---------|
-| **Develop desktop app** | `npm start` |
+| **Run desktop app (recommended)** | Terminal 1: `npm run web` · Terminal 2: `npm run electron:only` |
+| **Run desktop app (one command)** | `npm start` |
 | **Production desktop** | `npm run desktop` |
-| **Browser UI only** | `npm run dev:next` |
+| **Browser UI only** | `npm run web` |
 | **Run tests** | `npm test` |
 | **Quick smoke test** | `npm run test:smoke` |
 | **Build Windows .exe** | `npm run dist:win` |
@@ -33,7 +36,8 @@
 
 | File | Action |
 |------|--------|
-| `Start Minch Bingo.bat` | Install (if needed) + launch desktop app |
+| `Start TEBIB-Bingo.bat` | Install (if needed) + launch desktop app |
+| `Start Minch Bingo.bat` | Same as above (alias) |
 | `Run Tests.bat` | Run automated smoke tests |
 
 ## Testing
