@@ -1,9 +1,9 @@
 @echo off
-title Minch Bingo - Tests
+title TEBIB-Bingo - Tests
 cd /d "%~dp0"
 
 echo.
-echo  Running Minch Bingo smoke tests...
+echo  Running TEBIB-Bingo smoke tests...
 echo.
 
 if not exist "node_modules\" call npm install

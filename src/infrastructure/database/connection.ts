@@ -123,13 +123,15 @@ export function runMigrations(database: BetterSQLite3Database<typeof schema>) {
       key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at INTEGER NOT NULL
     );
     CREATE TABLE IF NOT EXISTS used_offline_vouchers (
-      id TEXT PRIMARY KEY, nonce TEXT NOT NULL UNIQUE, amount REAL NOT NULL,
-      agent_id TEXT NOT NULL REFERENCES agents(id), redeemed_at INTEGER NOT NULL
+      id TEXT PRIMARY KEY, nonce TEXT NOT NULL UNIQUE, code_hash TEXT NOT NULL UNIQUE,
+      amount REAL NOT NULL, agent_id TEXT NOT NULL REFERENCES agents(id), redeemed_at INTEGER NOT NULL
     );
     CREATE TABLE IF NOT EXISTS issued_offline_vouchers (
-      id TEXT PRIMARY KEY, code TEXT NOT NULL, amount REAL NOT NULL,
-      for_username TEXT, nonce TEXT NOT NULL, expires_at INTEGER NOT NULL,
-      issued_by TEXT NOT NULL REFERENCES users(id), issued_at INTEGER NOT NULL
+      id TEXT PRIMARY KEY, code TEXT NOT NULL, code_hash TEXT NOT NULL UNIQUE,
+      amount REAL NOT NULL, for_username TEXT NOT NULL, nonce TEXT NOT NULL UNIQUE,
+      expires_at INTEGER NOT NULL, status TEXT NOT NULL DEFAULT 'ISSUED',
+      issued_by TEXT NOT NULL REFERENCES users(id), issued_at INTEGER NOT NULL,
+      redeemed_at INTEGER
     );
   `);
 
@@ -139,15 +141,23 @@ export function runMigrations(database: BetterSQLite3Database<typeof schema>) {
     client.exec(`ALTER TABLE games ADD COLUMN commission_rate REAL NOT NULL DEFAULT 20`);
   }
 
+  const usedCols = client.prepare(`PRAGMA table_info(used_offline_vouchers)`).all() as { name: string }[];
+  if (usedCols.length > 0 && !usedCols.some((c) => c.name === 'code_hash')) {
+    client.exec(`ALTER TABLE used_offline_vouchers ADD COLUMN code_hash TEXT`);
+    client.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_used_offline_code_hash ON used_offline_vouchers(code_hash)`);
+  }
+
   client.exec(`
     CREATE TABLE IF NOT EXISTS used_offline_vouchers (
-      id TEXT PRIMARY KEY, nonce TEXT NOT NULL UNIQUE, amount REAL NOT NULL,
-      agent_id TEXT NOT NULL REFERENCES agents(id), redeemed_at INTEGER NOT NULL
+      id TEXT PRIMARY KEY, nonce TEXT NOT NULL UNIQUE, code_hash TEXT NOT NULL UNIQUE,
+      amount REAL NOT NULL, agent_id TEXT NOT NULL REFERENCES agents(id), redeemed_at INTEGER NOT NULL
     );
     CREATE TABLE IF NOT EXISTS issued_offline_vouchers (
-      id TEXT PRIMARY KEY, code TEXT NOT NULL, amount REAL NOT NULL,
-      for_username TEXT, nonce TEXT NOT NULL, expires_at INTEGER NOT NULL,
-      issued_by TEXT NOT NULL REFERENCES users(id), issued_at INTEGER NOT NULL
+      id TEXT PRIMARY KEY, code TEXT NOT NULL, code_hash TEXT NOT NULL UNIQUE,
+      amount REAL NOT NULL, for_username TEXT NOT NULL, nonce TEXT NOT NULL UNIQUE,
+      expires_at INTEGER NOT NULL, status TEXT NOT NULL DEFAULT 'ISSUED',
+      issued_by TEXT NOT NULL REFERENCES users(id), issued_at INTEGER NOT NULL,
+      redeemed_at INTEGER
     );
   `);
 }

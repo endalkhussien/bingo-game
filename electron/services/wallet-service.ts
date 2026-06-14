@@ -10,6 +10,7 @@ import {
   verifyOfflineVoucher,
   offlineVoucherNonceKey,
 } from '../../src/shared/voucher/offline-voucher';
+import { getOrganizationVoucherSecret } from './voucher-secret-service';
 
 export async function getBalance(agentId: string) {
   const db = getDb();
@@ -89,36 +90,56 @@ export async function redeemVoucher(agentId: string, code: string) {
     );
   }
 
-  // 2) Signed offline code (works on any agent PC — no admin connection)
-  const verification = verifyOfflineVoucher(code, agentUsername);
-  if (!verification.valid || !verification.payload) {
+  // 2) Signed offline code — unique per agent, verified with organization key
+  const orgSecret = await getOrganizationVoucherSecret();
+  const verification = verifyOfflineVoucher(code, orgSecret, agentUsername);
+  if (!verification.valid || !verification.payload || !verification.codeHash) {
     return { success: false, error: verification.error ?? 'Invalid or already used recharge code' };
   }
 
   const { amount, nonce } = verification.payload;
   const nonceKey = offlineVoucherNonceKey(nonce);
+  const codeHash = verification.codeHash;
 
-  const alreadyUsed = await db.select().from(usedOfflineVouchers)
+  const usedByNonce = await db.select().from(usedOfflineVouchers)
     .where(eq(usedOfflineVouchers.nonce, nonceKey))
     .get();
+  const usedByHash = await db.select().from(usedOfflineVouchers)
+    .where(eq(usedOfflineVouchers.codeHash, codeHash))
+    .get();
 
-  if (alreadyUsed) {
-    return { success: false, error: 'This recharge code was already used on this computer' };
+  if (usedByNonce || usedByHash) {
+    return { success: false, error: 'This recharge code was already used' };
+  }
+
+  const issued = await db.select().from(issuedOfflineVouchers)
+    .where(eq(issuedOfflineVouchers.codeHash, codeHash))
+    .get();
+  if (issued?.status === 'REVOKED') {
+    return { success: false, error: 'This recharge code was revoked by admin' };
   }
 
   const usedId = uuid();
   await db.insert(usedOfflineVouchers).values({
     id: usedId,
     nonce: nonceKey,
+    codeHash,
     amount,
     agentId,
     redeemedAt: now,
   });
 
+  if (issued) {
+    await db.update(issuedOfflineVouchers).set({
+      status: 'REDEEMED',
+      redeemedAt: now,
+    }).where(eq(issuedOfflineVouchers.id, issued.id));
+  }
+
   return creditAgentWallet(
     agentId,
     amount,
-    `Offline recharge code: ${normalized.slice(0, 24)}…`,
+    `Secure offline recharge (${agentUsername})`,
     'offline_voucher',
     usedId,
   );
@@ -127,30 +148,37 @@ export async function redeemVoucher(agentId: string, code: string) {
 export async function createOfflineRechargeCode(
   adminUserId: string,
   amount: number,
-  forUsername?: string,
+  forUsername: string,
 ) {
   const db = getDb();
   const now = Math.floor(Date.now() / 1000);
 
-  if (forUsername) {
-    const target = await db.select().from(users)
-      .where(eq(users.username, forUsername.trim().toLowerCase()))
-      .get();
-    if (!target || target.role !== 'AGENT') {
-      return { success: false, error: `Agent username "${forUsername}" not found` };
-    }
+  const username = forUsername?.trim().toLowerCase();
+  if (!username) {
+    return { success: false, error: 'Select an agent — each code is unique and bound to one agent' };
   }
 
-  const generated = generateOfflineVoucher(amount, { forUsername });
+  const target = await db.select().from(users).where(eq(users.username, username)).get();
+  if (!target || target.role !== 'AGENT') {
+    return { success: false, error: `Agent username "${forUsername}" not found` };
+  }
+
+  const orgSecret = await getOrganizationVoucherSecret();
+  const issuedCount = await db.select().from(issuedOfflineVouchers).all();
+  const serial = issuedCount.length + 1;
+
+  const generated = generateOfflineVoucher(amount, orgSecret, { forUsername: username, serial });
   const id = uuid();
 
   await db.insert(issuedOfflineVouchers).values({
     id,
     code: generated.code,
+    codeHash: generated.codeHash,
     amount: generated.amount,
-    forUsername: generated.forUsername || null,
+    forUsername: username,
     nonce: offlineVoucherNonceKey(generated.nonce),
     expiresAt: generated.expiresAt,
+    status: 'ISSUED',
     issuedBy: adminUserId,
     issuedAt: now,
   });
@@ -161,7 +189,8 @@ export async function createOfflineRechargeCode(
       code: generated.code,
       amount: generated.amount,
       expiresAt: generated.expiresAt,
-      forUsername: generated.forUsername || null,
+      forUsername: username,
+      serial: generated.serial,
     },
   };
 }
@@ -175,9 +204,21 @@ export async function listIssuedOfflineCodes(limit = 50) {
 
   return rows.map((r) => ({
     ...r,
-    expiresAt: r.expiresAt,
-    forUsername: r.forUsername ?? 'any agent',
+    forUsername: r.forUsername,
   }));
+}
+
+export async function revokeOfflineCode(codeId: string) {
+  const db = getDb();
+  const row = await db.select().from(issuedOfflineVouchers)
+    .where(eq(issuedOfflineVouchers.id, codeId))
+    .get();
+  if (!row) return { success: false, error: 'Code not found' };
+  if (row.status === 'REDEEMED') return { success: false, error: 'Code already redeemed' };
+
+  await db.update(issuedOfflineVouchers).set({ status: 'REVOKED' })
+    .where(eq(issuedOfflineVouchers.id, codeId));
+  return { success: true };
 }
 
 async function adjustWallet(agentId: string, amount: number, type: string, description: string) {

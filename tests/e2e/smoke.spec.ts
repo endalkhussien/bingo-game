@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('Minch Bingo smoke tests', () => {
+test.describe('TEBIB-Bingo smoke tests', () => {
   test('agent can login and open game board', async ({ page }) => {
     await page.goto('/login/');
     await page.fill('input[type="text"]', 'agent');

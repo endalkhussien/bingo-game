@@ -1,7 +1,7 @@
 {
   "name": "bingo-management-platform",
   "version": "1.0.0",
-  "description": "Offline Bingo Management Platform - Minch Bingo",
+  "description": "TEBIB-Bingo — offline bingo management for agents and admins",
   "main": "dist-electron/electron/main.js",
   "scripts": {
     "setup": "npm install && npm run build:electron && npm run rebuild:native",

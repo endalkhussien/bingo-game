@@ -35,7 +35,25 @@ Agent pays admin (cash / Telebirr)     Admin PC                    Agent PC #2
 
 ---
 
-## Step-by-step
+## Security (implemented)
+
+| Feature | What it does |
+|---------|----------------|
+| **Organization key** | Unique secret per operator — auto-generated on admin PC. Agents must enter it once in Settings. Codes from other businesses won't work. |
+| **Cryptographic signature** | Each `TBG-` code is HMAC-SHA256 signed — cannot be forged without your organization key |
+| **Agent binding** | Every code is tied to **one agent username** — no sharing between agents |
+| **One-time use** | Code hash + nonce stored locally — same code cannot be redeemed twice on one PC |
+| **Expiry** | Codes expire after 14 days |
+| **Revoke** | Admin can revoke unused codes from the issued list |
+
+### Setup for 5 separate agent PCs
+
+1. **Admin PC:** Recharge Codes → copy **Organization key**
+2. **Each agent PC:** Settings → paste organization key → Save
+3. When agent needs balance: admin generates code for **that agent only** → SMS the code
+4. Agent redeems on their PC
+
+---
 
 ### Admin (after agent pays you)
 

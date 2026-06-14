@@ -52,10 +52,11 @@ export const rechargeVouchers = sqliteTable('recharge_vouchers', {
   createdAt: integer('created_at').notNull(),
 });
 
-/** Tracks offline signed codes redeemed on this PC (prevents reuse locally) */
+/** Tracks offline signed codes redeemed on this PC (prevents reuse) */
 export const usedOfflineVouchers = sqliteTable('used_offline_vouchers', {
   id: text('id').primaryKey(),
   nonce: text('nonce').notNull().unique(),
+  codeHash: text('code_hash').notNull().unique(),
   amount: real('amount').notNull(),
   agentId: text('agent_id').notNull().references(() => agents.id),
   redeemedAt: integer('redeemed_at').notNull(),
@@ -65,12 +66,15 @@ export const usedOfflineVouchers = sqliteTable('used_offline_vouchers', {
 export const issuedOfflineVouchers = sqliteTable('issued_offline_vouchers', {
   id: text('id').primaryKey(),
   code: text('code').notNull(),
+  codeHash: text('code_hash').notNull().unique(),
   amount: real('amount').notNull(),
-  forUsername: text('for_username'),
-  nonce: text('nonce').notNull(),
+  forUsername: text('for_username').notNull(),
+  nonce: text('nonce').notNull().unique(),
   expiresAt: integer('expires_at').notNull(),
+  status: text('status').notNull().default('ISSUED'),
   issuedBy: text('issued_by').notNull().references(() => users.id),
   issuedAt: integer('issued_at').notNull(),
+  redeemedAt: integer('redeemed_at'),
 });
 
 export const bingoCards = sqliteTable('bingo_cards', {

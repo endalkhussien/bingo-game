@@ -9,6 +9,7 @@ import * as pricing from '../services/pricing-service';
 import * as dashboard from '../services/dashboard-service';
 import * as reports from '../services/reports-service';
 import * as settings from '../services/settings-service';
+import { getOrganizationKeyForDisplay, setOrganizationVoucherSecret } from '../services/voucher-secret-service';
 import * as backup from '../services/backup-service';
 import * as notifications from '../services/notification-service';
 import * as audit from '../services/audit-service';
@@ -101,11 +102,23 @@ export function registerIpcHandlers() {
   ipcMain.handle('wallet:balance', async (event) => requireAgent(event).then((s) => wallet.getBalance(s.agent!.id)));
   ipcMain.handle('wallet:transactions', async (event) => requireAgent(event).then((s) => wallet.getTransactions(s.agent!.id)));
   ipcMain.handle('wallet:redeem', async (event, code: string) => requireAgent(event).then((s) => wallet.redeemVoucher(s.agent!.id, code)));
-  ipcMain.handle('vouchers:generate', async (event, amount: number, forUsername?: string) =>
+  ipcMain.handle('vouchers:generate', async (event, amount: number, forUsername: string) =>
     requireAdmin(event).then((s) => wallet.createOfflineRechargeCode(s.user.id, amount, forUsername)));
   ipcMain.handle('vouchers:list-issued', async (event) => {
     await requireAdmin(event);
     return wallet.listIssuedOfflineCodes();
+  });
+  ipcMain.handle('vouchers:revoke', async (event, id: string) => {
+    await requireAdmin(event);
+    return wallet.revokeOfflineCode(id);
+  });
+  ipcMain.handle('vouchers:org-key', async (event) => {
+    await requireAdmin(event);
+    return getOrganizationKeyForDisplay();
+  });
+  ipcMain.handle('settings:set-org-recharge-key', async (event, key: string) => {
+    await requireAuth(event);
+    return setOrganizationVoucherSecret(key);
   });
   ipcMain.handle('wallet:deposit', async (event, agentId: string, amount: number, desc: string) => {
     await requireAdmin(event);

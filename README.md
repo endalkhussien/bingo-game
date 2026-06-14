@@ -62,7 +62,7 @@ npm run electron:only   # real desktop app (use with npm run web)
 | `npm test` | Automated checks |
 | `npm run dist:win` | Build Windows installer |
 
-**Windows:** `Start TEBIB-Bingo.bat` or `Start Minch Bingo.bat`
+**Windows:** `Start TEBIB-Bingo.bat` or `Start TEBIB-Bingo.bat`
 
 ---
 

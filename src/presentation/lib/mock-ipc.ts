@@ -27,7 +27,7 @@ const mockAgents = [
 type Session = { user: { id: string; fullName: string; username: string; role: string }; agent: { id: string; walletBalance: number; commissionRate: number } | null };
 
 const mockRechargeRequests: Array<Record<string, unknown>> = [];
-const mockIssuedCodes: Array<{ id: string; code: string; amount: number; forUsername: string; expiresAt: number; issuedAt: number }> = [];
+const mockIssuedCodes: Array<{ id: string; code: string; amount: number; forUsername: string; expiresAt: number; issuedAt: number; status: string }> = [];
 const mockUsedOfflineCodes = new Set<string>();
 const mockNotifications: Array<Record<string, unknown>> = [];
 const mockAuditLogs: Array<Record<string, unknown>> = [];
@@ -129,23 +129,37 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
     }
     return { success: false, error: 'Invalid voucher' };
   },
-  'vouchers:generate': async (amount: unknown, forUsername?: unknown) => {
+  'vouchers:generate': async (amount: unknown, forUsername: unknown) => {
     requireSession();
+    if (!forUsername) return { success: false, error: 'Select an agent' };
     const amt = Number(amount);
-    const nonce = Math.random().toString(36).slice(2, 8).toUpperCase();
-    const code = `TBG-${amt}-${nonce}-MOCK-ANY-MOCKSIG`;
+    const user = String(forUsername);
+    const nonce = Math.random().toString(36).slice(2, 18).toUpperCase().padEnd(16, '0');
+    const code = `TBG-${amt}-${nonce}-${(Math.floor(Date.now()/1000)+1209600).toString(36).toUpperCase()}-${user}-MOCKSIGNATUREMOCKSIGNATUREMOCKSIG`;
     const row = {
       id: `v-${mockIssuedCodes.length}`,
       code,
       amount: amt,
-      forUsername: forUsername ? String(forUsername) : 'any agent',
-      expiresAt: Math.floor(Date.now() / 1000) + 86400 * 30,
+      forUsername: user,
+      expiresAt: Math.floor(Date.now() / 1000) + 86400 * 14,
       issuedAt: Math.floor(Date.now() / 1000),
+      status: 'ISSUED',
     };
     mockIssuedCodes.unshift(row);
-    return { success: true, data: { code, amount: amt, expiresAt: row.expiresAt } };
+    return { success: true, data: { code, amount: amt, expiresAt: row.expiresAt, forUsername: user } };
   },
   'vouchers:list-issued': async () => mockIssuedCodes,
+  'vouchers:org-key': async () => 'mock-org-key-for-browser-preview-only-32chars',
+  'vouchers:revoke': async (id: unknown) => {
+    const r = mockIssuedCodes.find((x) => x.id === id);
+    if (r) r.status = 'REVOKED';
+    return { success: true };
+  },
+  'settings:set-org-recharge-key': async (key: unknown) => {
+    requireSession();
+    if (String(key).length < 32) return { success: false, error: 'Key too short' };
+    return { success: true };
+  },
   'wallet:deposit': async (_id: unknown, amount: unknown) => { mockBalance += Number(amount); return { success: true, data: { newBalance: mockBalance } }; },
   'wallet:withdraw': async () => ({ success: true }),
 

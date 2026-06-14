@@ -6,7 +6,7 @@
 
 ```
 ┌─────────────────────────────────────────┐
-│  Electron Window (Minch Bingo)          │
+│  Electron Window (TEBIB-Bingo)          │
 │                                         │
 │  ┌───────────────────────────────────┐  │
 │  │  Next.js UI (React pages)         │  │
@@ -37,7 +37,7 @@
 | File | Action |
 |------|--------|
 | `Start TEBIB-Bingo.bat` | Install (if needed) + launch desktop app |
-| `Start Minch Bingo.bat` | Same as above (alias) |
+| `Start TEBIB-Bingo.bat` | Same as above (alias) |
 | `Run Tests.bat` | Run automated smoke tests |
 
 ## Testing

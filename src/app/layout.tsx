@@ -1,11 +1,11 @@
 import type { Metadata } from 'next';
 import { AuthProvider } from '@/presentation/providers/auth-provider';
-import { APP_NAME } from '@/shared/brand';
+import { APP_NAME, APP_TAGLINE } from '@/shared/brand';
 import './globals.css';
 
 export const metadata: Metadata = {
   title: APP_NAME,
-  description: 'Bingo Management Platform',
+  description: `${APP_NAME} — ${APP_TAGLINE}`,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

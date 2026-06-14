@@ -50,8 +50,10 @@ export default function RechargePage() {
       {tab === 'voucher' ? (
         <div className="max-w-lg">
           <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
-            <p className="font-semibold">Offline recharge (separate PC from admin)</p>
-            <p className="mt-1">Pay admin by cash or Telebirr. Admin sends you a code by SMS or phone. Enter it below — works without internet.</p>
+            <p className="font-semibold">Secure offline recharge</p>
+            <p className="mt-1">1. Save the <strong>organization key</strong> from admin in Settings (once per PC).</p>
+            <p>2. Pay admin by cash or Telebirr. Admin sends you a unique <strong>TBG-</strong> code.</p>
+            <p>3. Paste the code below — each code works once, for your account only.</p>
           </div>
           <input type="text" value={code} onChange={(e) => { setCode(e.target.value); setError(''); }}
             placeholder="Paste recharge code from admin (TBG-...)" className="mb-4 w-full rounded-lg border px-4 py-3 text-sm font-mono" />

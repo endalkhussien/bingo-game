@@ -20,7 +20,7 @@ You edit code → save → browser refreshes → you see changes.
 
 ```
 You run:  npm start
-Window:   A native "Minch Bingo" window (not Chrome tab)
+Window:   A native "TEBIB-Bingo" window (not Chrome tab)
 Data:     SQLite file on your computer (offline, no internet)
 ```
 
@@ -165,7 +165,7 @@ Or build a Windows installer:
 npm run dist:win
 ```
 
-Output: `release/Minch Bingo Setup.exe`
+Output: `release/TEBIB-Bingo Setup.exe`
 
 ---
 
