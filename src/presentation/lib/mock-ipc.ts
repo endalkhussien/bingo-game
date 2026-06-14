@@ -234,14 +234,14 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
   'cards:generate': async (count: unknown) => { const r = []; for (let i = 0; i < Number(count); i++) r.push(await mockHandlers['cards:create']()); return r; },
 
   'games:create': async (config: unknown) => {
-    const c = config as { betAmount: number; selectedNumbers: number[]; voiceType?: string; language?: string; commissionRate?: number };
-    const rate = c.commissionRate ?? 20;
-    const pot = c.betAmount * (c.selectedNumbers?.length ?? 0);
+    const c = config as { betAmount: number; selectedNumbers: number[]; voiceType?: string; language?: string; drawSpeedMs?: number };
+    const playerCount = c.selectedNumbers?.length ?? 0;
+    const pot = c.betAmount * playerCount;
     const game = {
       id: `game-${mockGames.length + 1}`, gameCode: `TBG-${1000 + mockGames.length}`, status: 'RUNNING',
-      betAmount: c.betAmount, playerCount: c.selectedNumbers?.length ?? 0,
+      betAmount: c.betAmount, playerCount,
       selectedNumbers: c.selectedNumbers, drawnNumbers: [], voiceType: c.voiceType ?? 'AMHARIC_MALE',
-      language: c.language ?? 'am', commissionRate: rate, totalPot: pot, agentCommission: pot * (rate / 100), maxBalls: 75,
+      language: c.language ?? 'am', totalPot: pot, maxBalls: 75, drawSpeedMs: c.drawSpeedMs ?? 500,
     };
     mockGames.push(game);
     mockBalance -= pot;
@@ -280,16 +280,20 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
       return { success: true, valid: false, message: `Cartella #${num}: This cartella is not in the current game.`, cardNumber: num };
     }
     const { checkWinningPattern } = await import('@/domain/services/winner-verification');
+    const { calculateWinnerPrize } = await import('@/shared/prize');
     const drawn = g.drawnNumbers ?? [];
     const valid = checkWinningPattern(card.grid, drawn, g.winningPattern ?? 'FIRST_LINE');
     if (!valid) {
       return { success: true, valid: false, message: `Cartella #${num}: Not a winner yet.`, cardNumber: num };
     }
-    const prize = (g.betAmount ?? 10) * (g.selectedNumbers?.length ?? 1) * 0.8;
+    const playerCount = g.selectedNumbers?.length ?? 1;
+    const betAmount = g.betAmount ?? 10;
+    const rate = currentSession?.agent?.commissionRate ?? 20;
+    const { totalPot, prize } = calculateWinnerPrize(betAmount, playerCount, rate);
     return {
       success: true, valid: true,
-      message: `Cartella #${num} WINS!`,
-      cardNumber: num, prizeAmount: prize,
+      message: `Cartella #${num} wins ${prize.toFixed(0)} ETB!`,
+      cardNumber: num, prizeAmount: prize, playerCount, betAmount, totalPot,
       calledCountAtWin: drawn.length, winningPattern: g.winningPattern,
     };
   },

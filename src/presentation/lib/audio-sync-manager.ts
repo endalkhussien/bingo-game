@@ -19,7 +19,7 @@ export class AudioSyncManager {
   private readonly onEvent?: (event: AudioSyncEvent) => void;
 
   constructor(options: AudioSyncManagerOptions = {}) {
-    this.cooldownMs = options.cooldownMs ?? 3000;
+    this.cooldownMs = options.cooldownMs ?? 500;
     this.onEvent = options.onEvent;
   }
 
@@ -99,7 +99,7 @@ export async function runAutoCallLoop(
 
   while (options.shouldContinue() && !options.isPaused()) {
     if (syncManager.isLocked()) {
-      await delay(100);
+      await delay(50);
       continue;
     }
 

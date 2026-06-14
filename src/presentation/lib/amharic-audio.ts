@@ -31,6 +31,7 @@ function playUrl(url: string): Promise<boolean> {
         currentAudio = null;
       }
       const audio = new Audio(url);
+      audio.preload = 'auto';
       currentAudio = audio;
       audio.onended = () => {
         currentAudio = null;

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, CheckCircle, XCircle, Trophy } from 'lucide-react';
+import { X, XCircle, Trophy } from 'lucide-react';
 
 interface CheckCardModalProps {
   open: boolean;
@@ -11,6 +11,9 @@ interface CheckCardModalProps {
     message: string;
     cardNumber?: string;
     prizeAmount?: number;
+    playerCount?: number;
+    betAmount?: number;
+    totalPot?: number;
     calledCountAtWin?: number;
     winningPattern?: string;
   }>;
@@ -23,6 +26,9 @@ export function CheckCardModal({ open, onClose, onValidate }: CheckCardModalProp
     message: string;
     cardNumber?: string;
     prizeAmount?: number;
+    playerCount?: number;
+    betAmount?: number;
+    totalPot?: number;
     calledCountAtWin?: number;
     winningPattern?: string;
   } | null>(null);
@@ -81,12 +87,18 @@ export function CheckCardModal({ open, onClose, onValidate }: CheckCardModalProp
                 {result.valid ? (
                   <>
                     <p className="text-2xl font-black">Cartella #{result.cardNumber ?? cardNumber} WINS!</p>
-                    <p className="mt-1 text-sm">{result.message}</p>
                     {result.prizeAmount != null && (
-                      <p className="mt-2 text-lg font-bold">Prize: {result.prizeAmount.toFixed(2)} ETB</p>
+                      <p className="mt-2 text-2xl font-black text-green-700">
+                        {result.prizeAmount.toFixed(0)} ETB
+                      </p>
+                    )}
+                    {result.playerCount != null && result.betAmount != null && (
+                      <p className="mt-1 text-sm text-green-800">
+                        From {result.playerCount} players × {result.betAmount} ETB
+                      </p>
                     )}
                     {result.calledCountAtWin != null && (
-                      <p className="mt-1 text-xs text-green-800">Verified after {result.calledCountAtWin} balls called</p>
+                      <p className="mt-1 text-xs text-green-700">Verified after {result.calledCountAtWin} balls called</p>
                     )}
                   </>
                 ) : (
