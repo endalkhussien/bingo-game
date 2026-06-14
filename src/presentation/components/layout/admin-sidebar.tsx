@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, Users, Wallet, DollarSign, Percent,
-  Gamepad2, BarChart3, Settings, FileText, Bell, LogOut,
+  Gamepad2, BarChart3, Settings, FileText, Bell, LogOut, Ticket,
 } from 'lucide-react';
 import { cn } from '@/presentation/lib/utils';
 import { useAuth } from '@/presentation/providers/auth-provider';
@@ -15,6 +15,7 @@ import { ipc } from '@/presentation/lib/ipc';
 const navItems = [
   { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/admin/agents', label: 'Agents', icon: Users },
+  { href: '/admin/vouchers', label: 'Recharge Codes', icon: Ticket },
   { href: '/admin/recharge', label: 'Recharge Requests', icon: Wallet, badge: true },
   { href: '/admin/pricing', label: 'Pricing Plans', icon: DollarSign },
   { href: '/admin/commissions', label: 'Commissions', icon: Percent },

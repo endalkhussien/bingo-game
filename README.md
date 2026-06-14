@@ -27,7 +27,9 @@ npm run electron:only
 | Agent | `agent` | `agent123` |
 | Admin | `admin` | `admin123` |
 
-## Install on other PCs (no Node.js needed)
+**5 agents on separate PCs:** **[docs/OFFLINE-RECHARGE.md](./docs/OFFLINE-RECHARGE.md)** — signed recharge codes via SMS
+
+---
 
 **[docs/INSTALL.md](./docs/INSTALL.md)** — give users the `.exe` installer.
 

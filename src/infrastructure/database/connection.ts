@@ -122,11 +122,32 @@ export function runMigrations(database: BetterSQLite3Database<typeof schema>) {
     CREATE TABLE IF NOT EXISTS system_settings (
       key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at INTEGER NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS used_offline_vouchers (
+      id TEXT PRIMARY KEY, nonce TEXT NOT NULL UNIQUE, amount REAL NOT NULL,
+      agent_id TEXT NOT NULL REFERENCES agents(id), redeemed_at INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS issued_offline_vouchers (
+      id TEXT PRIMARY KEY, code TEXT NOT NULL, amount REAL NOT NULL,
+      for_username TEXT, nonce TEXT NOT NULL, expires_at INTEGER NOT NULL,
+      issued_by TEXT NOT NULL REFERENCES users(id), issued_at INTEGER NOT NULL
+    );
   `);
 
   // Incremental migrations for existing databases
-  const columns = client.prepare(`PRAGMA table_info(games)`).all() as { name: string }[];
-  if (!columns.some((c) => c.name === 'commission_rate')) {
+  const gameCols = client.prepare(`PRAGMA table_info(games)`).all() as { name: string }[];
+  if (!gameCols.some((c) => c.name === 'commission_rate')) {
     client.exec(`ALTER TABLE games ADD COLUMN commission_rate REAL NOT NULL DEFAULT 20`);
   }
+
+  client.exec(`
+    CREATE TABLE IF NOT EXISTS used_offline_vouchers (
+      id TEXT PRIMARY KEY, nonce TEXT NOT NULL UNIQUE, amount REAL NOT NULL,
+      agent_id TEXT NOT NULL REFERENCES agents(id), redeemed_at INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS issued_offline_vouchers (
+      id TEXT PRIMARY KEY, code TEXT NOT NULL, amount REAL NOT NULL,
+      for_username TEXT, nonce TEXT NOT NULL, expires_at INTEGER NOT NULL,
+      issued_by TEXT NOT NULL REFERENCES users(id), issued_at INTEGER NOT NULL
+    );
+  `);
 }

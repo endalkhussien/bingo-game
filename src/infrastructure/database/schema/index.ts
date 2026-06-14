@@ -52,6 +52,27 @@ export const rechargeVouchers = sqliteTable('recharge_vouchers', {
   createdAt: integer('created_at').notNull(),
 });
 
+/** Tracks offline signed codes redeemed on this PC (prevents reuse locally) */
+export const usedOfflineVouchers = sqliteTable('used_offline_vouchers', {
+  id: text('id').primaryKey(),
+  nonce: text('nonce').notNull().unique(),
+  amount: real('amount').notNull(),
+  agentId: text('agent_id').notNull().references(() => agents.id),
+  redeemedAt: integer('redeemed_at').notNull(),
+});
+
+/** Admin ledger of codes issued (admin PC only) */
+export const issuedOfflineVouchers = sqliteTable('issued_offline_vouchers', {
+  id: text('id').primaryKey(),
+  code: text('code').notNull(),
+  amount: real('amount').notNull(),
+  forUsername: text('for_username'),
+  nonce: text('nonce').notNull(),
+  expiresAt: integer('expires_at').notNull(),
+  issuedBy: text('issued_by').notNull().references(() => users.id),
+  issuedAt: integer('issued_at').notNull(),
+});
+
 export const bingoCards = sqliteTable('bingo_cards', {
   id: text('id').primaryKey(),
   cardNumber: text('card_number').notNull(),

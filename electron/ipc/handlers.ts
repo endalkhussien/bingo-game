@@ -101,6 +101,12 @@ export function registerIpcHandlers() {
   ipcMain.handle('wallet:balance', async (event) => requireAgent(event).then((s) => wallet.getBalance(s.agent!.id)));
   ipcMain.handle('wallet:transactions', async (event) => requireAgent(event).then((s) => wallet.getTransactions(s.agent!.id)));
   ipcMain.handle('wallet:redeem', async (event, code: string) => requireAgent(event).then((s) => wallet.redeemVoucher(s.agent!.id, code)));
+  ipcMain.handle('vouchers:generate', async (event, amount: number, forUsername?: string) =>
+    requireAdmin(event).then((s) => wallet.createOfflineRechargeCode(s.user.id, amount, forUsername)));
+  ipcMain.handle('vouchers:list-issued', async (event) => {
+    await requireAdmin(event);
+    return wallet.listIssuedOfflineCodes();
+  });
   ipcMain.handle('wallet:deposit', async (event, agentId: string, amount: number, desc: string) => {
     await requireAdmin(event);
     return wallet.adminDeposit(agentId, amount, desc);

@@ -1,5 +1,4 @@
 // In-memory mock store for browser development without Electron
-type Session = { user: { id: string; fullName: string; username: string; role: string }; agent: { id: string; walletBalance: number; commissionRate: number } | null };
 
 const SESSION_KEY = 'bingo_mock_session';
 
@@ -25,7 +24,11 @@ const mockGames: Array<Record<string, unknown>> = [];
 const mockAgents = [
   { id: 'agent-1', userId: 'u1', fullName: 'Demo Agent', username: 'agent', phone: '+251900000000', commissionRate: 20, walletBalance: 500, status: 'ACTIVE', userStatus: 'ACTIVE', totalGames: 0, totalProfit: 0, createdAt: Date.now() / 1000 },
 ];
+type Session = { user: { id: string; fullName: string; username: string; role: string }; agent: { id: string; walletBalance: number; commissionRate: number } | null };
+
 const mockRechargeRequests: Array<Record<string, unknown>> = [];
+const mockIssuedCodes: Array<{ id: string; code: string; amount: number; forUsername: string; expiresAt: number; issuedAt: number }> = [];
+const mockUsedOfflineCodes = new Set<string>();
 const mockNotifications: Array<Record<string, unknown>> = [];
 const mockAuditLogs: Array<Record<string, unknown>> = [];
 const mockPricingPlans = [
@@ -103,11 +106,46 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
   'wallet:balance': async () => { requireSession(); return mockBalance; },
   'wallet:transactions': async () => mockTxs,
   'wallet:redeem': async (code: unknown) => {
+    requireSession();
     const amounts: Record<string, number> = { VOUCHER100: 100, VOUCHER500: 500, VOUCHER1000: 1000, DEMO2024: 250 };
-    const c = String(code).toUpperCase();
-    if (amounts[c]) { mockBalance += amounts[c]; if (currentSession?.agent) currentSession.agent.walletBalance = mockBalance; return { success: true, data: { amount: amounts[c], newBalance: mockBalance } }; }
+    const c = String(code).trim();
+    const upper = c.toUpperCase();
+    if (amounts[upper]) {
+      mockBalance += amounts[upper];
+      if (currentSession?.agent) currentSession.agent.walletBalance = mockBalance;
+      return { success: true, data: { amount: amounts[upper], newBalance: mockBalance } };
+    }
+    if (upper.startsWith('TBG-')) {
+      const issued = mockIssuedCodes.find((x) => x.code.toUpperCase() === upper);
+      if (!issued) return { success: false, error: 'Unknown offline code (generate from admin in this session)' };
+      if (mockUsedOfflineCodes.has(upper)) return { success: false, error: 'Code already used' };
+      if (issued.forUsername !== 'any agent' && issued.forUsername !== currentSession?.user.username) {
+        return { success: false, error: 'Code is for a different agent' };
+      }
+      mockUsedOfflineCodes.add(upper);
+      mockBalance += issued.amount;
+      if (currentSession?.agent) currentSession.agent.walletBalance = mockBalance;
+      return { success: true, data: { amount: issued.amount, newBalance: mockBalance } };
+    }
     return { success: false, error: 'Invalid voucher' };
   },
+  'vouchers:generate': async (amount: unknown, forUsername?: unknown) => {
+    requireSession();
+    const amt = Number(amount);
+    const nonce = Math.random().toString(36).slice(2, 8).toUpperCase();
+    const code = `TBG-${amt}-${nonce}-MOCK-ANY-MOCKSIG`;
+    const row = {
+      id: `v-${mockIssuedCodes.length}`,
+      code,
+      amount: amt,
+      forUsername: forUsername ? String(forUsername) : 'any agent',
+      expiresAt: Math.floor(Date.now() / 1000) + 86400 * 30,
+      issuedAt: Math.floor(Date.now() / 1000),
+    };
+    mockIssuedCodes.unshift(row);
+    return { success: true, data: { code, amount: amt, expiresAt: row.expiresAt } };
+  },
+  'vouchers:list-issued': async () => mockIssuedCodes,
   'wallet:deposit': async (_id: unknown, amount: unknown) => { mockBalance += Number(amount); return { success: true, data: { newBalance: mockBalance } }; },
   'wallet:withdraw': async () => ({ success: true }),
 
