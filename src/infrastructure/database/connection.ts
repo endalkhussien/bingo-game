@@ -72,7 +72,7 @@ export function runMigrations(database: BetterSQLite3Database<typeof schema>) {
       game_name TEXT NOT NULL, bet_amount REAL NOT NULL, winning_pattern TEXT NOT NULL,
       draw_speed_ms INTEGER NOT NULL DEFAULT 2000, voice_type TEXT NOT NULL DEFAULT 'AMHARIC_MALE',
       language TEXT NOT NULL DEFAULT 'en', number_range_max INTEGER NOT NULL DEFAULT 75,
-      max_players INTEGER NOT NULL DEFAULT 150, commission_rate REAL NOT NULL DEFAULT 20,
+      max_players INTEGER NOT NULL DEFAULT 75, commission_rate REAL NOT NULL DEFAULT 20,
       status TEXT NOT NULL DEFAULT 'DRAFT',
       selected_numbers TEXT, started_at INTEGER, completed_at INTEGER,
       created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL

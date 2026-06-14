@@ -9,6 +9,7 @@ import { parseCardData } from '../../src/domain/services/card-generator';
 import { MIN_BET, CARTELLA_MAX } from '../../src/shared/constants';
 import { DRAW_BALL_COUNT } from '../../src/shared/brand';
 import { deductGameCost } from './wallet-service';
+import { ensureFullDeck } from './card-service';
 
 function generateGameCode(): string {
   return `TBG-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -76,6 +77,7 @@ export async function createGame(agentId: string, config: {
     await deductGameCost(agentId, gameCost, gameCode);
   }
 
+  await ensureFullDeck(agentId);
   const allCards = await db.select().from(bingoCards).where(eq(bingoCards.agentId, agentId)).all();
   for (const num of config.selectedNumbers) {
     const card = allCards.find((c) => c.cardNumber === String(num));

@@ -151,6 +151,7 @@ export function registerIpcHandlers() {
   ipcMain.handle('cards:list', async (event) => requireAgent(event).then((s) => cards.listCards(s.agent!.id)));
   ipcMain.handle('cards:create', async (event, grid?: number[][]) => requireAgent(event).then((s) => cards.createCard(s.agent!.id, grid)));
   ipcMain.handle('cards:update', async (event, id: string, grid: number[][]) => requireAgent(event).then((s) => cards.updateCard(id, s.agent!.id, grid)));
+  ipcMain.handle('cards:regenerate', async (event, id: string) => requireAgent(event).then((s) => cards.regenerateCardGrid(id, s.agent!.id)));
   ipcMain.handle('cards:delete', async (event, id: string) => requireAgent(event).then((s) => cards.deleteCard(id, s.agent!.id)));
   ipcMain.handle('cards:generate', async (event, count: number) => requireAgent(event).then((s) => cards.generateBulkCards(s.agent!.id, count)));
 

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { ipc } from '@/presentation/lib/ipc';
 import { BingoCardView } from '@/presentation/components/bingo/bingo-card-view';
+import { CARTELLA_MAX } from '@/shared/constants';
 
 interface CardItem {
   id: string;
@@ -23,23 +24,9 @@ export default function CardsPage() {
 
   useEffect(() => { loadCards(); }, []);
 
-  const handleCreate = async () => {
-    await ipc('cards:create');
+  const handleRegenerate = async (id: string) => {
+    await ipc('cards:regenerate', id);
     await loadCards();
-  };
-
-  const handleDelete = async (id: string) => {
-    await ipc('cards:delete', id);
-    await loadCards();
-  };
-
-  const handleUpdate = async (id: string) => {
-    // Regenerate card on update
-    const newCard = await ipc<{ grid: number[][] }>('cards:create');
-    if (newCard?.grid) {
-      await ipc('cards:update', id, newCard.grid);
-      await loadCards();
-    }
   };
 
   if (loading) {
@@ -48,20 +35,19 @@ export default function CardsPage() {
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Bingo Cards</h1>
-        <button onClick={handleCreate}
-          className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700">
-          Create New Card
-        </button>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Bingo Cards (Cartella)</h1>
+          <p className="mt-1 text-sm text-gray-500">
+            {CARTELLA_MAX} cards (#1–{CARTELLA_MAX}). Each card holds random numbers from 1–75 (B-I-N-G-O columns).
+          </p>
+        </div>
+        <p className="text-sm font-medium text-gray-700">{cards.length}/{CARTELLA_MAX} cards ready</p>
       </div>
 
       {cards.length === 0 ? (
         <div className="flex h-64 flex-col items-center justify-center rounded-xl bg-white text-gray-500 shadow-sm">
-          <p className="mb-4">No bingo cards yet</p>
-          <button onClick={handleCreate} className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-semibold text-white">
-            Create Your First Card
-          </button>
+          <p className="mb-4">Loading cartella deck…</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -70,8 +56,8 @@ export default function CardsPage() {
               key={card.id}
               cardNumber={card.cardNumber}
               grid={card.grid}
-              onUpdate={() => handleUpdate(card.id)}
-              onDelete={() => handleDelete(card.id)}
+              onUpdate={() => handleRegenerate(card.id)}
+              onDelete={undefined}
             />
           ))}
         </div>

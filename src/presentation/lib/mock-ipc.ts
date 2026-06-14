@@ -56,6 +56,25 @@ function generateCard(): number[][] {
   return grid;
 }
 
+function ensureMockDeck() {
+  for (let n = 1; n <= 75; n++) {
+    if (!mockCards.some((c) => c.cardNumber === String(n))) {
+      cardCounter++;
+      const grid = generateCard();
+      mockCards.push({
+        id: `card-${n}`,
+        cardNumber: String(n),
+        grid,
+        cardData: JSON.stringify({ grid }),
+        agentId: 'agent-1',
+        createdAt: Date.now() / 1000,
+        updatedAt: Date.now() / 1000,
+      });
+    }
+  }
+  mockCards.sort((a, b) => Number(a.cardNumber) - Number(b.cardNumber));
+}
+
 function requireSession() {
   if (!currentSession) throw new Error('Not authenticated');
   return currentSession;
@@ -183,8 +202,23 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
   'pricing:update': async () => ({ success: true }),
   'pricing:disable': async () => ({ success: true }),
 
-  'cards:list': async () => mockCards,
-  'cards:create': async () => { cardCounter++; const grid = generateCard(); const card = { id: `card-${cardCounter}`, cardNumber: String(cardCounter), grid, cardData: JSON.stringify({ grid }), agentId: 'agent-1', createdAt: Date.now() / 1000, updatedAt: Date.now() / 1000 }; mockCards.push(card); return card; },
+  'cards:list': async () => { ensureMockDeck(); return mockCards; },
+  'cards:create': async () => {
+    ensureMockDeck();
+    if (mockCards.length >= 75) return { error: 'All 75 cartella cards exist' };
+    const n = mockCards.length + 1;
+    const grid = generateCard();
+    const card = { id: `card-${n}`, cardNumber: String(n), grid, cardData: JSON.stringify({ grid }), agentId: 'agent-1', createdAt: Date.now() / 1000, updatedAt: Date.now() / 1000 };
+    mockCards.push(card);
+    return card;
+  },
+  'cards:regenerate': async (id: unknown) => {
+    const card = mockCards.find((c) => c.id === id);
+    if (!card) return { success: false };
+    card.grid = generateCard();
+    card.cardData = JSON.stringify({ grid: card.grid });
+    return { success: true, grid: card.grid };
+  },
   'cards:delete': async (id: unknown) => { const i = mockCards.findIndex(c => c.id === id); if (i >= 0) mockCards.splice(i, 1); return { success: true }; },
   'cards:update': async () => ({ success: true }),
   'cards:generate': async (count: unknown) => { const r = []; for (let i = 0; i < Number(count); i++) r.push(await mockHandlers['cards:create']()); return r; },

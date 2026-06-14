@@ -1,5 +1,7 @@
-/** Maximum cartella (card) numbers agents can select per game */
-export const CARTELLA_MAX = 150;
+import { DRAW_BALL_COUNT } from './brand';
+
+/** Cartella card numbers — 1 to 75 (same pool as called balls) */
+export const CARTELLA_MAX = DRAW_BALL_COUNT;
 export const MIN_BET = 10;
 export const CURRENCY = 'ETB';
 export const CURRENCY_LABEL = 'Birr';
