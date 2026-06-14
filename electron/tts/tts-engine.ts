@@ -6,6 +6,7 @@ import { promisify } from 'util';
 import { app } from 'electron';
 import { buildAnnouncement, buildCartellaAnnouncement } from '../../src/shared/tts/voice-map';
 import { DRAW_BALL_COUNT } from '../../src/shared/brand';
+import { getBallLetter } from '../../src/domain/services/bingo-engine';
 
 const execFileAsync = promisify(execFile);
 
@@ -15,19 +16,23 @@ export interface SpeakResult {
   error?: string;
 }
 
-/** Bundled offline Amharic MP3 clips (public/sounds/am/{n}.mp3) */
-async function playBundledAmharic(number: number): Promise<boolean> {
-  const candidates = [
-    path.join(app.getAppPath(), 'out', 'sounds', 'am', `${number}.mp3`),
-    path.join(process.resourcesPath, 'app.asar.unpacked', 'out', 'sounds', 'am', `${number}.mp3`),
-    path.join(process.cwd(), 'out', 'sounds', 'am', `${number}.mp3`),
-    path.join(process.cwd(), 'public', 'sounds', 'am', `${number}.mp3`),
-    path.join(app.getAppPath(), 'public', 'sounds', 'am', `${number}.mp3`),
+function resolveAmharicPath(...parts: string[]): string | undefined {
+  const bases = [
+    path.join(app.getAppPath(), 'out', 'sounds', 'am'),
+    path.join(process.resourcesPath, 'app.asar.unpacked', 'out', 'sounds', 'am'),
+    path.join(process.cwd(), 'out', 'sounds', 'am'),
+    path.join(process.cwd(), 'public', 'sounds', 'am'),
+    path.join(app.getAppPath(), 'public', 'sounds', 'am'),
   ];
+  for (const base of bases) {
+    const full = path.join(base, ...parts);
+    if (fs.existsSync(full)) return full;
+  }
+  return undefined;
+}
 
-  const audioPath = candidates.find((p) => fs.existsSync(p));
-  if (!audioPath) return false;
-
+/** Play one bundled MP3 file and wait until finished */
+async function playAudioFile(audioPath: string): Promise<boolean> {
   if (process.platform === 'win32') {
     const uri = audioPath.replace(/\\/g, '/');
     const ps = `
@@ -68,6 +73,28 @@ $media.Close()
     }
   }
   return false;
+}
+
+async function playBundledAmharic(number: number): Promise<boolean> {
+  const audioPath = resolveAmharicPath(`${number}.mp3`);
+  if (!audioPath) return false;
+  return playAudioFile(audioPath);
+}
+
+/** Hall-style call: letter then number, e.g. "B" + "34" or combined G-46.mp3 */
+async function playBundledAmharicBallCall(number: number): Promise<boolean> {
+  const letter = getBallLetter(number);
+  if (!letter) return playBundledAmharic(number);
+
+  const combined = resolveAmharicPath('calls', `${letter}-${number}.mp3`);
+  if (combined && await playAudioFile(combined)) return true;
+
+  const letterPath = resolveAmharicPath('letters', `${letter}.mp3`);
+  const numberPath = resolveAmharicPath(`${number}.mp3`);
+  let played = false;
+  if (letterPath) played = await playAudioFile(letterPath) || played;
+  if (numberPath) played = await playAudioFile(numberPath) || played;
+  return played;
 }
 
 /** Windows SAPI — works when Amharic speech pack is installed */
@@ -136,8 +163,11 @@ export async function speakNumber(
     ? buildAnnouncement(number, voiceType, language)
     : buildCartellaAnnouncement(number, voiceType, language);
 
-  if (payload.isAmharic && number <= DRAW_BALL_COUNT && await playBundledAmharic(number)) {
-    return { success: true, engine: 'bundled-amharic-audio' };
+  if (payload.isAmharic && number <= DRAW_BALL_COUNT) {
+    const played = mode === 'ball'
+      ? await playBundledAmharicBallCall(number)
+      : await playBundledAmharic(number);
+    if (played) return { success: true, engine: 'bundled-amharic-audio' };
   }
 
   if (await speakWindowsSapi(payload.text, payload.lang, payload.preferFemale)) {

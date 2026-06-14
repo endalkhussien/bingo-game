@@ -243,11 +243,10 @@ export default function GameBoardPage() {
             <p className="text-sm opacity-80">Balls called (1–75)</p>
           </div>
           {lastDrawn !== null && (
-            <div className="flex h-20 w-20 flex-col items-center justify-center rounded-full bg-white/20 backdrop-blur">
-              <span className="text-xs font-medium">{getBallLabel(lastDrawn).split('-')[0] || 'N'}</span>
-              <span className="text-3xl font-bold">{lastDrawn}</span>
+            <div className="flex h-24 min-w-[7rem] flex-col items-center justify-center rounded-2xl bg-white/20 px-4 backdrop-blur">
+              <span className="text-2xl font-black tracking-wide">{getBallLabel(lastDrawn).replace('-', ' ')}</span>
               {language === 'am' && (
-                <span className="mt-0.5 text-[10px] font-medium leading-tight">{toAmharicNumberWord(lastDrawn)}</span>
+                <span className="mt-1 text-xs font-medium leading-tight opacity-90">{toAmharicNumberWord(lastDrawn)}</span>
               )}
             </div>
           )}

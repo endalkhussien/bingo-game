@@ -1,4 +1,4 @@
-import { getBallLabel } from '../../domain/services/bingo-engine';
+import { getBallLabel, getBallLetter } from '../../domain/services/bingo-engine';
 
 const AMHARIC_ONES = ['', 'አንድ', 'ሁለት', 'ሶስት', 'አራት', 'አምስት', 'ስድስት', 'ሰባት', 'ስምንት', 'ዘጠኝ'];
 const AMHARIC_TENS = ['', 'አስር', 'ሀያ', 'ሰላሳ', 'አርባ', 'ሀምሳ', 'ስልሳ', 'ሰባ', 'ሰማንያ', 'ዘጠኝ'];
@@ -31,10 +31,11 @@ export function buildAnnouncement(
 ): { text: string; lang: string; isAmharic: boolean; preferFemale: boolean } {
   const isAmharic = language === 'am';
   const preferFemale = voiceType.includes('FEMALE');
+  const letter = getBallLetter(number);
 
   if (isAmharic) {
     return {
-      text: `ቁጥር ${toAmharicNumber(number)}`,
+      text: letter ? `${letter} ${toAmharicNumber(number)}` : `ቁጥር ${toAmharicNumber(number)}`,
       lang: 'am-ET',
       isAmharic: true,
       preferFemale,
@@ -42,7 +43,7 @@ export function buildAnnouncement(
   }
 
   const label = getBallLabel(number);
-  const [letter, num] = label.includes('-') ? label.split('-') : ['', String(number)];
+  const [, num] = label.includes('-') ? label.split('-') : ['', String(number)];
   return {
     text: letter ? `${letter} ${num}` : `Number ${number}`,
     lang: 'en-US',

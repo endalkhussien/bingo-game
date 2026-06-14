@@ -1,5 +1,5 @@
 import { buildAnnouncement, buildCartellaAnnouncement } from '@/shared/tts/voice-map';
-import { playAmharicBall } from './amharic-audio';
+import { playAmharicBall, playAmharicBallCall } from './amharic-audio';
 import { ipc, isElectron } from './ipc';
 import { DRAW_BALL_COUNT } from '@/shared/brand';
 
@@ -78,7 +78,11 @@ function enqueueSpeak(number: number, voiceType: string, language: string, mode:
       : buildCartellaAnnouncement(number, voiceType, language);
 
     if (payload.isAmharic && number <= DRAW_BALL_COUNT) {
-      if (await playAmharicBall(number)) return;
+      if (mode === 'ball') {
+        if (await playAmharicBallCall(number)) return;
+      } else if (await playAmharicBall(number)) {
+        return;
+      }
     }
 
     if (isElectron()) {
@@ -98,7 +102,7 @@ function enqueueSpeak(number: number, voiceType: string, language: string, mode:
 export async function testVoice(voiceType: string, language: string, sample = 42): Promise<string> {
   const p = buildAnnouncement(sample, voiceType, language);
 
-  if (p.isAmharic && await playAmharicBall(sample)) {
+  if (p.isAmharic && await playAmharicBallCall(sample)) {
     return `Spoken via bundled Amharic audio: "${p.text}"`;
   }
 

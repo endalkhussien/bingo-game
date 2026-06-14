@@ -58,9 +58,8 @@ export function CalledNumbersModal({
         {lastDrawn !== null && (
           <div className="flex items-center justify-center gap-4 border-b bg-indigo-50 px-5 py-4">
             <p className="text-sm font-medium text-indigo-900">Latest call</p>
-            <div className="flex h-16 w-16 flex-col items-center justify-center rounded-full bg-indigo-600 text-white shadow-lg ring-4 ring-indigo-200">
-              <span className="text-xs font-semibold">{getBallLabel(lastDrawn).split('-')[0]}</span>
-              <span className="text-2xl font-black leading-none">{lastDrawn}</span>
+            <div className="flex h-16 min-w-[5rem] flex-col items-center justify-center rounded-full bg-indigo-600 px-3 text-white shadow-lg ring-4 ring-indigo-200">
+              <span className="text-xl font-black leading-none">{getBallLabel(lastDrawn).replace('-', ' ')}</span>
             </div>
             {language === 'am' && (
               <p className="text-sm font-medium text-indigo-800">{toAmharicNumberWord(lastDrawn)}</p>

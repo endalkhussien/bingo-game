@@ -65,3 +65,8 @@ export function getBallLabel(number: number): string {
   if (number <= 75) return `O-${number}`;
   return String(number);
 }
+
+export function getBallLetter(number: number): string {
+  const label = getBallLabel(number);
+  return label.includes('-') ? label.split('-')[0] : '';
+}
