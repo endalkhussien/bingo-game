@@ -2,14 +2,8 @@ import { DRAW_BALL_COUNT } from '../../shared/brand';
 
 export { checkWinningPattern, verifyTicketWin, normalizeWinningPattern } from './winner-verification';
 export type { TicketVerificationInput, TicketVerificationResult } from './winner-verification';
-
-export function drawRandomNumber(alreadyDrawn: number[], max = DRAW_BALL_COUNT): number {
-  const available = Array.from({ length: max }, (_, i) => i + 1).filter(
-    (n) => !alreadyDrawn.includes(n)
-  );
-  if (available.length === 0) throw new Error('All numbers have been drawn');
-  return available[Math.floor(Math.random() * available.length)];
-}
+export { CallingEngine, drawRandomNumber } from './calling-engine';
+export type { CallRecord, CallingEngineState } from './calling-engine';
 
 export function getBallLabel(number: number): string {
   if (number <= 15) return `B-${number}`;

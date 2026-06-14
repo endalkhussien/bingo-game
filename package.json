@@ -24,6 +24,7 @@
     "test": "playwright test",
     "test:smoke": "node scripts/smoke-test.mjs",
     "generate:amharic-audio": "node scripts/generate-amharic-audio.mjs",
+    "test:calling-engine": "npx tsx scripts/test-calling-engine.mjs",
     "test:ui": "playwright test --ui",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.electron.json --noEmit"
   },

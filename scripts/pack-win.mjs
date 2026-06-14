@@ -15,20 +15,24 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, '..');
 const soundsDir = path.join(root, 'public', 'sounds', 'am');
+const ballCallDir = path.join(root, 'public', 'audio');
 
 function run(cmd, env = {}) {
   execSync(cmd, { cwd: root, stdio: 'inherit', env: { ...process.env, ...env } });
 }
 
 function ensureAmharicAudio() {
-  const count = fs.existsSync(soundsDir)
+  const ballCallCount = fs.existsSync(ballCallDir)
+    ? fs.readdirSync(ballCallDir).filter((f) => f.endsWith('.mp3')).length
+    : 0;
+  const fallbackCount = fs.existsSync(soundsDir)
     ? fs.readdirSync(soundsDir).filter((f) => f.endsWith('.mp3')).length
     : 0;
-  if (count < 150) {
-    console.log(`\n→ Amharic audio: ${count}/150 files — generating...\n`);
+  if (ballCallCount < 75 || fallbackCount < 75) {
+    console.log(`\n→ Ball-call audio: ${ballCallCount}/75 combined, ${fallbackCount}/75 fallback — generating...\n`);
     run('node scripts/generate-amharic-audio.mjs');
   } else {
-    console.log(`\n→ Amharic audio: ${count} files OK\n`);
+    console.log(`\n→ Ball-call audio: ${ballCallCount} combined + ${fallbackCount} fallback OK\n`);
   }
 }
 

@@ -1,10 +1,15 @@
-/** Ball call audio — English letter first, then number in selected language */
 import { getBallLetter } from '@/domain/services/bingo-engine';
+import { formatAmharicBallCall, getBallCallAudioUrl } from '@/shared/tts/amharic-ball-call';
+import { toAmharicNumberWord } from '@/shared/tts/voice-map';
 
 let currentAudio: HTMLAudioElement | null = null;
 
 export function amharicAudioUrl(number: number): string {
   return `/sounds/am/${number}.mp3`;
+}
+
+export function ballCallAudioUrl(number: number): string {
+  return getBallCallAudioUrl(number);
 }
 
 function englishLetterUrl(letter: string): string {
@@ -22,18 +27,43 @@ function playUrl(url: string): Promise<boolean> {
     try {
       if (currentAudio) {
         currentAudio.pause();
+        currentAudio.currentTime = 0;
         currentAudio = null;
       }
       const audio = new Audio(url);
       currentAudio = audio;
-      audio.onended = () => resolve(true);
-      audio.onerror = () => resolve(false);
+      audio.onended = () => {
+        currentAudio = null;
+        resolve(true);
+      };
+      audio.onerror = () => {
+        currentAudio = null;
+        resolve(false);
+      };
       const p = audio.play();
-      if (p) p.catch(() => resolve(false));
+      if (p) {
+        p.catch(() => {
+          currentAudio = null;
+          resolve(false);
+        });
+      }
     } catch {
+      currentAudio = null;
       resolve(false);
     }
   });
+}
+
+export function stopCurrentAudio(): void {
+  if (currentAudio) {
+    currentAudio.pause();
+    currentAudio = null;
+  }
+}
+
+/** Combined phrase clip e.g. /audio/G52.mp3 */
+export function playBallCallClip(number: number): Promise<boolean> {
+  return playUrl(ballCallAudioUrl(number));
 }
 
 /** Play legacy number-only clip (cartella selection, etc.) */
@@ -47,8 +77,12 @@ export async function playEnglishBingoLetter(letter: string): Promise<boolean> {
   return playUrl(legacyLetterUrl(letter));
 }
 
-/** English letter MP3, then Amharic number MP3 (number part only) */
+/** Prefer combined clip, then English letter + localized number. */
 export async function playBallCallAudio(number: number, language: string): Promise<boolean> {
+  if (language === 'am' && await playBallCallClip(number)) {
+    return true;
+  }
+
   const letter = getBallLetter(number);
   if (!letter) {
     return language === 'am' ? playAmharicBall(number) : false;
@@ -61,3 +95,11 @@ export async function playBallCallAudio(number: number, language: string): Promi
   }
   return letterPlayed;
 }
+
+export function getBallCallDisplayText(number: number, language: string): string {
+  if (language === 'am') return formatAmharicBallCall(number);
+  const letter = getBallLetter(number);
+  return letter ? `${letter} ${number}` : String(number);
+}
+
+export { formatAmharicBallCall };

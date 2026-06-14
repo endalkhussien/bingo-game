@@ -4,7 +4,7 @@ import { getDb } from './database-service';
 import {
   games, gameCards, drawnNumbers, winners, gameRevenue, agents, bingoCards,
 } from '../../src/infrastructure/database/schema';
-import { drawRandomNumber } from '../../src/domain/services/bingo-engine';
+import { CallingEngine } from '../../src/domain/services/calling-engine';
 import { normalizeWinningPattern } from '../../src/domain/services/winner-verification';
 import { MIN_BET, CARTELLA_MAX } from '../../src/shared/constants';
 import { DRAW_BALL_COUNT } from '../../src/shared/brand';
@@ -148,6 +148,11 @@ async function formatActiveGame(game: typeof games.$inferSelect) {
     ...game,
     selectedNumbers: game.selectedNumbers ? JSON.parse(game.selectedNumbers) : [],
     drawnNumbers: drawn.map((d) => d.number),
+    callHistory: drawn.map((d) => ({
+      number: d.number,
+      drawOrder: d.drawOrder,
+      drawnAt: d.drawnAt,
+    })),
     commissionRate,
     totalPot,
     agentCommission: totalPot * (commissionRate / 100),
@@ -177,28 +182,35 @@ export async function drawNumber(gameId: string, agentId: string) {
   }
 
   const drawn = await db.select().from(drawnNumbers).where(eq(drawnNumbers.gameId, gameId)).all();
-  const drawnNums = drawn.map((d) => d.number);
+  const engine = new CallingEngine(game.numberRangeMax);
+  engine.loadFromHistory(
+    drawn.map((d) => d.number),
+    drawn.map((d) => d.drawnAt * 1000),
+  );
 
   try {
-    const number = drawRandomNumber(drawnNums, game.numberRangeMax);
+    const record = engine.draw();
     const now = Math.floor(Date.now() / 1000);
-    const drawOrder = drawn.length + 1;
 
     await db.insert(drawnNumbers).values({
       id: uuid(),
       gameId,
-      number,
-      drawOrder,
+      number: record.number,
+      drawOrder: record.drawOrder,
       drawnAt: now,
     });
 
     return {
       success: true,
       data: {
-        number,
-        drawOrder,
-        drawCount: drawOrder,
+        number: record.number,
+        letter: record.letter,
+        label: record.label,
+        drawOrder: record.drawOrder,
+        drawCount: record.drawOrder,
+        drawnAt: now,
         maxBalls: game.numberRangeMax,
+        remainingCount: engine.remainingNumbers.length,
         voiceType: game.voiceType,
         language: game.language,
       },

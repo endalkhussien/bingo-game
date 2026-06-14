@@ -1,12 +1,12 @@
 import { getBallLetter } from '../../domain/services/bingo-engine';
+import { formatAmharicBallCall } from './amharic-ball-call';
 import { toAmharicNumberWord } from '../../shared/tts/voice-map';
 
-/** Display text e.g. "B 34" */
+/** Display text e.g. "B 34" or "ጂ ሀምሳ ሁለት" */
 export function formatBallCallLabel(number: number, language: string): string {
+  if (language === 'am') return formatAmharicBallCall(number);
   const letter = getBallLetter(number);
-  if (!letter) return String(number);
-  const numPart = language === 'am' ? toAmharicNumberWord(number) : String(number);
-  return `${letter} ${numPart}`;
+  return letter ? `${letter} ${number}` : String(number);
 }
 
 /** Part 1: always English letter. Part 2: number in selected language. */

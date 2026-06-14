@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { Eye, EyeOff, Pause, Play, Megaphone, ListOrdered } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { Eye, EyeOff, Play, Megaphone, ListOrdered } from 'lucide-react';
 import { ipc } from '@/presentation/lib/ipc';
 import { useAuth } from '@/presentation/providers/auth-provider';
 import { NumberGrid } from '@/presentation/components/bingo/number-grid';
@@ -9,15 +9,23 @@ import { CalledNumbersModal } from '@/presentation/components/bingo/called-numbe
 import { CheckCardModal } from '@/presentation/components/bingo/check-card-modal';
 import { WINNING_PATTERNS, DRAW_INTERVALS, VOICE_TYPES, MIN_BET, DEFAULT_JACKPOT_MAX_CALLS } from '@/shared/constants';
 import { DRAW_BALL_COUNT } from '@/shared/brand';
-import { speakBall, speakCartella, loadVoices } from '@/presentation/lib/tts';
+import { speakBallCall, speakCartella, loadVoices } from '@/presentation/lib/tts';
+import { AudioSyncManager, runAutoCallLoop } from '@/presentation/lib/audio-sync-manager';
+import { CallingEngine } from '@/domain/services/calling-engine';
 import { getBallLabel } from '@/domain/services/bingo-engine';
-import { toAmharicNumberWord } from '@/shared/tts/voice-map';
+import { formatBallCallLabel } from '@/shared/tts/ball-call';
 
 interface GameWinner {
   cardNumber: string;
   prizeAmount: number;
   pattern?: string;
   calledCountAtWin?: number;
+}
+
+interface CallHistoryEntry {
+  number: number;
+  drawOrder: number;
+  drawnAt: number;
 }
 
 interface ActiveGame {
@@ -27,6 +35,7 @@ interface ActiveGame {
   status: string;
   selectedNumbers: number[];
   drawnNumbers: number[];
+  callHistory?: CallHistoryEntry[];
   drawSpeedMs: number;
   commissionRate?: number;
   totalPot?: number;
@@ -40,13 +49,14 @@ interface ActiveGame {
 export default function GameBoardPage() {
   const { agent, refreshBalance } = useAuth();
   const [betAmount, setBetAmount] = useState('10');
-  const [interval, setInterval_] = useState(2000);
+  const [interval, setInterval_] = useState(3000);
   const [pattern, setPattern] = useState('FIRST_LINE');
   const [jackpotMaxCalls, setJackpotMaxCalls] = useState(String(DEFAULT_JACKPOT_MAX_CALLS));
   const [voice, setVoice] = useState('AMHARIC_MALE');
   const [language, setLanguage] = useState('am');
   const [selected, setSelected] = useState<number[]>([]);
   const [called, setCalled] = useState<number[]>([]);
+  const [callHistory, setCallHistory] = useState<CallHistoryEntry[]>([]);
   const [lastDrawn, setLastDrawn] = useState<number | null>(null);
   const [activeGame, setActiveGame] = useState<ActiveGame | null>(null);
   const [betError, setBetError] = useState('');
@@ -55,12 +65,27 @@ export default function GameBoardPage() {
   const [creating, setCreating] = useState(false);
   const [autoDraw, setAutoDraw] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
+  const [callerLocked, setCallerLocked] = useState(false);
   const [checkModalOpen, setCheckModalOpen] = useState(false);
   const [calledModalOpen, setCalledModalOpen] = useState(false);
   const [gameWinners, setGameWinners] = useState<GameWinner[]>([]);
   const [commissionPercent, setCommissionPercent] = useState('20');
   const [gameCommission, setGameCommission] = useState({ rate: 20, pot: 0, agentCut: 0 });
-  const autoDrawRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const syncManagerRef = useRef(new AudioSyncManager({
+    cooldownMs: interval,
+    onEvent: (event) => {
+      if (event === 'lock' || event === 'audio-start' || event === 'cooldown-start') {
+        setCallerLocked(true);
+      }
+      if (event === 'unlock' || event === 'cooldown-end') {
+        setCallerLocked(false);
+      }
+    },
+  }));
+  const autoDrawRef = useRef(false);
+  const isPausedRef = useRef(false);
+  const activeGameRef = useRef<ActiveGame | null>(null);
 
   const commissionRate = activeGame?.commissionRate ?? (parseFloat(commissionPercent || '0') || gameCommission.rate);
   const totalPot = activeGame?.totalPot ?? selected.length * parseFloat(betAmount || '0');
@@ -68,7 +93,19 @@ export default function GameBoardPage() {
   const maxBalls = activeGame?.maxBalls ?? DRAW_BALL_COUNT;
   const drawCount = called.length;
 
+  const callerEngine = useMemo(() => {
+    const engine = new CallingEngine(maxBalls);
+    engine.loadFromHistory(called, callHistory.map((c) => c.drawnAt * 1000));
+    return engine;
+  }, [called, callHistory, maxBalls]);
+
+  const remainingCount = callerEngine.remainingNumbers.length;
+
   useEffect(() => { loadVoices(); }, []);
+  useEffect(() => { syncManagerRef.current.setCooldownMs(interval); }, [interval]);
+  useEffect(() => { autoDrawRef.current = autoDraw; }, [autoDraw]);
+  useEffect(() => { isPausedRef.current = isPaused; }, [isPaused]);
+  useEffect(() => { activeGameRef.current = activeGame; }, [activeGame]);
 
   useEffect(() => {
     if (agent?.commissionRate != null && !activeGame) {
@@ -96,6 +133,7 @@ export default function GameBoardPage() {
       if (game) {
         setActiveGame(game);
         setCalled(game.drawnNumbers ?? []);
+        setCallHistory(game.callHistory ?? []);
         setLastDrawn(game.drawnNumbers?.length ? game.drawnNumbers[game.drawnNumbers.length - 1] : null);
         setSelected(game.selectedNumbers ?? []);
         setBetAmount(String(game.betAmount));
@@ -108,6 +146,7 @@ export default function GameBoardPage() {
         if (game.voiceType) setVoice(game.voiceType);
         if (game.language) setLanguage(game.language);
         if (game.commissionRate != null) setCommissionPercent(String(game.commissionRate));
+        if (game.drawSpeedMs) setInterval_(game.drawSpeedMs);
         setGameWinners(game.winners ?? []);
       }
     });
@@ -123,6 +162,41 @@ export default function GameBoardPage() {
       return [...prev, num];
     });
   };
+
+  const applyDrawResult = useCallback((data: {
+    number: number;
+    drawOrder: number;
+    drawnAt: number;
+  }) => {
+    setCalled((prev) => [...prev, data.number]);
+    setCallHistory((prev) => [...prev, {
+      number: data.number,
+      drawOrder: data.drawOrder,
+      drawnAt: data.drawnAt,
+    }]);
+    setLastDrawn(data.number);
+    setCalledModalOpen(true);
+  }, []);
+
+  const drawFromServer = useCallback(async () => {
+    const game = activeGameRef.current;
+    if (!game || isPausedRef.current) return null;
+
+    const result = await ipc<{
+      success: boolean;
+      data?: {
+        number: number;
+        drawOrder: number;
+        drawnAt: number;
+        voiceType: string;
+        language: string;
+      };
+      error?: string;
+    }>('games:draw', game.id);
+
+    if (!result.success || !result.data) return null;
+    return result.data;
+  }, []);
 
   const handleCreateGame = async () => {
     const bet = parseFloat(betAmount);
@@ -161,6 +235,7 @@ export default function GameBoardPage() {
     if (result.success && result.data) {
       setActiveGame({ ...result.data, selectedNumbers: selected, drawnNumbers: [], drawSpeedMs: interval, status: 'RUNNING' });
       setCalled([]);
+      setCallHistory([]);
       setLastDrawn(null);
       setIsPaused(false);
       setGameCommission({
@@ -175,36 +250,45 @@ export default function GameBoardPage() {
   };
 
   const handleDraw = useCallback(async () => {
-    if (!activeGame || isPaused) return;
-    const result = await ipc<{
-      success: boolean;
-      data?: {
-        number: number;
-        drawCount: number;
-        maxBalls: number;
-        voiceType: string;
-        language: string;
-        winners?: Array<{ cardNumber: string; prizeAmount: number }>;
-        gamePaused?: boolean;
-      };
-      error?: string;
-    }>('games:draw', activeGame.id);
+    if (!activeGame || isPaused || syncManagerRef.current.isLocked()) return;
 
-    if (result.success && result.data) {
-      const { number, voiceType, language: lang } = result.data;
-      setCalled((prev) => [...prev, number]);
-      setLastDrawn(number);
-      setCalledModalOpen(true);
-      speakBall(number, voiceType ?? voice, lang ?? language);
-    }
-  }, [activeGame, isPaused, voice, language]);
+    const data = await drawFromServer();
+    if (!data) return;
+
+    applyDrawResult(data);
+    await syncManagerRef.current.callNumber(
+      data.number,
+      (n) => speakBallCall(n, data.voiceType ?? voice, data.language ?? language),
+      interval,
+    );
+  }, [activeGame, isPaused, drawFromServer, applyDrawResult, voice, language, interval]);
 
   useEffect(() => {
-    if (autoDraw && activeGame && !isPaused) {
-      autoDrawRef.current = setInterval(handleDraw, interval);
-    }
-    return () => { if (autoDrawRef.current) clearInterval(autoDrawRef.current); };
-  }, [autoDraw, activeGame, interval, handleDraw, isPaused]);
+    if (!autoDraw || !activeGame || isPaused) return;
+
+    let cancelled = false;
+
+    (async () => {
+      await runAutoCallLoop(syncManagerRef.current, {
+        cooldownMs: interval,
+        voiceType: voice,
+        language,
+        isPaused: () => isPausedRef.current,
+        shouldContinue: () => !cancelled && autoDrawRef.current && !!activeGameRef.current,
+        drawNumber: drawFromServer,
+        onDraw: (data) => {
+          applyDrawResult({
+            number: data.number,
+            drawOrder: data.drawOrder ?? called.length + 1,
+            drawnAt: data.drawnAt ?? Math.floor(Date.now() / 1000),
+          });
+        },
+        playAudio: (n, v, l) => speakBallCall(n, v, l),
+      });
+    })();
+
+    return () => { cancelled = true; };
+  }, [autoDraw, activeGame, isPaused, interval, voice, language, drawFromServer, applyDrawResult]);
 
   const handleBingoClaim = async () => {
     if (!activeGame) return;
@@ -268,6 +352,7 @@ export default function GameBoardPage() {
       setProfit(result.data.agentRevenue);
       setActiveGame(null);
       setCalled([]);
+      setCallHistory([]);
       setLastDrawn(null);
       setGameWinners([]);
       setCheckModalOpen(false);
@@ -278,20 +363,21 @@ export default function GameBoardPage() {
 
   return (
     <div>
-      {/* Live draw counter */}
       {activeGame && (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-gradient-to-r from-indigo-600 to-blue-700 p-5 text-white shadow-lg">
           <div>
-            <p className="text-sm opacity-80">{activeGame.gameCode} · {isPaused ? 'PAUSED' : 'LIVE'}</p>
+            <p className="text-sm opacity-80">
+              {activeGame.gameCode} · {isPaused ? 'PAUSED' : callerLocked ? 'CALLING…' : 'LIVE'}
+            </p>
             <p className="text-4xl font-black tracking-tight">{drawCount}/{maxBalls}</p>
-            <p className="text-sm opacity-80">Balls called (1–75)</p>
+            <p className="text-sm opacity-80">{remainingCount} balls remaining</p>
           </div>
           {lastDrawn !== null && (
             <div className="flex h-24 min-w-[7rem] flex-col items-center justify-center rounded-2xl bg-white/20 px-4 backdrop-blur">
               <span className="text-2xl font-black tracking-wide">{getBallLabel(lastDrawn).replace('-', ' ')}</span>
-              {language === 'am' && (
-                <span className="mt-1 text-xs font-medium leading-tight opacity-90">{toAmharicNumberWord(lastDrawn)}</span>
-              )}
+              <span className="mt-1 text-center text-xs font-medium leading-tight opacity-90">
+                {formatBallCallLabel(lastDrawn, language)}
+              </span>
             </div>
           )}
           <div className="text-right text-sm">
@@ -302,7 +388,6 @@ export default function GameBoardPage() {
         </div>
       )}
 
-      {/* Config bar */}
       <div className="mb-4 flex flex-wrap items-end gap-4 rounded-xl bg-white p-4 shadow-sm">
         <div className="flex-1 min-w-[100px]">
           <label className="mb-1 block text-sm font-medium text-gray-700">Bet (ETB)</label>
@@ -312,11 +397,12 @@ export default function GameBoardPage() {
           {betError && <p className="mt-1 text-xs text-red-500">{betError}</p>}
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700">Interval</label>
+          <label className="mb-1 block text-sm font-medium text-gray-700">Sync delay</label>
           <select value={interval} onChange={(e) => setInterval_(Number(e.target.value))} disabled={!!activeGame}
             className="rounded-lg border px-3 py-2 text-sm disabled:bg-gray-100">
             {DRAW_INTERVALS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
           </select>
+          <p className="mt-1 text-xs text-gray-500">Wait after each call finishes</p>
         </div>
         <div>
           <label className="mb-1 block text-sm font-medium text-gray-700">Pattern</label>
@@ -385,11 +471,11 @@ export default function GameBoardPage() {
               className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">
               <ListOrdered className="h-4 w-4" /> Called ({drawCount}/{maxBalls})
             </button>
-            <button onClick={handleDraw} disabled={isPaused}
+            <button onClick={handleDraw} disabled={isPaused || callerLocked}
               className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">Draw</button>
-            <button onClick={() => setAutoDraw(!autoDraw)} disabled={isPaused}
+            <button onClick={() => setAutoDraw(!autoDraw)} disabled={isPaused || callerLocked}
               className={`rounded-lg px-4 py-2 text-sm font-semibold text-white ${autoDraw ? 'bg-orange-500' : 'bg-gray-500'} disabled:opacity-50`}>
-              {autoDraw ? 'Stop Auto' : 'Auto Draw'}
+              {autoDraw ? 'Stop Auto' : 'Auto Call'}
             </button>
             <button onClick={handleBingoClaim}
               className="inline-flex items-center gap-1 rounded-lg bg-yellow-500 px-4 py-2 text-sm font-bold text-white hover:bg-yellow-600">
@@ -451,6 +537,8 @@ export default function GameBoardPage() {
         lastDrawn={lastDrawn}
         maxBalls={maxBalls}
         language={language}
+        callHistory={callHistory}
+        remainingNumbers={callerEngine.remainingNumbers}
       />
 
       <CheckCardModal

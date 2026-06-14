@@ -1,22 +1,33 @@
 #!/usr/bin/env node
 /**
- * Generates offline audio for ball calls:
+ * Generates offline ball-call audio:
+ * - Combined Amharic phrases: public/audio/B1.mp3 … O75.mp3
  * - English B/I/N/G/O letters (public/sounds/en/letters/)
- * - Amharic number words (public/sounds/am/1.mp3 … 75.mp3)
+ * - Amharic number words (public/sounds/am/1.mp3 … 75.mp3) — fallback clips
  *
- * Ball call sequence: English letter, then number in selected language.
- * Run: node scripts/generate-amharic-audio.mjs
+ * Run: npm run generate:amharic-audio
  */
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const AUDIO_DIR = path.join(__dirname, '../public/audio');
 const AM_DIR = path.join(__dirname, '../public/sounds/am');
 const EN_LETTERS_DIR = path.join(__dirname, '../public/sounds/en/letters');
 
 const AMHARIC_ONES = ['', 'አንድ', 'ሁለት', 'ሶስት', 'አራት', 'አምስት', 'ስድስት', 'ሰባት', 'ስምንት', 'ዘጠኝ'];
 const AMHARIC_TENS = ['', 'አስር', 'ሀያ', 'ሰላሳ', 'አርባ', 'ሀምሳ', 'ስልሳ', 'ሰባ', 'ሰማንያ', 'ዘጠኝ'];
+const AMHARIC_LETTERS = { B: 'ቢ', I: 'አይ', N: 'ኤን', G: 'ጂ', O: 'ኦ' };
+
+function getBallLetter(n) {
+  if (n <= 15) return 'B';
+  if (n <= 30) return 'I';
+  if (n <= 45) return 'N';
+  if (n <= 60) return 'G';
+  if (n <= 75) return 'O';
+  return '';
+}
 
 function toAmharicNumber(n) {
   if (n <= 0) return String(n);
@@ -28,6 +39,12 @@ function toAmharicNumber(n) {
     return `${AMHARIC_TENS[tens]} ${AMHARIC_ONES[ones]}`;
   }
   return String(n);
+}
+
+function formatAmharicBallCall(n) {
+  const letter = getBallLetter(n);
+  const word = toAmharicNumber(n);
+  return letter ? `${AMHARIC_LETTERS[letter]} ${word}` : word;
 }
 
 async function fetchTts(text, lang = 'am') {
@@ -45,24 +62,31 @@ async function writeIfNeeded(dest, text, lang = 'am') {
   const buf = await fetchTts(text, lang);
   fs.writeFileSync(dest, buf);
   console.log('ok');
-  await new Promise((r) => setTimeout(r, 250));
+  await new Promise((r) => setTimeout(r, 300));
 }
 
 async function main() {
+  fs.mkdirSync(AUDIO_DIR, { recursive: true });
   fs.mkdirSync(AM_DIR, { recursive: true });
   fs.mkdirSync(EN_LETTERS_DIR, { recursive: true });
+
+  console.log('Combined Amharic ball calls (B1–O75)…');
+  for (let n = 1; n <= 75; n++) {
+    const key = `${getBallLetter(n)}${n}`;
+    await writeIfNeeded(path.join(AUDIO_DIR, `${key}.mp3`), formatAmharicBallCall(n), 'am');
+  }
 
   console.log('English B-I-N-G-O letters…');
   for (const letter of ['B', 'I', 'N', 'G', 'O']) {
     await writeIfNeeded(path.join(EN_LETTERS_DIR, `${letter}.mp3`), letter, 'en');
   }
 
-  console.log('Amharic number clips (1–75)…');
+  console.log('Amharic number fallback clips (1–75)…');
   for (let n = 1; n <= 75; n++) {
     await writeIfNeeded(path.join(AM_DIR, `${n}.mp3`), toAmharicNumber(n), 'am');
   }
 
-  console.log(`Done — letters in ${EN_LETTERS_DIR}, numbers in ${AM_DIR}`);
+  console.log(`Done — combined calls in ${AUDIO_DIR}`);
 }
 
 main().catch((err) => {

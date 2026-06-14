@@ -258,9 +258,9 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
     if (g) {
       drawn.push(n);
       (g as { drawnNumbers: number[] }).drawnNumbers = drawn;
-      return { success: true, data: { number: n, drawOrder: drawn.length, drawCount: drawn.length, maxBalls: 75, voiceType: (g as { voiceType?: string }).voiceType ?? 'AMHARIC_MALE', language: (g as { language?: string }).language ?? 'am', winners: [] } };
+      return { success: true, data: { number: n, drawOrder: drawn.length, drawCount: drawn.length, drawnAt: Math.floor(Date.now() / 1000), maxBalls: 75, voiceType: (g as { voiceType?: string }).voiceType ?? 'AMHARIC_MALE', language: (g as { language?: string }).language ?? 'am', winners: [] } };
     }
-    return { success: true, data: { number: n, drawOrder: 1, drawCount: 1, maxBalls: 75, voiceType: 'AMHARIC_MALE', language: 'am', winners: [] } };
+    return { success: true, data: { number: n, drawOrder: 1, drawCount: 1, drawnAt: Math.floor(Date.now() / 1000), maxBalls: 75, voiceType: 'AMHARIC_MALE', language: 'am', winners: [] } };
   },
   'games:pause': async (id: unknown) => { const g = mockGames.find(x => x.id === id); if (g) g.status = 'PAUSED'; return { success: true }; },
   'games:resume': async (id: unknown) => { const g = mockGames.find(x => x.id === id); if (g) g.status = 'RUNNING'; return { success: true }; },

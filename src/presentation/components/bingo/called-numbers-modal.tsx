@@ -8,8 +8,14 @@ import {
 } from '@/shared/constants';
 import { DRAW_BALL_COUNT } from '@/shared/brand';
 import { getBallLabel } from '@/domain/services/bingo-engine';
-import { toAmharicNumberWord } from '@/shared/tts/voice-map';
+import { formatBallCallLabel } from '@/shared/tts/ball-call';
 import { cn } from '@/presentation/lib/utils';
+
+interface CallHistoryEntry {
+  number: number;
+  drawOrder: number;
+  drawnAt: number;
+}
 
 interface CalledNumbersModalProps {
   open: boolean;
@@ -18,6 +24,16 @@ interface CalledNumbersModalProps {
   lastDrawn: number | null;
   maxBalls?: number;
   language?: string;
+  callHistory?: CallHistoryEntry[];
+  remainingNumbers?: number[];
+}
+
+function formatAuditTime(unixSeconds: number): string {
+  return new Date(unixSeconds * 1000).toLocaleTimeString('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
 }
 
 export function CalledNumbersModal({
@@ -27,19 +43,24 @@ export function CalledNumbersModal({
   lastDrawn,
   maxBalls = DRAW_BALL_COUNT,
   language = 'am',
+  callHistory = [],
+  remainingNumbers = [],
 }: CalledNumbersModalProps) {
   if (!open) return null;
 
   const calledSet = new Set(called);
   const recent = [...called].slice(-10).reverse();
+  const auditLog = [...callHistory].sort((a, b) => b.drawOrder - a.drawOrder);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4">
-      <div className="flex max-h-[95vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+      <div className="flex max-h-[95vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
         <div className="flex items-center justify-between border-b bg-gradient-to-r from-slate-800 to-slate-900 px-5 py-4 text-white">
           <div>
             <h2 className="text-xl font-bold">Called Numbers</h2>
-            <p className="text-sm text-white/70">Balls drawn this game — separate from cartella selection</p>
+            <p className="text-sm text-white/70">
+              {called.length} called · {remainingNumbers.length} remaining
+            </p>
           </div>
           <div className="flex items-center gap-4">
             <span className="rounded-full bg-white/15 px-4 py-1.5 text-sm font-bold">
@@ -61,9 +82,7 @@ export function CalledNumbersModal({
             <div className="flex h-16 min-w-[5rem] flex-col items-center justify-center rounded-full bg-indigo-600 px-3 text-white shadow-lg ring-4 ring-indigo-200">
               <span className="text-xl font-black leading-none">{getBallLabel(lastDrawn).replace('-', ' ')}</span>
             </div>
-            {language === 'am' && (
-              <p className="text-sm font-medium text-indigo-800">{toAmharicNumberWord(lastDrawn)}</p>
-            )}
+            <p className="text-sm font-medium text-indigo-800">{formatBallCallLabel(lastDrawn, language)}</p>
           </div>
         )}
 
@@ -89,40 +108,72 @@ export function CalledNumbersModal({
           </div>
         )}
 
-        <div className="overflow-y-auto p-5">
-          <div className="grid grid-cols-5 gap-2">
-            {BINGO_COLUMNS.map((col) => {
-              const [min, max] = COLUMN_RANGES[col];
-              const nums = Array.from({ length: max - min + 1 }, (_, i) => min + i);
-              return (
-                <div key={col} className="overflow-hidden rounded-xl border border-gray-200 shadow-sm">
-                  <div className={cn('py-2 text-center text-sm font-black text-white', BINGO_COLUMN_COLORS[col])}>
-                    {col}
-                    <span className="mt-0.5 block text-[10px] font-medium opacity-90">{min}–{max}</span>
+        <div className="grid flex-1 gap-0 overflow-hidden lg:grid-cols-[1fr_280px]">
+          <div className="overflow-y-auto p-5">
+            <div className="grid grid-cols-5 gap-2">
+              {BINGO_COLUMNS.map((col) => {
+                const [min, max] = COLUMN_RANGES[col];
+                const nums = Array.from({ length: max - min + 1 }, (_, i) => min + i);
+                return (
+                  <div key={col} className="overflow-hidden rounded-xl border border-gray-200 shadow-sm">
+                    <div className={cn('py-2 text-center text-sm font-black text-white', BINGO_COLUMN_COLORS[col])}>
+                      {col}
+                      <span className="mt-0.5 block text-[10px] font-medium opacity-90">{min}–{max}</span>
+                    </div>
+                    <div className="grid grid-cols-1 gap-1 bg-gray-50 p-1.5">
+                      {nums.map((num) => {
+                        const isCalled = calledSet.has(num);
+                        const isLatest = num === lastDrawn;
+                        return (
+                          <div
+                            key={num}
+                            className={cn(
+                              'flex h-9 items-center justify-center rounded-md text-sm font-bold transition-all',
+                              isCalled
+                                ? cn(BINGO_COLUMN_COLORS[col], 'text-white shadow-sm')
+                                : 'bg-white text-gray-400',
+                              isLatest && 'ring-2 ring-indigo-500 ring-offset-1 scale-105',
+                            )}
+                          >
+                            {num}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                  <div className="grid grid-cols-1 gap-1 bg-gray-50 p-1.5">
-                    {nums.map((num) => {
-                      const isCalled = calledSet.has(num);
-                      const isLatest = num === lastDrawn;
-                      return (
-                        <div
-                          key={num}
-                          className={cn(
-                            'flex h-9 items-center justify-center rounded-md text-sm font-bold transition-all',
-                            isCalled
-                              ? cn(BINGO_COLUMN_COLORS[col], 'text-white shadow-sm')
-                              : 'bg-white text-gray-400',
-                            isLatest && 'ring-2 ring-indigo-500 ring-offset-1 scale-105',
-                          )}
-                        >
-                          {num}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="flex flex-col border-t lg:border-l lg:border-t-0">
+            <div className="border-b px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Remaining ({remainingNumbers.length})</p>
+              <div className="mt-2 flex max-h-24 flex-wrap gap-1 overflow-y-auto">
+                {remainingNumbers.map((n) => (
+                  <span key={n} className="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-600">
+                    {n}
+                  </span>
+                ))}
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto px-4 py-3">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Call audit log</p>
+              {auditLog.length === 0 ? (
+                <p className="text-sm text-gray-400">No calls yet</p>
+              ) : (
+                <ul className="space-y-1.5 text-sm">
+                  {auditLog.map((entry) => (
+                    <li key={`${entry.drawOrder}-${entry.number}`} className="flex items-center justify-between rounded-lg bg-gray-50 px-2 py-1.5">
+                      <span className="font-bold text-gray-800">
+                        #{entry.drawOrder} · {getBallLabel(entry.number).replace('-', ' ')}
+                      </span>
+                      <span className="text-xs text-gray-500">{formatAuditTime(entry.drawnAt)}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </div>
         </div>
 

@@ -20,11 +20,11 @@ export const WINNING_PATTERNS = [
 export const DEFAULT_JACKPOT_MAX_CALLS = 45;
 
 export const DRAW_INTERVALS = [
-  { value: 1000, label: '1 second' },
-  { value: 2000, label: '2 seconds' },
-  { value: 3000, label: '3 seconds' },
-  { value: 5000, label: '5 seconds' },
-  { value: 10000, label: '10 seconds' },
+  { value: 2000, label: '2 sec after call' },
+  { value: 3000, label: '3 sec after call' },
+  { value: 5000, label: '5 sec after call' },
+  { value: 1000, label: '1 sec after call' },
+  { value: 10000, label: '10 sec after call' },
 ] as const;
 
 export const VOICE_TYPES = [

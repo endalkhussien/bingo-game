@@ -6,6 +6,7 @@ import { promisify } from 'util';
 import { app } from 'electron';
 import { buildCartellaAnnouncement } from '../../src/shared/tts/voice-map';
 import { getBallCallSpeechParts } from '../../src/shared/tts/ball-call';
+import { formatAmharicBallCall, getBallCallAudioKey } from '../../src/shared/tts/amharic-ball-call';
 import { DRAW_BALL_COUNT } from '../../src/shared/brand';
 import { getBallLetter } from '../../src/domain/services/bingo-engine';
 
@@ -17,7 +18,7 @@ export interface SpeakResult {
   error?: string;
 }
 
-function resolveSoundPath(folder: 'am' | 'en', ...parts: string[]): string | undefined {
+function resolveSoundPath(folder: 'am' | 'en' | 'audio', ...parts: string[]): string | undefined {
   const bases = [
     path.join(app.getAppPath(), 'out', 'sounds', folder),
     path.join(process.resourcesPath, 'app.asar.unpacked', 'out', 'sounds', folder),
@@ -25,6 +26,15 @@ function resolveSoundPath(folder: 'am' | 'en', ...parts: string[]): string | und
     path.join(process.cwd(), 'public', 'sounds', folder),
     path.join(app.getAppPath(), 'public', 'sounds', folder),
   ];
+  if (folder === 'audio') {
+    bases.unshift(
+      path.join(app.getAppPath(), 'out', 'audio'),
+      path.join(process.resourcesPath, 'app.asar.unpacked', 'out', 'audio'),
+      path.join(process.cwd(), 'out', 'audio'),
+      path.join(process.cwd(), 'public', 'audio'),
+      path.join(app.getAppPath(), 'public', 'audio'),
+    );
+  }
   for (const base of bases) {
     const full = path.join(base, ...parts);
     if (fs.existsSync(full)) return full;
@@ -34,6 +44,14 @@ function resolveSoundPath(folder: 'am' | 'en', ...parts: string[]): string | und
 
 const resolveAmharicPath = (...parts: string[]) => resolveSoundPath('am', ...parts);
 const resolveEnglishPath = (...parts: string[]) => resolveSoundPath('en', ...parts);
+const resolveBallCallPath = (key: string) => resolveSoundPath('audio', `${key}.mp3`);
+
+async function playBundledBallCall(number: number): Promise<boolean> {
+  const key = getBallCallAudioKey(number);
+  const audioPath = resolveBallCallPath(key);
+  if (!audioPath) return false;
+  return playAudioFile(audioPath);
+}
 
 async function playAudioFile(audioPath: string): Promise<boolean> {
   if (process.platform === 'win32') {
@@ -143,7 +161,7 @@ async function speakEspeak(text: string, lang: string, preferFemale: boolean): P
   return false;
 }
 
-/** English B/I/N/G/O letter, then number in the selected language */
+/** Combined Amharic phrase, then English letter + number fallbacks. */
 export async function speakBallCall(
   number: number,
   language: string,
@@ -152,6 +170,20 @@ export async function speakBallCall(
   const preferFemale = voiceType.includes('FEMALE');
   const { letter, numberText, numberLang } = getBallCallSpeechParts(number, language);
 
+  if (language === 'am' && number <= DRAW_BALL_COUNT) {
+    if (await playBundledBallCall(number)) {
+      return { success: true, engine: 'bundled-ball-call-audio' };
+    }
+    const phrase = formatAmharicBallCall(number);
+    if (await speakWindowsSapi(phrase, 'am-ET')) {
+      return { success: true, engine: 'windows-sapi' };
+    }
+    if (await speakEspeak(phrase, 'am-ET', preferFemale)) {
+      return { success: true, engine: 'espeak-ng' };
+    }
+    return { success: false, error: 'No Amharic voice for ball call.' };
+  }
+
   if (letter) {
     if (!(await playEnglishLetter(letter))) {
       if (!(await speakWindowsSapi(letter, 'en-US'))) {
@@ -159,19 +191,6 @@ export async function speakBallCall(
       }
     }
     await new Promise((r) => setTimeout(r, 150));
-  }
-
-  if (language === 'am' && number <= DRAW_BALL_COUNT) {
-    if (await playBundledAmharic(number)) {
-      return { success: true, engine: 'bundled-amharic-audio' };
-    }
-    if (await speakWindowsSapi(numberText, numberLang)) {
-      return { success: true, engine: 'windows-sapi' };
-    }
-    if (await speakEspeak(numberText, numberLang, preferFemale)) {
-      return { success: true, engine: 'espeak-ng' };
-    }
-    return { success: false, error: 'No Amharic voice for number.' };
   }
 
   if (await speakWindowsSapi(numberText, 'en-US')) {
