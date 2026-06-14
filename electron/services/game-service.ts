@@ -6,7 +6,7 @@ import {
 } from '../../src/infrastructure/database/schema';
 import { drawRandomNumber, checkWinningPattern } from '../../src/domain/services/bingo-engine';
 import { parseCardData } from '../../src/domain/services/card-generator';
-import { MIN_BET } from '../../src/shared/constants';
+import { MIN_BET, CARTELLA_MAX } from '../../src/shared/constants';
 import { DRAW_BALL_COUNT } from '../../src/shared/brand';
 import { deductGameCost } from './wallet-service';
 
@@ -28,6 +28,11 @@ export async function createGame(agentId: string, config: {
 
   if (config.betAmount < MIN_BET) {
     return { success: false, error: `Bet must be at least ${MIN_BET} ETB.` };
+  }
+
+  const invalidCard = config.selectedNumbers.find((n) => n < 1 || n > CARTELLA_MAX);
+  if (invalidCard != null) {
+    return { success: false, error: `Cartella numbers must be between 1 and ${CARTELLA_MAX}.` };
   }
 
   const agent = await db.select().from(agents).where(eq(agents.id, agentId)).get();
@@ -58,7 +63,7 @@ export async function createGame(agentId: string, config: {
     voiceType: config.voiceType,
     language: config.language ?? 'am',
     numberRangeMax: DRAW_BALL_COUNT,
-    maxPlayers: DRAW_BALL_COUNT,
+    maxPlayers: CARTELLA_MAX,
     commissionRate,
     status: 'RUNNING',
     selectedNumbers: JSON.stringify(config.selectedNumbers),

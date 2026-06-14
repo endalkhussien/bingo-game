@@ -1,7 +1,7 @@
-import { BALL_COUNT } from '../../shared/constants';
+import { DRAW_BALL_COUNT } from '../../shared/brand';
 import type { CardGrid } from './card-generator';
 
-export function drawRandomNumber(alreadyDrawn: number[], max = BALL_COUNT): number {
+export function drawRandomNumber(alreadyDrawn: number[], max = DRAW_BALL_COUNT): number {
   const available = Array.from({ length: max }, (_, i) => i + 1).filter(
     (n) => !alreadyDrawn.includes(n)
   );
@@ -58,10 +58,10 @@ export function checkWinningPattern(
 }
 
 export function getBallLabel(number: number): string {
-  if (number <= 30) return `B-${number}`;
-  if (number <= 60) return `I-${number}`;
-  if (number <= 90) return `N-${number}`;
-  if (number <= 120) return `G-${number}`;
-  if (number <= 150) return `O-${number}`;
+  if (number <= 15) return `B-${number}`;
+  if (number <= 30) return `I-${number}`;
+  if (number <= 45) return `N-${number}`;
+  if (number <= 60) return `G-${number}`;
+  if (number <= 75) return `O-${number}`;
   return String(number);
 }

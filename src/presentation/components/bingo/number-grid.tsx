@@ -1,6 +1,6 @@
 'use client';
 
-import { BALL_COUNT } from '@/shared/constants';
+import { CARTELLA_MAX } from '@/shared/constants';
 import { cn } from '@/presentation/lib/utils';
 
 interface NumberGridProps {
@@ -12,7 +12,7 @@ interface NumberGridProps {
 }
 
 export function NumberGrid({ selected, called = [], onToggle, onClear, disabled }: NumberGridProps) {
-  const numbers = Array.from({ length: BALL_COUNT }, (_, i) => i + 1);
+  const numbers = Array.from({ length: CARTELLA_MAX }, (_, i) => i + 1);
 
   return (
     <div>
@@ -41,7 +41,9 @@ export function NumberGrid({ selected, called = [], onToggle, onClear, disabled 
           })}
         </div>
       </div>
-      <p className="mt-2 text-sm text-gray-500">Selected: {selected.length} cards</p>
+      <p className="mt-2 text-sm text-gray-500">
+        Cartella 1–{CARTELLA_MAX}: blue = selected cards · green = ball called (1–75)
+      </p>
     </div>
   );
 }

@@ -92,10 +92,10 @@ Double-click **`Start TEBIB-Bingo.bat`** in the project folder. It opens Termina
    - **Pattern** — winning pattern (e.g. 1 line)
    - **Voice** — Amharic Male / Amharic Female / English
    - **Language** — **Amharic** or **English** (this controls announcements)
-4. Click numbers on the grid to select player cards
+4. Click numbers on the grid to select **cartella** cards (1–150)
 5. Click **Start Game**
 6. Click **Draw** or **Auto Draw**
-7. Counter shows **e.g. 15/150** (up to **150** balls)
+7. Counter shows **e.g. 15/75** — balls are called from **1–75** (B:1–15, I:16–30, N:31–45, G:46–60, O:61–75)
 8. With **Language = Amharic**, each draw plays **built-in Amharic audio** (no extra install)
 9. When someone claims bingo → **BINGO!** → enter card number in **Check Card**
 10. **End Game** when finished
@@ -143,7 +143,7 @@ Double-click **`Start TEBIB-Bingo.bat`** in the project folder. It opens Termina
 | Blank desktop window | Wait 30s; confirm Terminal 1 is still running |
 | `better-sqlite3` / NODE_MODULE_VERSION error | Run `npx electron-builder install-app-deps` |
 | Amharic voice silent | Set **Language → Amharic** (not only Voice). Use desktop mode (**● Desktop**) |
-| English works but Amharic doesn’t | `git pull` latest branch — needs `public/sounds/am/` (files 1–150) |
+| English works but Amharic doesn’t | `git pull` latest branch — needs `public/sounds/am/` (files 1–75 for ball calls) |
 | Port 3000 in use | Close old terminals; or app auto-tries 3001 |
 | Stuck git merge | `git merge --abort` then `git fetch && git checkout cursor/fix-amharic-tts-2cae && git reset --hard origin/cursor/fix-amharic-tts-2cae` |
 | Browser shows fake data | Use `npm run electron:only` — not browser-only mode |

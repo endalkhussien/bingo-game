@@ -41,12 +41,12 @@ const mockPricingPlans = [
 ];
 const mockSettings: Record<string, string> = {
   default_commission: '20', platform_fee: '0', minimum_bet: '10', maximum_bet: '1000',
-  currency: 'ETB', timezone: 'Africa/Addis_Ababa', default_voice: 'AMHARIC_MALE', default_language: 'en', number_range_max: '150',
+  currency: 'ETB', timezone: 'Africa/Addis_Ababa', default_voice: 'AMHARIC_MALE', default_language: 'en', number_range_max: '75',
 };
 const mockTxs: Array<Record<string, unknown>> = [];
 
 function generateCard(): number[][] {
-  const cols = [[1, 30], [31, 60], [61, 90], [91, 120], [121, 150]] as const;
+  const cols = [[1, 15], [16, 30], [31, 45], [46, 60], [61, 75]] as const;
   const grid: number[][] = Array.from({ length: 5 }, () => Array(5).fill(0));
   cols.forEach(([min, max], ci) => {
     const nums = Array.from({ length: max - min + 1 }, (_, i) => min + i).sort(() => Math.random() - 0.5).slice(0, ci === 2 ? 4 : 5).sort((a, b) => a - b);
@@ -197,7 +197,7 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
       id: `game-${mockGames.length + 1}`, gameCode: `TBG-${1000 + mockGames.length}`, status: 'RUNNING',
       betAmount: c.betAmount, playerCount: c.selectedNumbers?.length ?? 0,
       selectedNumbers: c.selectedNumbers, drawnNumbers: [], voiceType: c.voiceType ?? 'AMHARIC_MALE',
-      language: c.language ?? 'am', commissionRate: rate, totalPot: pot, agentCommission: pot * (rate / 100), maxBalls: 150,
+      language: c.language ?? 'am', commissionRate: rate, totalPot: pot, agentCommission: pot * (rate / 100), maxBalls: 75,
     };
     mockGames.push(game);
     mockBalance -= pot;
@@ -207,14 +207,16 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
   'games:active': async () => mockGames.find(g => g.status === 'RUNNING' || g.status === 'PAUSED') ?? null,
   'games:draw': async (_id: unknown) => {
     const g = mockGames.find(x => x.status === 'RUNNING');
-    const n = Math.floor(Math.random() * 150) + 1;
+    const drawn = g ? ((g as { drawnNumbers?: number[] }).drawnNumbers ?? []) : [];
+    const available = Array.from({ length: 75 }, (_, i) => i + 1).filter((n) => !drawn.includes(n));
+    if (available.length === 0) return { success: false, error: 'All numbers drawn' };
+    const n = available[Math.floor(Math.random() * available.length)];
     if (g) {
-      const drawn = ((g as { drawnNumbers?: number[] }).drawnNumbers ?? []);
       drawn.push(n);
       (g as { drawnNumbers: number[] }).drawnNumbers = drawn;
-      return { success: true, data: { number: n, drawOrder: drawn.length, drawCount: drawn.length, maxBalls: 150, voiceType: (g as { voiceType?: string }).voiceType ?? 'AMHARIC_MALE', language: (g as { language?: string }).language ?? 'am', winners: [] } };
+      return { success: true, data: { number: n, drawOrder: drawn.length, drawCount: drawn.length, maxBalls: 75, voiceType: (g as { voiceType?: string }).voiceType ?? 'AMHARIC_MALE', language: (g as { language?: string }).language ?? 'am', winners: [] } };
     }
-    return { success: true, data: { number: n, drawOrder: 1, drawCount: 1, maxBalls: 150, voiceType: 'AMHARIC_MALE', language: 'am', winners: [] } };
+    return { success: true, data: { number: n, drawOrder: 1, drawCount: 1, maxBalls: 75, voiceType: 'AMHARIC_MALE', language: 'am', winners: [] } };
   },
   'games:pause': async (id: unknown) => { const g = mockGames.find(x => x.id === id); if (g) g.status = 'PAUSED'; return { success: true }; },
   'games:resume': async (id: unknown) => { const g = mockGames.find(x => x.id === id); if (g) g.status = 'RUNNING'; return { success: true }; },

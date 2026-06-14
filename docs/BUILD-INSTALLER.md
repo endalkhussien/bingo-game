@@ -25,7 +25,7 @@ npm run pack:win
 
 This script:
 
-1. Ensures Amharic audio files exist (`public/sounds/am/1.mp3` … `150.mp3`)
+1. Ensures Amharic audio files exist (`public/sounds/am/1.mp3` … `75.mp3` for ball calls)
 2. Rebuilds native modules for Electron
 3. Builds production Next.js export + Electron backend
 4. Creates NSIS installer in `release/`
@@ -42,7 +42,7 @@ Copy that single file to other PCs. They do **not** need Node or Git.
 |------|----------|
 | Desktop app (Electron + UI) | Yes |
 | SQLite database engine | Yes |
-| Amharic voice (150 numbers) | Yes |
+| Amharic voice (balls 1–75) | Yes |
 | English voice (Windows Speech) | Uses OS if available |
 | Node.js / npm on target PC | **Not required** |
 | Internet on target PC | **Not required** |
