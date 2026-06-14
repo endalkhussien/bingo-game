@@ -6,6 +6,7 @@ import { LayoutDashboard, Gamepad2, CreditCard, BarChart3, Wallet, RefreshCw, Se
 import { cn } from '@/presentation/lib/utils';
 import { useAuth } from '@/presentation/providers/auth-provider';
 import { useEffect, useState } from 'react';
+import { APP_NAME, APP_TAGLINE } from '@/shared/brand';
 import { ipc } from '@/presentation/lib/ipc';
 
 const navItems = [
@@ -31,10 +32,10 @@ export function AgentSidebar() {
   return (
     <aside className="flex w-56 flex-col bg-sidebar text-white">
       <div className="flex items-center gap-2 border-b border-white/10 px-4 py-5">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-500 text-lg font-bold">B</div>
+        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500 text-lg font-bold">T</div>
         <div>
-          <div className="text-sm font-bold leading-tight">Minch Bingo</div>
-          <div className="text-[10px] text-gray-400">play for win</div>
+          <div className="text-sm font-bold leading-tight">{APP_NAME}</div>
+          <div className="text-[10px] text-gray-400">{APP_TAGLINE}</div>
         </div>
       </div>
       <nav className="flex-1 space-y-1 px-3 py-4">

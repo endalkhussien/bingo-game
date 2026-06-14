@@ -39,7 +39,7 @@ async function createWindow() {
     height: 900,
     minWidth: 1024,
     minHeight: 700,
-    title: 'Minch Bingo',
+    title: 'TEBIB-Bingo',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -54,7 +54,7 @@ async function createWindow() {
     { label: 'File', submenu: [{ role: 'reload' }, { type: 'separator' }, { role: 'quit' }] },
     { label: 'Edit', submenu: [{ role: 'undo' }, { role: 'redo' }, { type: 'separator' }, { role: 'cut' }, { role: 'copy' }, { role: 'paste' }] },
     { label: 'View', submenu: [{ role: 'toggleDevTools' }, { type: 'separator' }, { role: 'resetZoom' }, { role: 'zoomIn' }, { role: 'zoomOut' }] },
-    { label: 'Help', submenu: [{ label: 'Minch Bingo v1.0' }] },
+    { label: 'Help', submenu: [{ label: 'TEBIB-Bingo v1.0' }] },
   ]));
 
   try {
