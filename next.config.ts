@@ -6,8 +6,8 @@ const nextConfig: NextConfig = {
   trailingSlash: true,
   images: { unoptimized: true },
   transpilePackages: ['lucide-react'],
-  // Relative asset paths — required when UI is served from Electron
-  assetPrefix: process.env.NODE_ENV === 'production' ? './' : undefined,
+  // Absolute /_next paths — required for nested routes (e.g. /login/) over http://127.0.0.1
+  assetPrefix: undefined,
   // Pin tracing to this app — avoids picking up parent lockfiles (e.g. ~/pnpm-lock.yaml)
   outputFileTracingRoot: path.join(__dirname),
 };

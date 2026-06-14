@@ -30,7 +30,7 @@ async function loadUi(win: BrowserWindow) {
   const outDir = path.join(app.getAppPath(), 'out');
   const { url, close } = await startStaticServer(outDir);
   closeStaticServer = close;
-  await win.loadURL(url);
+  await win.loadURL(`${url}login/`);
 }
 
 async function createWindow() {

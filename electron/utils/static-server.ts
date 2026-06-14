@@ -19,7 +19,14 @@ const MIME: Record<string, string> = {
 };
 
 function resolveFile(root: string, urlPath: string): string | null {
-  const normalized = urlPath.startsWith('/') ? urlPath.slice(1) : urlPath;
+  let normalized = urlPath.startsWith('/') ? urlPath.slice(1) : urlPath;
+
+  // Fix broken relative ./_next requests from nested routes (e.g. /login/_next/...)
+  const nestedNext = normalized.indexOf('_next/');
+  if (nestedNext > 0) {
+    normalized = normalized.slice(nestedNext);
+  }
+
   let filePath = path.join(root, normalized);
 
   if (!filePath.startsWith(root)) return null;
