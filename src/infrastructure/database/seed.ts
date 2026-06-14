@@ -3,6 +3,8 @@ import { v4 as uuid } from 'uuid';
 import { eq } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import * as schema from './schema';
+import { generateBingoCard, serializeCardData } from '../../domain/services/card-generator';
+import { CARTELLA_MAX } from '../../shared/constants';
 
 export async function seedDatabase(db: BetterSQLite3Database<typeof schema>) {
   const now = Math.floor(Date.now() / 1000);
@@ -47,6 +49,17 @@ export async function seedDatabase(db: BetterSQLite3Database<typeof schema>) {
     createdAt: now,
     updatedAt: now,
   });
+
+  for (let n = 1; n <= CARTELLA_MAX; n++) {
+    await db.insert(schema.bingoCards).values({
+      id: uuid(),
+      cardNumber: String(n),
+      agentId,
+      cardData: serializeCardData(generateBingoCard()),
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
 
   const vouchers = [
     { code: 'VOUCHER100', amount: 100 },

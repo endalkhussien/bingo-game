@@ -29,6 +29,7 @@ TEBIB-Bingo is **not a competitor** to Bingo 10:20 — it is the **operator cons
 |---------|-------------|-------------|------------------|------------|
 | Ball range (called) | **1–75** (standard B-I-N-G-O columns) | Varies (often 75–90) | Platform-defined | Platform-defined |
 | Cartella (card numbers) | **1–150** | Platform-defined | Platform-defined | Platform-defined |
+| Numbers on each card | **Random 1–75** (5×5, B-I-N-G-O columns) | Platform-defined | Platform-defined | Platform-defined |
 | Live caller voice | **Amharic + English** | Amharic, English, Tigrigna | Amharic UI | Amharic UI |
 | Auto-draw timer | Yes (1–10 sec) | Yes | Yes | Yes |
 | Winning patterns | Line, 2 lines, corners, X, full house | Multiple modes | Multiple | Multiple |
@@ -69,7 +70,7 @@ TEBIB-Bingo is **not a competitor** to Bingo 10:20 — it is the **operator cons
 1. **Works with no internet** — important when connectivity is poor
 2. **Agent controls commission** each game — flexible earnings
 3. **Offline Amharic voice** — no speech pack or espeak setup
-4. **75-ball calling + 150 cartella** — matches common Ethiopian hall rules
+4. **150 cartella cards** — each 5×5 with random numbers from 1–75
 5. **Admin + multi-agent** — one admin PC manages many agents
 6. **Local data** — games and money stay on the operator’s machine
 

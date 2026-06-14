@@ -48,3 +48,24 @@ export function parseCardData(json: string): CardGrid {
 export function serializeCardData(grid: CardGrid): string {
   return JSON.stringify({ grid, freeCell: { row: 2, col: 2 } });
 }
+
+const BINGO_COL_KEYS = ['B', 'I', 'N', 'G', 'O'] as const;
+
+/** Verify each column only contains numbers from its 1–75 B-I-N-G-O range */
+export function isValidBingoGrid(grid: CardGrid): boolean {
+  if (!grid || grid.length !== 5 || grid.some((row) => row.length !== 5)) return false;
+
+  for (let colIdx = 0; colIdx < 5; colIdx++) {
+    const col = BINGO_COL_KEYS[colIdx];
+    const [min, max] = COLUMN_RANGES[col];
+    for (let row = 0; row < 5; row++) {
+      if (col === 'N' && row === 2) {
+        if (grid[row][colIdx] !== -1) return false;
+        continue;
+      }
+      const value = grid[row][colIdx];
+      if (typeof value !== 'number' || value < min || value > max) return false;
+    }
+  }
+  return true;
+}

@@ -56,6 +56,25 @@ function generateCard(): number[][] {
   return grid;
 }
 
+function ensureMockDeck() {
+  for (let n = 1; n <= 150; n++) {
+    if (!mockCards.some((c) => c.cardNumber === String(n))) {
+      cardCounter++;
+      const grid = generateCard();
+      mockCards.push({
+        id: `card-${n}`,
+        cardNumber: String(n),
+        grid,
+        cardData: JSON.stringify({ grid }),
+        agentId: 'agent-1',
+        createdAt: Date.now() / 1000,
+        updatedAt: Date.now() / 1000,
+      });
+    }
+  }
+  mockCards.sort((a, b) => Number(a.cardNumber) - Number(b.cardNumber));
+}
+
 function requireSession() {
   if (!currentSession) throw new Error('Not authenticated');
   return currentSession;
@@ -183,8 +202,33 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
   'pricing:update': async () => ({ success: true }),
   'pricing:disable': async () => ({ success: true }),
 
-  'cards:list': async () => mockCards,
-  'cards:create': async () => { cardCounter++; const grid = generateCard(); const card = { id: `card-${cardCounter}`, cardNumber: String(cardCounter), grid, cardData: JSON.stringify({ grid }), agentId: 'agent-1', createdAt: Date.now() / 1000, updatedAt: Date.now() / 1000 }; mockCards.push(card); return card; },
+  'cards:list': async () => { ensureMockDeck(); return mockCards; },
+  'cards:create': async () => {
+    ensureMockDeck();
+    if (mockCards.length >= 150) return { error: 'All 150 cartella cards exist' };
+    const n = mockCards.length + 1;
+    const grid = generateCard();
+    const card = { id: `card-${n}`, cardNumber: String(n), grid, cardData: JSON.stringify({ grid }), agentId: 'agent-1', createdAt: Date.now() / 1000, updatedAt: Date.now() / 1000 };
+    mockCards.push(card);
+    return card;
+  },
+  'cards:rebuild-deck': async (regenerateAll: unknown) => {
+    ensureMockDeck();
+    if (regenerateAll) {
+      for (const card of mockCards) {
+        card.grid = generateCard();
+        card.cardData = JSON.stringify({ grid: card.grid });
+      }
+    }
+    return { success: true, updated: mockCards.length };
+  },
+  'cards:regenerate': async (id: unknown) => {
+    const card = mockCards.find((c) => c.id === id);
+    if (!card) return { success: false };
+    card.grid = generateCard();
+    card.cardData = JSON.stringify({ grid: card.grid });
+    return { success: true, grid: card.grid };
+  },
   'cards:delete': async (id: unknown) => { const i = mockCards.findIndex(c => c.id === id); if (i >= 0) mockCards.splice(i, 1); return { success: true }; },
   'cards:update': async () => ({ success: true }),
   'cards:generate': async (count: unknown) => { const r = []; for (let i = 0; i < Number(count); i++) r.push(await mockHandlers['cards:create']()); return r; },
@@ -214,16 +258,40 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
     if (g) {
       drawn.push(n);
       (g as { drawnNumbers: number[] }).drawnNumbers = drawn;
-      return { success: true, data: { number: n, drawOrder: drawn.length, drawCount: drawn.length, maxBalls: 75, voiceType: (g as { voiceType?: string }).voiceType ?? 'AMHARIC_MALE', language: (g as { language?: string }).language ?? 'am', winners: [] } };
+      return { success: true, data: { number: n, drawOrder: drawn.length, drawCount: drawn.length, drawnAt: Math.floor(Date.now() / 1000), maxBalls: 75, voiceType: (g as { voiceType?: string }).voiceType ?? 'AMHARIC_MALE', language: (g as { language?: string }).language ?? 'am', winners: [] } };
     }
-    return { success: true, data: { number: n, drawOrder: 1, drawCount: 1, maxBalls: 75, voiceType: 'AMHARIC_MALE', language: 'am', winners: [] } };
+    return { success: true, data: { number: n, drawOrder: 1, drawCount: 1, drawnAt: Math.floor(Date.now() / 1000), maxBalls: 75, voiceType: 'AMHARIC_MALE', language: 'am', winners: [] } };
   },
   'games:pause': async (id: unknown) => { const g = mockGames.find(x => x.id === id); if (g) g.status = 'PAUSED'; return { success: true }; },
   'games:resume': async (id: unknown) => { const g = mockGames.find(x => x.id === id); if (g) g.status = 'RUNNING'; return { success: true }; },
   'games:validate-winner': async (_id: unknown, cardNumber: unknown) => {
-    const card = mockCards.find(c => c.cardNumber === String(cardNumber));
-    if (!card) return { success: true, valid: false, message: `Card #${cardNumber} not found.` };
-    return { success: true, valid: true, message: `Card #${cardNumber} is a winner!`, prizeAmount: 80 };
+    const num = String(cardNumber);
+    const card = mockCards.find(c => c.cardNumber === num);
+    const g = mockGames.find(x => x.status === 'RUNNING' || x.status === 'PAUSED') as {
+      selectedNumbers?: number[];
+      drawnNumbers?: number[];
+      betAmount?: number;
+      winningPattern?: string;
+    } | undefined;
+    if (!card) {
+      return { success: true, valid: false, message: `Cartella #${num}: This cartella does not exist.`, cardNumber: num };
+    }
+    if (!g?.selectedNumbers?.includes(Number(num))) {
+      return { success: true, valid: false, message: `Cartella #${num}: This cartella is not in the current game.`, cardNumber: num };
+    }
+    const { checkWinningPattern } = await import('@/domain/services/winner-verification');
+    const drawn = g.drawnNumbers ?? [];
+    const valid = checkWinningPattern(card.grid, drawn, g.winningPattern ?? 'FIRST_LINE');
+    if (!valid) {
+      return { success: true, valid: false, message: `Cartella #${num}: Not a winner yet.`, cardNumber: num };
+    }
+    const prize = (g.betAmount ?? 10) * (g.selectedNumbers?.length ?? 1) * 0.8;
+    return {
+      success: true, valid: true,
+      message: `Cartella #${num} WINS!`,
+      cardNumber: num, prizeAmount: prize,
+      calledCountAtWin: drawn.length, winningPattern: g.winningPattern,
+    };
   },
   'games:end': async () => ({ success: true, data: { totalBets: 100, agentRevenue: 80, totalPayouts: 0, commissionRevenue: 20, commissionRate: 20 } }),
   'games:list': async () => mockGames.map((g, i) => ({ id: g.id, gameCode: g.gameCode, date: Date.now() / 1000 - i * 86400, betAmount: g.betAmount || 10, playersNumber: (g as { playerCount?: number }).playerCount || 0, commissionPercent: 20, profit: 80, status: g.status || 'COMPLETED', agentName: 'Demo Agent' })),
@@ -249,7 +317,12 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
 
   'audit:list': async () => mockAuditLogs,
 
-  'tts:speak': async (_n: unknown, _v: unknown, _l: unknown) => ({ success: true, engine: 'browser-mock' }),
-  'tts:test': async (_v: unknown, _l: unknown, _s: unknown) => ({ success: true, engine: 'browser-mock', text: 'ቁጥር አርባ ሁለት' }),
+  'tts:speak': async (_n: unknown, _v: unknown, _l: unknown, _m: unknown) => ({ success: true, engine: 'browser-mock' }),
+  'tts:speak-ball-call': async (number: unknown, language: unknown, voiceType: unknown) => {
+    const { speakBall } = await import('@/presentation/lib/tts');
+    speakBall(Number(number), String(voiceType ?? 'AMHARIC_MALE'), String(language ?? 'am'));
+    return { success: true, engine: 'browser-tts' };
+  },
+  'tts:test': async (_v: unknown, _l: unknown, _s: unknown) => ({ success: true, engine: 'browser-mock', text: 'N ሰላሳ አራት' }),
   'tts:list-voices': async () => ['Microsoft Amharic [am-ET] (mock)'],
 };

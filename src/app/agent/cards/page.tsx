@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { ipc } from '@/presentation/lib/ipc';
 import { BingoCardView } from '@/presentation/components/bingo/bingo-card-view';
+import { CARTELLA_MAX } from '@/shared/constants';
 
 interface CardItem {
   id: string;
@@ -13,6 +14,7 @@ interface CardItem {
 export default function CardsPage() {
   const [cards, setCards] = useState<CardItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [rebuilding, setRebuilding] = useState(false);
 
   const loadCards = async () => {
     setLoading(true);
@@ -23,23 +25,16 @@ export default function CardsPage() {
 
   useEffect(() => { loadCards(); }, []);
 
-  const handleCreate = async () => {
-    await ipc('cards:create');
+  const handleRegenerate = async (id: string) => {
+    await ipc('cards:regenerate', id);
     await loadCards();
   };
 
-  const handleDelete = async (id: string) => {
-    await ipc('cards:delete', id);
+  const handleRebuildAll = async () => {
+    setRebuilding(true);
+    await ipc('cards:rebuild-deck', true);
     await loadCards();
-  };
-
-  const handleUpdate = async (id: string) => {
-    // Regenerate card on update
-    const newCard = await ipc<{ grid: number[][] }>('cards:create');
-    if (newCard?.grid) {
-      await ipc('cards:update', id, newCard.grid);
-      await loadCards();
-    }
+    setRebuilding(false);
   };
 
   if (loading) {
@@ -48,34 +43,35 @@ export default function CardsPage() {
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Bingo Cards</h1>
-        <button onClick={handleCreate}
-          className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700">
-          Create New Card
-        </button>
-      </div>
-
-      {cards.length === 0 ? (
-        <div className="flex h-64 flex-col items-center justify-center rounded-xl bg-white text-gray-500 shadow-sm">
-          <p className="mb-4">No bingo cards yet</p>
-          <button onClick={handleCreate} className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-semibold text-white">
-            Create Your First Card
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Bingo Cards (Cartella)</h1>
+          <p className="mt-1 text-sm text-gray-500">
+            {CARTELLA_MAX} cards (#1–{CARTELLA_MAX}), each 5×5 with random numbers from 1–75 (B-I-N-G-O columns).
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <p className="text-sm font-medium text-gray-700">{cards.length}/{CARTELLA_MAX} cards</p>
+          <button
+            onClick={handleRebuildAll}
+            disabled={rebuilding}
+            className="rounded-lg bg-yellow-500 px-4 py-2 text-sm font-semibold text-white hover:bg-yellow-600 disabled:opacity-50"
+          >
+            {rebuilding ? 'Rebuilding…' : 'Rebuild all 150'}
           </button>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {cards.map((card) => (
-            <BingoCardView
-              key={card.id}
-              cardNumber={card.cardNumber}
-              grid={card.grid}
-              onUpdate={() => handleUpdate(card.id)}
-              onDelete={() => handleDelete(card.id)}
-            />
-          ))}
-        </div>
-      )}
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {cards.map((card) => (
+          <BingoCardView
+            key={card.id}
+            cardNumber={card.cardNumber}
+            grid={card.grid}
+            onUpdate={() => handleRegenerate(card.id)}
+          />
+        ))}
+      </div>
     </div>
   );
 }

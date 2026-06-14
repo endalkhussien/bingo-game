@@ -93,6 +93,7 @@ export const games = sqliteTable('games', {
   gameName: text('game_name').notNull(),
   betAmount: real('bet_amount').notNull(),
   winningPattern: text('winning_pattern').notNull(),
+  jackpotMaximumCalls: integer('jackpot_maximum_calls').default(45),
   drawSpeedMs: integer('draw_speed_ms').notNull().default(2000),
   voiceType: text('voice_type').notNull().default('AMHARIC_MALE'),
   language: text('language').notNull().default('en'),
@@ -112,16 +113,21 @@ export const gameCards = sqliteTable('game_cards', {
   gameId: text('game_id').notNull().references(() => games.id),
   cardId: text('card_id').notNull().references(() => bingoCards.id),
   playerName: text('player_name'),
+  status: text('status').notNull().default('ACTIVE'),
   joinedAt: integer('joined_at').notNull(),
 });
 
+/** GameCalledNumbers — every ball called during a game session (no duplicates per game) */
 export const drawnNumbers = sqliteTable('drawn_numbers', {
   id: text('id').primaryKey(),
   gameId: text('game_id').notNull().references(() => games.id),
   number: integer('number').notNull(),
   drawOrder: integer('draw_order').notNull(),
   drawnAt: integer('drawn_at').notNull(),
-}, (t) => [index('idx_drawn_game').on(t.gameId, t.number)]);
+}, (t) => [
+  index('idx_drawn_game').on(t.gameId, t.number),
+  index('idx_called_game_order').on(t.gameId, t.drawOrder),
+]);
 
 export const winners = sqliteTable('winners', {
   id: text('id').primaryKey(),
@@ -130,6 +136,11 @@ export const winners = sqliteTable('winners', {
   winningPattern: text('winning_pattern').notNull(),
   prizeAmount: real('prize_amount').notNull(),
   wonAt: integer('won_at').notNull(),
+  winningCallNumber: integer('winning_call_number'),
+  calledCountAtWin: integer('called_count_at_win'),
+  verifiedAt: integer('verified_at'),
+  verificationResult: text('verification_result'),
+  tieGroupId: text('tie_group_id'),
 });
 
 export const gameRevenue = sqliteTable('game_revenue', {

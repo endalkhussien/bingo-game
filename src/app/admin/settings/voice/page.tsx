@@ -73,7 +73,8 @@ export default function VoiceSettingsPage() {
         <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
           <p className="mb-2 flex items-center gap-2 font-semibold"><Info className="h-4 w-4" /> Amharic voice</p>
           <p className="mb-2">
-            Amharic ball calls use <strong>built-in offline audio</strong> (numbers 1–75). No Windows speech pack or espeak-ng install is required.
+            Ball calls: <strong>English letter</strong> (B, I, N, G, O) first, then the <strong>number in your selected language</strong>.
+            Uses bundled MP3 when available; otherwise Windows speech or espeak-ng.
           </p>
           <p className="text-xs text-emerald-800">
             English uses Windows Speech or browser voices. Optional Windows Amharic pack / espeak-ng are only used if bundled audio is unavailable.

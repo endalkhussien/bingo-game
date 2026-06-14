@@ -1,23 +1,30 @@
-/** Maximum cartella (card) numbers agents can select per game */
-export const CARTELLA_MAX = 150;
+import { CARTELLA_COUNT } from './brand';
+
+/** Cartella card numbers — 1 to 150 (each card grid uses numbers 1–75) */
+export const CARTELLA_MAX = CARTELLA_COUNT;
 export const MIN_BET = 10;
 export const CURRENCY = 'ETB';
 export const CURRENCY_LABEL = 'Birr';
 
 export const WINNING_PATTERNS = [
-  { value: 'SINGLE_LINE', label: '1 line' },
-  { value: 'DOUBLE_LINE', label: '2 lines' },
+  { value: 'FIRST_LINE', label: 'First line (1 row)' },
+  { value: 'TWO_LINES', label: 'Two lines (2 rows)' },
+  { value: 'FULL_HOUSE', label: 'Full house' },
+  { value: 'EARLY_JACKPOT', label: 'Early jackpot (full house before N calls)' },
+  { value: 'SINGLE_LINE', label: '1 line (legacy)' },
+  { value: 'DOUBLE_LINE', label: '2 lines (legacy)' },
   { value: 'FOUR_CORNERS', label: '4 corners' },
   { value: 'X_PATTERN', label: 'X pattern' },
-  { value: 'FULL_HOUSE', label: 'Full house' },
 ] as const;
 
+export const DEFAULT_JACKPOT_MAX_CALLS = 45;
+
 export const DRAW_INTERVALS = [
-  { value: 1000, label: '1 second' },
-  { value: 2000, label: '2 seconds' },
-  { value: 3000, label: '3 seconds' },
-  { value: 5000, label: '5 seconds' },
-  { value: 10000, label: '10 seconds' },
+  { value: 2000, label: '2 sec after call' },
+  { value: 3000, label: '3 sec after call' },
+  { value: 5000, label: '5 sec after call' },
+  { value: 1000, label: '1 sec after call' },
+  { value: 10000, label: '10 sec after call' },
 ] as const;
 
 export const VOICE_TYPES = [

@@ -1,12 +1,10 @@
-import { buildAnnouncement, buildCartellaAnnouncement } from '@/shared/tts/voice-map';
-import { playAmharicBall } from './amharic-audio';
+import { formatAmharicBallCall } from '@/shared/tts/amharic-ball-call';
+import { getBallCallSpeechParts } from '@/shared/tts/ball-call';
+import { buildCartellaAnnouncement } from '@/shared/tts/voice-map';
+import { playAmharicBall, playBallCallAudio } from './amharic-audio';
 import { ipc, isElectron } from './ipc';
-import { DRAW_BALL_COUNT } from '@/shared/brand';
 
-let voicesReady = false;
 let queue: Promise<void> = Promise.resolve();
-
-type SpeakMode = 'ball' | 'cartella';
 
 function waitForBrowserVoices(): Promise<SpeechSynthesisVoice[]> {
   if (typeof window === 'undefined' || !window.speechSynthesis) return Promise.resolve([]);
@@ -14,12 +12,10 @@ function waitForBrowserVoices(): Promise<SpeechSynthesisVoice[]> {
   return new Promise((resolve) => {
     const existing = window.speechSynthesis.getVoices();
     if (existing.length > 0) {
-      voicesReady = true;
       resolve(existing);
       return;
     }
     const onVoices = () => {
-      voicesReady = true;
       window.speechSynthesis.removeEventListener('voiceschanged', onVoices);
       resolve(window.speechSynthesis.getVoices());
     };
@@ -44,74 +40,79 @@ function pickVoice(voices: SpeechSynthesisVoice[], lang: string, preferFemale: b
   return langVoices.find((v) => /male|man/i.test(v.name)) ?? langVoices[0];
 }
 
-async function speakBrowser(text: string, lang: string, preferFemale: boolean): Promise<boolean> {
-  if (typeof window === 'undefined' || !window.speechSynthesis) return false;
+function delay(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+async function speakBrowser(text: string, lang: string, preferFemale: boolean): Promise<void> {
+  if (typeof window === 'undefined' || !window.speechSynthesis) return;
 
   const voices = await waitForBrowserVoices();
-  return new Promise((resolve) => {
-    window.speechSynthesis.cancel();
+  await new Promise<void>((resolve) => {
     const u = new SpeechSynthesisUtterance(text);
     u.lang = lang;
     u.rate = preferFemale ? 1.0 : 0.95;
     const voice = pickVoice(voices, lang, preferFemale);
     if (voice) u.voice = voice;
-    u.onend = () => resolve(!!voice || true);
-    u.onerror = () => resolve(false);
+    u.onend = () => resolve();
+    u.onerror = () => resolve();
     window.speechSynthesis.speak(u);
   });
 }
 
-/** Speak drawn bingo number — Amharic uses bundled audio; English uses Windows SAPI / Web Speech */
+/** Play ball call audio and resolve when playback finishes. */
+export async function speakBallCall(number: number, voiceType: string, language: string): Promise<void> {
+  const preferFemale = voiceType.includes('FEMALE');
+  const { letter, numberText, numberLang } = getBallCallSpeechParts(number, language);
+
+  if (isElectron()) {
+    const result = await ipc<{ success: boolean }>('tts:speak-ball-call', number, language, voiceType);
+    if (result?.success) return;
+  }
+
+  if (language === 'am') {
+    if (await playBallCallAudio(number, language)) return;
+    await speakBrowser(formatAmharicBallCall(number), 'am-ET', preferFemale);
+    return;
+  }
+
+  if (letter) {
+    const letterFromMp3 = await playBallCallAudio(number, language);
+    if (letterFromMp3) return;
+    await speakBrowser(`${letter} ${numberText}`, 'en-US', preferFemale);
+    return;
+  }
+
+  await speakBrowser(numberText, 'en-US', preferFemale);
+}
+
 export function speakBall(number: number, voiceType: string, language: string): void {
-  enqueueSpeak(number, voiceType, language, 'ball');
+  queue = queue.then(() => speakBallCall(number, voiceType, language));
 }
 
-/** Speak cartella number when agent selects a player card on the game board */
 export function speakCartella(number: number, voiceType: string, language: string): void {
-  enqueueSpeak(number, voiceType, language, 'cartella');
-}
-
-function enqueueSpeak(number: number, voiceType: string, language: string, mode: SpeakMode): void {
   queue = queue.then(async () => {
-    const payload = mode === 'ball'
-      ? buildAnnouncement(number, voiceType, language)
-      : buildCartellaAnnouncement(number, voiceType, language);
+    const payload = buildCartellaAnnouncement(number, voiceType, language);
 
-    if (payload.isAmharic && number <= DRAW_BALL_COUNT) {
-      if (await playAmharicBall(number)) return;
+    if (payload.isAmharic && await playAmharicBall(number)) {
+      return;
     }
 
     if (isElectron()) {
-      const result = await ipc<{ success: boolean; engine?: string }>(
-        'tts:speak', number, voiceType, language, mode,
-      );
+      const result = await ipc<{ success: boolean }>('tts:speak', number, voiceType, language, 'cartella');
       if (result?.success) return;
     }
 
-    const ok = await speakBrowser(payload.text, payload.lang, payload.preferFemale);
-    if (!ok && payload.isAmharic) {
-      await speakBrowser(payload.text, 'en-US', payload.preferFemale);
-    }
+    await speakBrowser(payload.text, payload.lang, payload.preferFemale);
   });
 }
 
 export async function testVoice(voiceType: string, language: string, sample = 42): Promise<string> {
-  const p = buildAnnouncement(sample, voiceType, language);
-
-  if (p.isAmharic && await playAmharicBall(sample)) {
-    return `Spoken via bundled Amharic audio: "${p.text}"`;
-  }
-
-  if (isElectron()) {
-    const result = await ipc<{ success: boolean; engine?: string; error?: string; text?: string }>(
-      'tts:test', voiceType, language, sample,
-    );
-    if (result?.success) return `Spoken via ${result.engine}: "${result.text ?? p.text}"`;
-    return result?.error ?? 'TTS failed';
-  }
-
-  speakBall(sample, voiceType, language);
-  return `Browser TTS: "${p.text}"`;
+  const label = language === 'am'
+    ? formatAmharicBallCall(sample)
+    : `${getBallCallSpeechParts(sample, language).letter} ${sample}`;
+  await speakBallCall(sample, voiceType, language);
+  return `Ball call: "${label}"`;
 }
 
 export function loadVoices(): void {

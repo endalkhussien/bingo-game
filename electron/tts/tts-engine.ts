@@ -4,8 +4,11 @@ import os from 'os';
 import path from 'path';
 import { promisify } from 'util';
 import { app } from 'electron';
-import { buildAnnouncement, buildCartellaAnnouncement } from '../../src/shared/tts/voice-map';
+import { buildCartellaAnnouncement } from '../../src/shared/tts/voice-map';
+import { getBallCallSpeechParts } from '../../src/shared/tts/ball-call';
+import { formatAmharicBallCall, getBallCallAudioKey } from '../../src/shared/tts/amharic-ball-call';
 import { DRAW_BALL_COUNT } from '../../src/shared/brand';
+import { getBallLetter } from '../../src/domain/services/bingo-engine';
 
 const execFileAsync = promisify(execFile);
 
@@ -15,19 +18,42 @@ export interface SpeakResult {
   error?: string;
 }
 
-/** Bundled offline Amharic MP3 clips (public/sounds/am/{n}.mp3) */
-async function playBundledAmharic(number: number): Promise<boolean> {
-  const candidates = [
-    path.join(app.getAppPath(), 'out', 'sounds', 'am', `${number}.mp3`),
-    path.join(process.resourcesPath, 'app.asar.unpacked', 'out', 'sounds', 'am', `${number}.mp3`),
-    path.join(process.cwd(), 'out', 'sounds', 'am', `${number}.mp3`),
-    path.join(process.cwd(), 'public', 'sounds', 'am', `${number}.mp3`),
-    path.join(app.getAppPath(), 'public', 'sounds', 'am', `${number}.mp3`),
+function resolveSoundPath(folder: 'am' | 'en' | 'audio', ...parts: string[]): string | undefined {
+  const bases = [
+    path.join(app.getAppPath(), 'out', 'sounds', folder),
+    path.join(process.resourcesPath, 'app.asar.unpacked', 'out', 'sounds', folder),
+    path.join(process.cwd(), 'out', 'sounds', folder),
+    path.join(process.cwd(), 'public', 'sounds', folder),
+    path.join(app.getAppPath(), 'public', 'sounds', folder),
   ];
+  if (folder === 'audio') {
+    bases.unshift(
+      path.join(app.getAppPath(), 'out', 'audio'),
+      path.join(process.resourcesPath, 'app.asar.unpacked', 'out', 'audio'),
+      path.join(process.cwd(), 'out', 'audio'),
+      path.join(process.cwd(), 'public', 'audio'),
+      path.join(app.getAppPath(), 'public', 'audio'),
+    );
+  }
+  for (const base of bases) {
+    const full = path.join(base, ...parts);
+    if (fs.existsSync(full)) return full;
+  }
+  return undefined;
+}
 
-  const audioPath = candidates.find((p) => fs.existsSync(p));
+const resolveAmharicPath = (...parts: string[]) => resolveSoundPath('am', ...parts);
+const resolveEnglishPath = (...parts: string[]) => resolveSoundPath('en', ...parts);
+const resolveBallCallPath = (key: string) => resolveSoundPath('audio', `${key}.mp3`);
+
+async function playBundledBallCall(number: number): Promise<boolean> {
+  const key = getBallCallAudioKey(number);
+  const audioPath = resolveBallCallPath(key);
   if (!audioPath) return false;
+  return playAudioFile(audioPath);
+}
 
+async function playAudioFile(audioPath: string): Promise<boolean> {
   if (process.platform === 'win32') {
     const uri = audioPath.replace(/\\/g, '/');
     const ps = `
@@ -70,8 +96,20 @@ $media.Close()
   return false;
 }
 
-/** Windows SAPI — works when Amharic speech pack is installed */
-async function speakWindowsSapi(text: string, lang: string, preferFemale: boolean): Promise<boolean> {
+async function playBundledAmharic(number: number): Promise<boolean> {
+  const audioPath = resolveAmharicPath(`${number}.mp3`);
+  if (!audioPath) return false;
+  return playAudioFile(audioPath);
+}
+
+async function playEnglishLetter(letter: string): Promise<boolean> {
+  const english = resolveEnglishPath('letters', `${letter}.mp3`);
+  if (english && await playAudioFile(english)) return true;
+  const fallback = resolveAmharicPath('letters', `${letter}.mp3`);
+  return fallback ? playAudioFile(fallback) : false;
+}
+
+async function speakWindowsSapi(text: string, lang: string): Promise<boolean> {
   if (process.platform !== 'win32') return false;
 
   const tmpFile = path.join(os.tmpdir(), `tebib-tts-${Date.now()}.txt`);
@@ -106,13 +144,10 @@ Remove-Item -LiteralPath '${safePath}' -Force
   }
 }
 
-/** espeak-ng — free, supports Amharic (am). Install: https://github.com/espeak-ng/espeak-ng/releases */
 async function speakEspeak(text: string, lang: string, preferFemale: boolean): Promise<boolean> {
   const voiceLang = lang.startsWith('am') ? 'am' : 'en';
   const variant = preferFemale ? '+f3' : '+m3';
-  const commands = ['espeak-ng', 'espeak'];
-
-  for (const cmd of commands) {
+  for (const cmd of ['espeak-ng', 'espeak']) {
     try {
       await execFileAsync(cmd, ['-v', `${voiceLang}${variant}`, '-s', '150', text], {
         timeout: 10000,
@@ -120,44 +155,83 @@ async function speakEspeak(text: string, lang: string, preferFemale: boolean): P
       });
       return true;
     } catch {
-      // try next command
+      // try next
     }
   }
   return false;
+}
+
+/** Combined Amharic phrase, then English letter + number fallbacks. */
+export async function speakBallCall(
+  number: number,
+  language: string,
+  voiceType: string,
+): Promise<SpeakResult> {
+  const preferFemale = voiceType.includes('FEMALE');
+  const { letter, numberText, numberLang } = getBallCallSpeechParts(number, language);
+
+  if (language === 'am' && number <= DRAW_BALL_COUNT) {
+    if (await playBundledBallCall(number)) {
+      return { success: true, engine: 'bundled-ball-call-audio' };
+    }
+    const phrase = formatAmharicBallCall(number);
+    if (await speakWindowsSapi(phrase, 'am-ET')) {
+      return { success: true, engine: 'windows-sapi' };
+    }
+    if (await speakEspeak(phrase, 'am-ET', preferFemale)) {
+      return { success: true, engine: 'espeak-ng' };
+    }
+    return { success: false, error: 'No Amharic voice for ball call.' };
+  }
+
+  if (letter) {
+    if (!(await playEnglishLetter(letter))) {
+      if (!(await speakWindowsSapi(letter, 'en-US'))) {
+        await speakEspeak(letter, 'en', preferFemale);
+      }
+    }
+    await new Promise((r) => setTimeout(r, 150));
+  }
+
+  if (await speakWindowsSapi(numberText, 'en-US')) {
+    return { success: true, engine: 'windows-sapi' };
+  }
+  if (await speakEspeak(numberText, 'en', preferFemale)) {
+    return { success: true, engine: 'espeak-ng' };
+  }
+
+  return { success: false, error: 'No TTS engine available.' };
 }
 
 export async function speakNumber(
   number: number,
   voiceType: string,
   language: string,
-  mode: 'ball' | 'cartella' = 'ball',
+  mode: 'ball' | 'cartella' = 'cartella',
 ): Promise<SpeakResult> {
-  const payload = mode === 'ball'
-    ? buildAnnouncement(number, voiceType, language)
-    : buildCartellaAnnouncement(number, voiceType, language);
+  if (mode === 'ball') {
+    return speakBallCall(number, language, voiceType);
+  }
+
+  const payload = buildCartellaAnnouncement(number, voiceType, language);
 
   if (payload.isAmharic && number <= DRAW_BALL_COUNT && await playBundledAmharic(number)) {
     return { success: true, engine: 'bundled-amharic-audio' };
   }
 
-  if (await speakWindowsSapi(payload.text, payload.lang, payload.preferFemale)) {
+  if (await speakWindowsSapi(payload.text, payload.lang)) {
     return { success: true, engine: 'windows-sapi' };
   }
 
-  if (payload.isAmharic && await speakEspeak(payload.text, payload.lang, payload.preferFemale)) {
+  if (payload.isAmharic && await speakEspeak(payload.text, payload.lang, voiceType.includes('FEMALE'))) {
     return { success: true, engine: 'espeak-ng' };
   }
 
-  if (!payload.isAmharic && await speakEspeak(payload.text, 'en', payload.preferFemale)) {
+  if (!payload.isAmharic && await speakEspeak(payload.text, 'en', voiceType.includes('FEMALE'))) {
     return { success: true, engine: 'espeak-ng' };
   }
 
-  return {
-    success: false,
-    error: payload.isAmharic
-      ? 'No Amharic voice found. Install Windows Amharic speech pack or espeak-ng.'
-      : 'No TTS engine available.',
-  };
+  return { success: false, error: 'TTS failed' };
 }
 
 export async function listInstalledVoices(): Promise<string[]> {
