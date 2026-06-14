@@ -23,15 +23,20 @@ export default function CommissionsPage() {
   };
 
   const total = parseFloat(players) * parseFloat(bet);
-  const commission = total * (parseFloat(settings.default_commission ?? '20') / 100);
-  const winnerPool = total - commission - parseFloat(settings.platform_fee ?? '0');
+  const agentCommission = total * 0.2;
+  const adminCut = agentCommission * (parseFloat(settings.default_commission ?? '20') / 100);
+  const agentNet = agentCommission - adminCut;
+  const winnerPool = total - agentCommission - parseFloat(settings.platform_fee ?? '0');
 
   return (
     <div className="max-w-2xl">
       <PageHeader title="Commission Settings" />
+      <p className="mb-4 text-sm text-gray-600">
+        Default admin share taken from each agent&apos;s commission. Agents set their own game commission in Agent Settings.
+      </p>
       <div className="rounded-xl bg-white p-6 shadow-sm border space-y-4">
         {[
-          { key: 'default_commission', label: 'Commission %' },
+          { key: 'default_commission', label: 'Default admin share from agent %' },
           { key: 'platform_fee', label: 'Platform Fee (ETB)' },
           { key: 'minimum_bet', label: 'Minimum Bet (ETB)' },
           { key: 'maximum_bet', label: 'Maximum Bet (ETB)' },
@@ -53,8 +58,10 @@ export default function CommissionsPage() {
           <input type="number" value={bet} onChange={(e) => setBet(e.target.value)} placeholder="Bet ETB" className="rounded-lg border px-3 py-2 text-sm" />
         </div>
         <p className="text-sm text-gray-600">{players} Players × {bet} ETB = <strong>{total} ETB</strong></p>
-        <p className="text-sm text-gray-600">Commission ({settings.default_commission}%) = <strong>{commission.toFixed(0)} ETB</strong></p>
-        <p className="text-sm text-gray-600">Winner Pool = <strong>{winnerPool.toFixed(0)} ETB</strong></p>
+        <p className="text-sm text-gray-600">Agent commission (20% example) = <strong>{agentCommission.toFixed(0)} ETB</strong></p>
+        <p className="text-sm text-gray-600">Admin share ({settings.default_commission}%) = <strong>{adminCut.toFixed(0)} ETB</strong></p>
+        <p className="text-sm text-gray-600">Agent keeps = <strong>{agentNet.toFixed(0)} ETB</strong></p>
+        <p className="text-sm text-gray-600">Winner pool = <strong>{winnerPool.toFixed(0)} ETB</strong></p>
       </div>
     </div>
   );

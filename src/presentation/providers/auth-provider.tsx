@@ -14,6 +14,7 @@ interface Agent {
   id: string;
   walletBalance: number;
   commissionRate: number;
+  adminCommissionRate: number;
 }
 
 interface AuthContextType {
@@ -23,6 +24,7 @@ interface AuthContextType {
   login: (username: string, password: string, rememberMe?: boolean) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   refreshBalance: () => Promise<void>;
+  refreshAgent: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -74,8 +76,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAgent((prev) => prev ? { ...prev, walletBalance: balance } : null);
   }, []);
 
+  const refreshAgent = useCallback(async () => {
+    const profile = await ipc<{
+      commissionRate: number;
+      adminCommissionRate: number;
+      walletBalance: number;
+    } | null>('agents:profile');
+    if (profile) {
+      setAgent((prev) => prev ? { ...prev, ...profile } : null);
+    }
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ user, agent, isLoading, login, logout, refreshBalance }}>
+    <AuthContext.Provider value={{ user, agent, isLoading, login, logout, refreshBalance, refreshAgent }}>
       {children}
     </AuthContext.Provider>
   );

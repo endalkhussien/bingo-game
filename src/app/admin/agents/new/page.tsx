@@ -7,7 +7,7 @@ import { PageHeader } from '@/presentation/components/shared/page-header';
 
 export default function NewAgentPage() {
   const router = useRouter();
-  const [form, setForm] = useState({ fullName: '', username: '', password: '', phone: '', commissionRate: '20', initialBalance: '0' });
+  const [form, setForm] = useState({ fullName: '', username: '', password: '', phone: '', adminCommissionRate: '20', initialBalance: '0' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -16,7 +16,7 @@ export default function NewAgentPage() {
     setLoading(true);
     const result = await ipc<{ success: boolean; error?: string }>('agents:create', {
       fullName: form.fullName, username: form.username, password: form.password,
-      phone: form.phone, commissionRate: parseFloat(form.commissionRate),
+      phone: form.phone, adminCommissionRate: parseFloat(form.adminCommissionRate),
       initialBalance: parseFloat(form.initialBalance),
     });
     setLoading(false);
@@ -39,9 +39,10 @@ export default function NewAgentPage() {
         ))}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="mb-1 block text-sm font-medium">Commission %</label>
-            <input type="number" value={form.commissionRate} onChange={(e) => setForm({ ...form, commissionRate: e.target.value })}
+            <label className="mb-1 block text-sm font-medium">Admin share from agent %</label>
+            <input type="number" value={form.adminCommissionRate} onChange={(e) => setForm({ ...form, adminCommissionRate: e.target.value })}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+            <p className="mt-1 text-xs text-gray-500">Agent sets their own pot commission in settings</p>
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium">Initial Balance</label>

@@ -2,13 +2,17 @@
 
 import { useState, useEffect } from 'react';
 import { ipc } from '@/presentation/lib/ipc';
+import { useAuth } from '@/presentation/providers/auth-provider';
 import { PageHeader } from '@/presentation/components/shared/page-header';
 import { APP_NAME } from '@/shared/brand';
+import { calculateGameEconomics } from '@/shared/prize';
 
 export default function AgentSettingsPage() {
+  const { agent, refreshAgent } = useAuth();
   const [oldPw, setOldPw] = useState('');
   const [newPw, setNewPw] = useState('');
   const [orgKey, setOrgKey] = useState('');
+  const [commissionRate, setCommissionRate] = useState('20');
   const [msg, setMsg] = useState('');
   const [err, setErr] = useState('');
 
@@ -17,6 +21,31 @@ export default function AgentSettingsPage() {
       if (s.offline_voucher_org_key) setOrgKey(s.offline_voucher_org_key);
     }).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (agent?.commissionRate != null) {
+      setCommissionRate(String(agent.commissionRate));
+    }
+  }, [agent?.commissionRate]);
+
+  const example = calculateGameEconomics(10, 20, parseFloat(commissionRate) || 0, agent?.adminCommissionRate ?? 20);
+
+  const handleSaveCommission = async () => {
+    setErr('');
+    setMsg('');
+    const rate = parseFloat(commissionRate);
+    if (isNaN(rate) || rate < 0 || rate > 100) {
+      setErr('Commission must be between 0% and 100%.');
+      return;
+    }
+    const r = await ipc<{ success: boolean; error?: string }>('agents:update-own-commission', rate);
+    if (r.success) {
+      setMsg('Your game commission rate was saved.');
+      await refreshAgent();
+    } else {
+      setErr(r.error ?? 'Failed to save');
+    }
+  };
 
   const handleChangePassword = async () => {
     const r = await ipc<{ success: boolean; error?: string }>('auth:change-password', oldPw, newPw);
@@ -35,6 +64,34 @@ export default function AgentSettingsPage() {
   return (
     <div className="max-w-lg space-y-6">
       <PageHeader title="Settings" />
+
+      <div className="rounded-xl bg-white p-6 shadow-sm border space-y-4">
+        <h3 className="font-semibold">Your game commission</h3>
+        <p className="text-sm text-gray-600">
+          This is the percentage you take from the prize pool before the winner is paid.
+          Admin takes {agent?.adminCommissionRate ?? 20}% of your commission — not shown to players.
+        </p>
+        {msg && <p className="text-sm text-green-600">{msg}</p>}
+        {err && <p className="text-sm text-red-500">{err}</p>}
+        <div>
+          <label className="mb-1 block text-sm font-medium">Commission from pot %</label>
+          <input
+            type="number"
+            min={0}
+            max={100}
+            value={commissionRate}
+            onChange={(e) => setCommissionRate(e.target.value)}
+            className="w-full rounded-lg border px-3 py-2 text-sm"
+          />
+        </div>
+        <p className="text-xs text-gray-500">
+          Example (20 players × 10 ETB): winner gets {example.prize.toFixed(0)} ETB ·
+          you keep {example.agentNetCommission.toFixed(0)} ETB after admin share
+        </p>
+        <button onClick={handleSaveCommission} className="rounded-lg bg-indigo-600 px-6 py-2 text-sm text-white">
+          Save commission rate
+        </button>
+      </div>
 
       <div className="rounded-xl bg-white p-6 shadow-sm border space-y-4">
         <h3 className="font-semibold">Organization recharge key</h3>

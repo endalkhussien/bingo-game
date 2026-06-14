@@ -13,6 +13,7 @@ import { getOrganizationKeyForDisplay, setOrganizationVoucherSecret } from '../s
 import * as backup from '../services/backup-service';
 import * as notifications from '../services/notification-service';
 import * as audit from '../services/audit-service';
+import * as agentSelf from '../services/agent-self-service';
 import { speakNumber, speakBallCall, listInstalledVoices } from '../tts/tts-engine';
 
 const sessions = new Map<number, string>();
@@ -95,6 +96,14 @@ export function registerIpcHandlers() {
   ipcMain.handle('agents:detail', async (event, id: string) => {
     await requireAdmin(event);
     return agentAdmin.getAgentDetail(id);
+  });
+  ipcMain.handle('agents:update-own-commission', async (event, commissionRate: number) => {
+    const s = await requireAgent(event);
+    return agentSelf.updateOwnCommission(s.agent!.id, commissionRate);
+  });
+  ipcMain.handle('agents:profile', async (event) => {
+    const s = await requireAgent(event);
+    return agentSelf.getAgentProfile(s.agent!.id);
   });
 
   // ── Wallet ──

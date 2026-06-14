@@ -8,7 +8,7 @@ import { CallingEngine } from '../../src/domain/services/calling-engine';
 import { normalizeWinningPattern } from '../../src/domain/services/winner-verification';
 import { MIN_BET, CARTELLA_MAX } from '../../src/shared/constants';
 import { DRAW_BALL_COUNT } from '../../src/shared/brand';
-import { calculateTotalPot, calculateWinnerPrize } from '../../src/shared/prize';
+import { calculateTotalPot, calculateWinnerPrize, calculateGameEconomics } from '../../src/shared/prize';
 import { deductGameCost } from './wallet-service';
 import { ensureFullDeck } from './card-service';
 import { parseCardData } from '../../src/domain/services/card-generator';
@@ -342,15 +342,20 @@ export async function endGame(gameId: string, agentId: string) {
   if (!game || game.agentId !== agentId) return { success: false, error: 'Game not found' };
 
   const agent = await db.select().from(agents).where(eq(agents.id, agentId)).get();
-  const commissionRate = game.commissionRate ?? agent?.commissionRate ?? 20;
+  const agentCommissionRate = game.commissionRate ?? agent?.commissionRate ?? 20;
+  const adminCommissionRate = agent?.adminCommissionRate ?? 20;
 
   const gameCardRows = await db.select().from(gameCards).where(eq(gameCards.gameId, gameId)).all();
   const playerCount = gameCardRows.length;
   const totalBets = game.betAmount * playerCount;
-  const commissionRevenue = totalBets * (commissionRate / 100);
+  const economics = calculateGameEconomics(
+    game.betAmount,
+    playerCount,
+    agentCommissionRate,
+    adminCommissionRate,
+  );
   const gameWinners = await db.select().from(winners).where(eq(winners.gameId, gameId)).all();
   const totalPayouts = gameWinners.reduce((s, w) => s + w.prizeAmount, 0);
-  const agentRevenue = totalBets - totalPayouts - commissionRevenue;
 
   await db.update(games).set({ status: 'COMPLETED', completedAt: now, updatedAt: now })
     .where(eq(games.id, gameId));
@@ -361,14 +366,14 @@ export async function endGame(gameId: string, agentId: string) {
     totalPlayers: playerCount,
     totalBets,
     totalPayouts,
-    platformRevenue: commissionRevenue,
-    agentRevenue: Math.max(0, agentRevenue),
-    commissionRevenue,
+    platformRevenue: economics.adminCut,
+    agentRevenue: economics.agentNetCommission,
+    commissionRevenue: economics.agentGrossCommission,
     calculatedAt: now,
   });
 
   if (agent) {
-    const newBalance = agent.walletBalance + Math.max(0, agentRevenue);
+    const newBalance = agent.walletBalance + Math.max(0, economics.agentNetCommission);
     await db.update(agents).set({ walletBalance: newBalance, updatedAt: now })
       .where(eq(agents.id, agentId));
   }
@@ -377,10 +382,12 @@ export async function endGame(gameId: string, agentId: string) {
     success: true,
     data: {
       totalBets,
-      agentRevenue: Math.max(0, agentRevenue),
+      agentRevenue: Math.max(0, economics.agentNetCommission),
       totalPayouts,
-      commissionRevenue,
-      commissionRate,
+      commissionRevenue: economics.agentGrossCommission,
+      platformRevenue: economics.adminCut,
+      agentCommissionRate,
+      adminCommissionRate,
     },
   };
 }

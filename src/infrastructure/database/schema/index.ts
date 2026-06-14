@@ -16,6 +16,8 @@ export const agents = sqliteTable('agents', {
   userId: text('user_id').notNull().unique().references(() => users.id),
   phone: text('phone'),
   commissionRate: real('commission_rate').notNull().default(20),
+  /** Admin/platform share taken from the agent's commission earnings (%) */
+  adminCommissionRate: real('admin_commission_rate').notNull().default(20),
   walletBalance: real('wallet_balance').notNull().default(0),
   status: text('status').notNull().default('ACTIVE'),
   createdAt: integer('created_at').notNull(),

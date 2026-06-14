@@ -25,6 +25,7 @@ export async function listAgents() {
       username: user?.username ?? '',
       phone: agent.phone,
       commissionRate: agent.commissionRate,
+      adminCommissionRate: agent.adminCommissionRate,
       walletBalance: agent.walletBalance,
       status: agent.status,
       userStatus: user?.status,
@@ -38,7 +39,7 @@ export async function listAgents() {
 
 export async function createAgent(adminId: string, data: {
   fullName: string; username: string; password: string;
-  phone?: string; commissionRate: number; initialBalance?: number;
+  phone?: string; commissionRate?: number; adminCommissionRate: number; initialBalance?: number;
 }) {
   const db = getDb();
   const now = Math.floor(Date.now() / 1000);
@@ -55,7 +56,9 @@ export async function createAgent(adminId: string, data: {
   });
   await db.insert(agents).values({
     id: agentId, userId, phone: data.phone ?? null,
-    commissionRate: data.commissionRate, walletBalance: data.initialBalance ?? 0,
+    commissionRate: data.commissionRate ?? 20,
+    adminCommissionRate: data.adminCommissionRate,
+    walletBalance: data.initialBalance ?? 0,
     status: 'ACTIVE', createdAt: now, updatedAt: now,
   });
 
@@ -64,7 +67,7 @@ export async function createAgent(adminId: string, data: {
 }
 
 export async function updateAgent(adminId: string, agentId: string, data: {
-  fullName?: string; phone?: string; commissionRate?: number;
+  fullName?: string; phone?: string; commissionRate?: number; adminCommissionRate?: number;
 }) {
   const db = getDb();
   const now = Math.floor(Date.now() / 1000);
@@ -77,6 +80,7 @@ export async function updateAgent(adminId: string, agentId: string, data: {
   await db.update(agents).set({
     phone: data.phone ?? agent.phone,
     commissionRate: data.commissionRate ?? agent.commissionRate,
+    adminCommissionRate: data.adminCommissionRate ?? agent.adminCommissionRate,
     updatedAt: now,
   }).where(eq(agents.id, agentId));
 

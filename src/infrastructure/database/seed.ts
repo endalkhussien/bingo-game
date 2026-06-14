@@ -44,6 +44,7 @@ export async function seedDatabase(db: BetterSQLite3Database<typeof schema>) {
     userId: agentUserId,
     phone: '+251900000000',
     commissionRate: 20,
+    adminCommissionRate: 20,
     walletBalance: 500,
     status: 'ACTIVE',
     createdAt: now,

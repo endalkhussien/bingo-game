@@ -15,7 +15,7 @@ import { AudioSyncManager, runAutoCallLoop } from '@/presentation/lib/audio-sync
 import { CallingEngine } from '@/domain/services/calling-engine';
 import { getBallLabel } from '@/domain/services/bingo-engine';
 import { formatBallCallLabel } from '@/shared/tts/ball-call';
-import { calculateTotalPot } from '@/shared/prize';
+import { calculateTotalPot, calculateGameEconomics } from '@/shared/prize';
 
 interface GameWinner {
   cardNumber: string;
@@ -71,6 +71,9 @@ export default function GameBoardPage() {
   const [bingoClaimActive, setBingoClaimActive] = useState(false);
   const [calledModalOpen, setCalledModalOpen] = useState(false);
   const [gameWinners, setGameWinners] = useState<GameWinner[]>([]);
+  const [commissionPercent, setCommissionPercent] = useState('20');
+
+  const adminCommissionRate = agent?.adminCommissionRate ?? 20;
 
   const syncManagerRef = useRef(new AudioSyncManager({
     cooldownMs: DEFAULT_CALL_COOLDOWN_MS,
@@ -89,6 +92,12 @@ export default function GameBoardPage() {
 
   const playerCount = activeGame?.playerCount ?? activeGame?.selectedNumbers?.length ?? selected.length;
   const totalPot = activeGame?.totalPot ?? calculateTotalPot(parseFloat(betAmount || '0') || 0, playerCount);
+  const gameEconomics = useMemo(() => calculateGameEconomics(
+    parseFloat(betAmount || '0') || 0,
+    playerCount,
+    parseFloat(commissionPercent || '0') || 0,
+    adminCommissionRate,
+  ), [betAmount, playerCount, commissionPercent, adminCommissionRate]);
   const maxBalls = activeGame?.maxBalls ?? DRAW_BALL_COUNT;
   const drawCount = called.length;
 
@@ -102,6 +111,11 @@ export default function GameBoardPage() {
   const selectedSet = useMemo(() => new Set(selected), [selected]);
 
   useEffect(() => { loadVoices(); }, []);
+  useEffect(() => {
+    if (agent?.commissionRate != null && !activeGame) {
+      setCommissionPercent(String(agent.commissionRate));
+    }
+  }, [agent?.commissionRate, activeGame]);
   useEffect(() => { syncManagerRef.current.setCooldownMs(interval); }, [interval]);
   useEffect(() => { autoDrawRef.current = autoDraw; }, [autoDraw]);
   useEffect(() => { isPausedRef.current = isPaused; }, [isPaused]);
@@ -195,6 +209,11 @@ export default function GameBoardPage() {
       setBetError('Select at least one card number.');
       return;
     }
+    const commission = parseFloat(commissionPercent);
+    if (isNaN(commission) || commission < 0 || commission > 100) {
+      setBetError('Commission must be between 0% and 100%.');
+      return;
+    }
     setBetError('');
     setCreating(true);
 
@@ -208,6 +227,7 @@ export default function GameBoardPage() {
       drawSpeedMs: interval,
       voiceType: voice,
       language,
+      commissionRate: commission,
       jackpotMaximumCalls: parseInt(jackpotMaxCalls, 10) || DEFAULT_JACKPOT_MAX_CALLS,
       selectedNumbers: selected,
     });
@@ -442,12 +462,33 @@ export default function GameBoardPage() {
           </select>
         </div>
         {!activeGame && selected.length > 0 && (
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Prize pool</label>
-            <div className="rounded-lg border bg-gray-50 px-3 py-2 text-sm font-semibold text-indigo-700">
-              {calculateTotalPot(parseFloat(betAmount || '0') || 0, selected.length).toFixed(0)} ETB
+          <>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">Your commission %</label>
+              <input
+                type="number"
+                min={0}
+                max={100}
+                value={commissionPercent}
+                onChange={(e) => setCommissionPercent(e.target.value)}
+                className="w-full rounded-lg border px-3 py-2 text-sm"
+              />
+              <p className="mt-1 text-xs text-gray-500">From pot — winner sees net prize only</p>
             </div>
-          </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">Prize pool</label>
+              <div className="rounded-lg border bg-gray-50 px-3 py-2 text-sm font-semibold text-indigo-700">
+                {totalPot.toFixed(0)} ETB
+              </div>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">Your estimated cut</label>
+              <div className="rounded-lg border bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">
+                {gameEconomics.agentNetCommission.toFixed(0)} ETB
+              </div>
+              <p className="mt-1 text-xs text-gray-500">After admin share ({adminCommissionRate}%)</p>
+            </div>
+          </>
         )}
         {!activeGame ? (
           <button onClick={handleCreateGame} disabled={creating || selected.length === 0}

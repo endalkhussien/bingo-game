@@ -164,6 +164,11 @@ export function runMigrations(database: BetterSQLite3Database<typeof schema>) {
 
   client.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_drawn_game_number_unique ON drawn_numbers(game_id, number)`);
 
+  const agentCols = client.prepare(`PRAGMA table_info(agents)`).all() as { name: string }[];
+  if (!agentCols.some((c) => c.name === 'admin_commission_rate')) {
+    client.exec(`ALTER TABLE agents ADD COLUMN admin_commission_rate REAL NOT NULL DEFAULT 20`);
+  }
+
   const usedCols = client.prepare(`PRAGMA table_info(used_offline_vouchers)`).all() as { name: string }[];
   if (usedCols.length > 0 && !usedCols.some((c) => c.name === 'code_hash')) {
     client.exec(`ALTER TABLE used_offline_vouchers ADD COLUMN code_hash TEXT`);

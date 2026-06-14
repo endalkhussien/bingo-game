@@ -8,7 +8,7 @@ import { UserPlus, Users } from 'lucide-react';
 
 interface AgentRow {
   id: string; fullName: string; username: string; phone: string | null;
-  commissionRate: number; walletBalance: number; status: string;
+  commissionRate: number; adminCommissionRate: number; walletBalance: number; status: string;
   totalGames: number; totalProfit: number;
 }
 
@@ -16,7 +16,7 @@ export default function AgentsPage() {
   const [agents, setAgents] = useState<AgentRow[]>([]);
   const [search, setSearch] = useState('');
   const [showQuickCreate, setShowQuickCreate] = useState(false);
-  const [form, setForm] = useState({ fullName: '', username: '', password: '', phone: '', commissionRate: '20', initialBalance: '0' });
+  const [form, setForm] = useState({ fullName: '', username: '', password: '', phone: '', adminCommissionRate: '20', initialBalance: '0' });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -37,12 +37,12 @@ export default function AgentsPage() {
     setSuccess('');
     const result = await ipc<{ success: boolean; error?: string }>('agents:create', {
       fullName: form.fullName, username: form.username, password: form.password,
-      phone: form.phone, commissionRate: parseFloat(form.commissionRate),
+      phone: form.phone, adminCommissionRate: parseFloat(form.adminCommissionRate),
       initialBalance: parseFloat(form.initialBalance),
     });
     if (result.success) {
       setSuccess(`Agent "${form.username}" created! Create another or close this form.`);
-      setForm({ fullName: '', username: '', password: '', phone: '', commissionRate: '20', initialBalance: '0' });
+      setForm({ fullName: '', username: '', password: '', phone: '', adminCommissionRate: '20', initialBalance: '0' });
       load();
     } else {
       setError(result.error ?? 'Failed to create agent');
@@ -79,10 +79,10 @@ export default function AgentsPage() {
               </div>
             ))}
             <div>
-              <label className="mb-1 block text-xs font-medium">Default commission %</label>
-              <input type="number" value={form.commissionRate} onChange={(e) => setForm({ ...form, commissionRate: e.target.value })}
+              <label className="mb-1 block text-xs font-medium">Admin share from agent %</label>
+              <input type="number" value={form.adminCommissionRate} onChange={(e) => setForm({ ...form, adminCommissionRate: e.target.value })}
                 className="w-full rounded-lg border px-3 py-2 text-sm" placeholder="20" />
-              <p className="mt-1 text-xs text-gray-500">Starting value — agent can change per game</p>
+              <p className="mt-1 text-xs text-gray-500">Taken from agent commission earnings</p>
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium">Starting Wallet (ETB)</label>
@@ -104,20 +104,22 @@ export default function AgentsPage() {
             <th className="px-4 py-3 font-semibold">Name</th>
             <th className="px-4 py-3 font-semibold">Username</th>
             <th className="px-4 py-3 font-semibold">Wallet</th>
-            <th className="px-4 py-3 font-semibold">Commission</th>
+            <th className="px-4 py-3 font-semibold">Agent %</th>
+            <th className="px-4 py-3 font-semibold">Admin %</th>
             <th className="px-4 py-3 font-semibold">Games</th>
             <th className="px-4 py-3 font-semibold">Status</th>
             <th className="px-4 py-3 font-semibold">Actions</th>
           </tr></thead>
           <tbody>
             {filtered.length === 0 ? (
-              <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-500">No agents yet. Click Quick Create above.</td></tr>
+              <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-500">No agents yet. Click Quick Create above.</td></tr>
             ) : filtered.map((a) => (
               <tr key={a.id} className="border-t border-gray-100 hover:bg-gray-50">
                 <td className="px-4 py-3 font-medium">{a.fullName}</td>
                 <td className="px-4 py-3">{a.username}</td>
                 <td className="px-4 py-3">{a.walletBalance.toFixed(0)} ETB</td>
                 <td className="px-4 py-3">{a.commissionRate}%</td>
+                <td className="px-4 py-3">{a.adminCommissionRate}%</td>
                 <td className="px-4 py-3">{a.totalGames}</td>
                 <td className="px-4 py-3">
                   <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${a.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{a.status}</span>

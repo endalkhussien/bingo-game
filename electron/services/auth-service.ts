@@ -53,6 +53,7 @@ export async function login(username: string, password: string, rememberMe = fal
         id: agent.id,
         walletBalance: agent.walletBalance,
         commissionRate: agent.commissionRate,
+        adminCommissionRate: agent.adminCommissionRate,
       } : null,
     },
   };
@@ -76,7 +77,12 @@ export async function validateSession(token: string) {
 
   return {
     user: { id: user.id, fullName: user.fullName, username: user.username, role: user.role },
-    agent: agent ? { id: agent.id, walletBalance: agent.walletBalance, commissionRate: agent.commissionRate } : null,
+    agent: agent ? {
+      id: agent.id,
+      walletBalance: agent.walletBalance,
+      commissionRate: agent.commissionRate,
+      adminCommissionRate: agent.adminCommissionRate,
+    } : null,
   };
 }
 
