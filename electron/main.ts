@@ -2,8 +2,10 @@ import { app, BrowserWindow, Menu, dialog } from 'electron';
 import path from 'path';
 import { initDatabase } from './services/database-service';
 import { registerIpcHandlers } from './ipc/handlers';
+import { startStaticServer } from './utils/static-server';
 
 let mainWindow: BrowserWindow | null = null;
+let closeStaticServer: (() => void) | null = null;
 
 const isDev = process.env.NODE_ENV === 'development';
 const openDevTools = process.env.ELECTRON_DEVTOOLS === '1';
@@ -24,9 +26,11 @@ async function loadUi(win: BrowserWindow) {
     return;
   }
 
-  // loadFile is faster than starting a local HTTP server on every launch
-  const indexPath = path.join(app.getAppPath(), 'out', 'index.html');
-  await win.loadFile(indexPath);
+  // Next.js static export needs http:// for /login/index.txt and client routes (file:// breaks paths)
+  const outDir = path.join(app.getAppPath(), 'out');
+  const { url, close } = await startStaticServer(outDir);
+  closeStaticServer = close;
+  await win.loadURL(url);
 }
 
 async function createWindow() {
@@ -74,6 +78,7 @@ async function createWindow() {
 app.whenReady().then(createWindow);
 
 app.on('window-all-closed', () => {
+  closeStaticServer?.();
   if (process.platform !== 'darwin') app.quit();
 });
 
