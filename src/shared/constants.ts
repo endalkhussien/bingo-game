@@ -1,4 +1,5 @@
-export const BALL_COUNT = 150;
+/** Maximum cartella (card) numbers agents can select per game */
+export const CARTELLA_MAX = 150;
 export const MIN_BET = 10;
 export const CURRENCY = 'ETB';
 export const CURRENCY_LABEL = 'Birr';
@@ -34,11 +35,11 @@ export const BINGO_COLUMN_COLORS = {
   O: 'bg-bingo-o',
 } as const;
 
-// 150-ball column ranges (30 numbers per column)
+// Standard 75-ball BINGO column ranges (numbers called during play)
 export const COLUMN_RANGES = {
-  B: [1, 30],
-  I: [31, 60],
-  N: [61, 90],
-  G: [91, 120],
-  O: [121, 150],
+  B: [1, 15],
+  I: [16, 30],
+  N: [31, 45],
+  G: [46, 60],
+  O: [61, 75],
 } as const;

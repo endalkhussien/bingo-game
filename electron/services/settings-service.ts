@@ -11,7 +11,7 @@ const DEFAULTS: Record<string, string> = {
   timezone: 'Africa/Addis_Ababa',
   default_voice: 'AMHARIC_MALE',
   default_language: 'en',
-  number_range_max: '150',
+  number_range_max: '75',
 };
 
 export async function getSettings() {

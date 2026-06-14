@@ -12,7 +12,7 @@ This compares **TEBIB-Bingo** (your offline desktop agent tool) with popular **o
 | **Internet** | Not required | Required |
 | **Who runs the game** | Local agent on their PC | Platform server |
 | **Payments** | Agent wallet + admin recharge (offline) | Telebirr, CBE Birr, M-Pesa, etc. |
-| **Amharic voice** | Built-in offline audio (1–150) | Often Amharic + English in app |
+| **Amharic voice** | Built-in offline audio (balls 1–75) | Often Amharic + English in app |
 | **Commission** | **Agent sets % per game** | Platform takes fee; agent cut varies |
 | **Cards** | Agent creates/manages locally | Platform-generated digital cards |
 | **Best for** | Shop/hall agents, offline halls | Individual players on phones |
@@ -27,12 +27,13 @@ TEBIB-Bingo is **not a competitor** to Bingo 10:20 — it is the **operator cons
 
 | Feature | TEBIB-Bingo | Bingo 10:20 | Ade / City Bingo | King Bingo |
 |---------|-------------|-------------|------------------|------------|
-| Ball range | **1–150** | Varies (often 75–90) | Platform-defined | Platform-defined |
+| Ball range (called) | **1–75** (standard B-I-N-G-O columns) | Varies (often 75–90) | Platform-defined | Platform-defined |
+| Cartella (card numbers) | **1–150** | Platform-defined | Platform-defined | Platform-defined |
 | Live caller voice | **Amharic + English** | Amharic, English, Tigrigna | Amharic UI | Amharic UI |
 | Auto-draw timer | Yes (1–10 sec) | Yes | Yes | Yes |
 | Winning patterns | Line, 2 lines, corners, X, full house | Multiple modes | Multiple | Multiple |
 | BINGO claim check | **Pause + card validation** | Auto / platform | Platform | Platform |
-| Draw counter | **e.g. 42/150** | Yes | Yes | Yes |
+| Draw counter | **e.g. 42/75** | Yes | Yes | Yes |
 
 ### Agent / operator tools
 
@@ -68,7 +69,7 @@ TEBIB-Bingo is **not a competitor** to Bingo 10:20 — it is the **operator cons
 1. **Works with no internet** — important when connectivity is poor
 2. **Agent controls commission** each game — flexible earnings
 3. **Offline Amharic voice** — no speech pack or espeak setup
-4. **150-ball support** — matches common Ethiopian hall games
+4. **75-ball calling + 150 cartella** — matches common Ethiopian hall rules
 5. **Admin + multi-agent** — one admin PC manages many agents
 6. **Local data** — games and money stay on the operator’s machine
 

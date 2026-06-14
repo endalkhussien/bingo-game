@@ -230,7 +230,7 @@ export default function GameBoardPage() {
           <div>
             <p className="text-sm opacity-80">{activeGame.gameCode} · {isPaused ? 'PAUSED' : 'LIVE'}</p>
             <p className="text-4xl font-black tracking-tight">{drawCount}/{maxBalls}</p>
-            <p className="text-sm opacity-80">Numbers called</p>
+            <p className="text-sm opacity-80">Balls called (1–75)</p>
           </div>
           {lastDrawn !== null && (
             <div className="flex h-20 w-20 flex-col items-center justify-center rounded-full bg-white/20 backdrop-blur">

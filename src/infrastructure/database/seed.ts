@@ -70,7 +70,7 @@ export async function seedDatabase(db: BetterSQLite3Database<typeof schema>) {
     { key: 'minimum_bet', value: '10' },
     { key: 'maximum_bet', value: '1000' },
     { key: 'currency', value: 'ETB' },
-    { key: 'number_range_max', value: '150' },
+    { key: 'number_range_max', value: '75' },
   ];
 
   for (const s of settings) {
