@@ -7,13 +7,14 @@ import { useAuth } from '@/presentation/providers/auth-provider';
 import { NumberGrid } from '@/presentation/components/bingo/number-grid';
 import { CalledNumbersModal } from '@/presentation/components/bingo/called-numbers-modal';
 import { CheckCardModal } from '@/presentation/components/bingo/check-card-modal';
-import { WINNING_PATTERNS, DRAW_INTERVALS, VOICE_TYPES, MIN_BET, DEFAULT_JACKPOT_MAX_CALLS } from '@/shared/constants';
+import { WINNING_PATTERNS, DRAW_INTERVALS, VOICE_TYPES, MIN_BET, DEFAULT_JACKPOT_MAX_CALLS, DEFAULT_CALL_COOLDOWN_MS } from '@/shared/constants';
 import { DRAW_BALL_COUNT } from '@/shared/brand';
 import { speakBallCall, speakCartella, loadVoices } from '@/presentation/lib/tts';
 import { AudioSyncManager, runAutoCallLoop } from '@/presentation/lib/audio-sync-manager';
 import { CallingEngine } from '@/domain/services/calling-engine';
 import { getBallLabel } from '@/domain/services/bingo-engine';
 import { formatBallCallLabel } from '@/shared/tts/ball-call';
+import { calculateTotalPot } from '@/shared/prize';
 
 interface GameWinner {
   cardNumber: string;
@@ -37,9 +38,8 @@ interface ActiveGame {
   drawnNumbers: number[];
   callHistory?: CallHistoryEntry[];
   drawSpeedMs: number;
-  commissionRate?: number;
   totalPot?: number;
-  agentCommission?: number;
+  playerCount?: number;
   maxBalls?: number;
   voiceType?: string;
   language?: string;
@@ -49,7 +49,7 @@ interface ActiveGame {
 export default function GameBoardPage() {
   const { agent, refreshBalance } = useAuth();
   const [betAmount, setBetAmount] = useState('10');
-  const [interval, setInterval_] = useState(3000);
+  const [interval, setInterval_] = useState(DEFAULT_CALL_COOLDOWN_MS);
   const [pattern, setPattern] = useState('FIRST_LINE');
   const [jackpotMaxCalls, setJackpotMaxCalls] = useState(String(DEFAULT_JACKPOT_MAX_CALLS));
   const [voice, setVoice] = useState('AMHARIC_MALE');
@@ -69,11 +69,9 @@ export default function GameBoardPage() {
   const [checkModalOpen, setCheckModalOpen] = useState(false);
   const [calledModalOpen, setCalledModalOpen] = useState(false);
   const [gameWinners, setGameWinners] = useState<GameWinner[]>([]);
-  const [commissionPercent, setCommissionPercent] = useState('20');
-  const [gameCommission, setGameCommission] = useState({ rate: 20, pot: 0, agentCut: 0 });
 
   const syncManagerRef = useRef(new AudioSyncManager({
-    cooldownMs: interval,
+    cooldownMs: DEFAULT_CALL_COOLDOWN_MS,
     onEvent: (event) => {
       if (event === 'lock' || event === 'audio-start' || event === 'cooldown-start') {
         setCallerLocked(true);
@@ -87,9 +85,8 @@ export default function GameBoardPage() {
   const isPausedRef = useRef(false);
   const activeGameRef = useRef<ActiveGame | null>(null);
 
-  const commissionRate = activeGame?.commissionRate ?? (parseFloat(commissionPercent || '0') || gameCommission.rate);
-  const totalPot = activeGame?.totalPot ?? selected.length * parseFloat(betAmount || '0');
-  const agentCut = activeGame?.agentCommission ?? totalPot * (commissionRate / 100);
+  const playerCount = activeGame?.playerCount ?? activeGame?.selectedNumbers?.length ?? selected.length;
+  const totalPot = activeGame?.totalPot ?? calculateTotalPot(parseFloat(betAmount || '0') || 0, playerCount);
   const maxBalls = activeGame?.maxBalls ?? DRAW_BALL_COUNT;
   const drawCount = called.length;
 
@@ -100,18 +97,13 @@ export default function GameBoardPage() {
   }, [called, callHistory, maxBalls]);
 
   const remainingCount = callerEngine.remainingNumbers.length;
+  const selectedSet = useMemo(() => new Set(selected), [selected]);
 
   useEffect(() => { loadVoices(); }, []);
   useEffect(() => { syncManagerRef.current.setCooldownMs(interval); }, [interval]);
   useEffect(() => { autoDrawRef.current = autoDraw; }, [autoDraw]);
   useEffect(() => { isPausedRef.current = isPaused; }, [isPaused]);
   useEffect(() => { activeGameRef.current = activeGame; }, [activeGame]);
-
-  useEffect(() => {
-    if (agent?.commissionRate != null && !activeGame) {
-      setCommissionPercent(String(agent.commissionRate));
-    }
-  }, [agent?.commissionRate, activeGame]);
 
   const handleLanguageChange = (lang: string) => {
     setLanguage(lang);
@@ -138,15 +130,9 @@ export default function GameBoardPage() {
         setSelected(game.selectedNumbers ?? []);
         setBetAmount(String(game.betAmount));
         setIsPaused(game.status === 'PAUSED');
-        setGameCommission({
-          rate: game.commissionRate ?? 20,
-          pot: game.totalPot ?? 0,
-          agentCut: game.agentCommission ?? 0,
-        });
         if (game.voiceType) setVoice(game.voiceType);
         if (game.language) setLanguage(game.language);
-        if (game.commissionRate != null) setCommissionPercent(String(game.commissionRate));
-        if (game.drawSpeedMs) setInterval_(game.drawSpeedMs);
+        if (game.drawSpeedMs != null) setInterval_(game.drawSpeedMs);
         setGameWinners(game.winners ?? []);
       }
     });
@@ -175,7 +161,6 @@ export default function GameBoardPage() {
       drawnAt: data.drawnAt,
     }]);
     setLastDrawn(data.number);
-    setCalledModalOpen(true);
   }, []);
 
   const drawFromServer = useCallback(async () => {
@@ -208,17 +193,12 @@ export default function GameBoardPage() {
       setBetError('Select at least one card number.');
       return;
     }
-    const commission = parseFloat(commissionPercent);
-    if (isNaN(commission) || commission < 0 || commission > 100) {
-      setBetError('Commission must be between 0% and 100%.');
-      return;
-    }
     setBetError('');
     setCreating(true);
 
     const result = await ipc<{
       success: boolean;
-      data?: ActiveGame & { commissionRate: number; totalPot: number; agentCommission: number; maxBalls: number };
+      data?: ActiveGame & { maxBalls: number };
       error?: string;
     }>('games:create', {
       betAmount: bet,
@@ -226,23 +206,25 @@ export default function GameBoardPage() {
       drawSpeedMs: interval,
       voiceType: voice,
       language,
-      commissionRate: commission,
       jackpotMaximumCalls: parseInt(jackpotMaxCalls, 10) || DEFAULT_JACKPOT_MAX_CALLS,
       selectedNumbers: selected,
     });
 
     setCreating(false);
     if (result.success && result.data) {
-      setActiveGame({ ...result.data, selectedNumbers: selected, drawnNumbers: [], drawSpeedMs: interval, status: 'RUNNING' });
+      setActiveGame({
+        ...result.data,
+        selectedNumbers: selected,
+        drawnNumbers: [],
+        drawSpeedMs: interval,
+        status: 'RUNNING',
+        playerCount: selected.length,
+        totalPot: calculateTotalPot(bet, selected.length),
+      });
       setCalled([]);
       setCallHistory([]);
       setLastDrawn(null);
       setIsPaused(false);
-      setGameCommission({
-        rate: result.data.commissionRate,
-        pot: result.data.totalPot,
-        agentCut: result.data.agentCommission,
-      });
       await refreshBalance();
     } else {
       setBetError(result.error ?? 'Failed to create game');
@@ -256,7 +238,7 @@ export default function GameBoardPage() {
     if (!data) return;
 
     applyDrawResult(data);
-    await syncManagerRef.current.callNumber(
+    void syncManagerRef.current.callNumber(
       data.number,
       (n) => speakBallCall(n, data.voiceType ?? voice, data.language ?? language),
       interval,
@@ -268,24 +250,22 @@ export default function GameBoardPage() {
 
     let cancelled = false;
 
-    (async () => {
-      await runAutoCallLoop(syncManagerRef.current, {
-        cooldownMs: interval,
-        voiceType: voice,
-        language,
-        isPaused: () => isPausedRef.current,
-        shouldContinue: () => !cancelled && autoDrawRef.current && !!activeGameRef.current,
-        drawNumber: drawFromServer,
-        onDraw: (data) => {
-          applyDrawResult({
-            number: data.number,
-            drawOrder: data.drawOrder ?? called.length + 1,
-            drawnAt: data.drawnAt ?? Math.floor(Date.now() / 1000),
-          });
-        },
-        playAudio: (n, v, l) => speakBallCall(n, v, l),
-      });
-    })();
+    void runAutoCallLoop(syncManagerRef.current, {
+      cooldownMs: interval,
+      voiceType: voice,
+      language,
+      isPaused: () => isPausedRef.current,
+      shouldContinue: () => !cancelled && autoDrawRef.current && !!activeGameRef.current,
+      drawNumber: drawFromServer,
+      onDraw: (data) => {
+        applyDrawResult({
+          number: data.number,
+          drawOrder: data.drawOrder ?? 0,
+          drawnAt: data.drawnAt ?? Math.floor(Date.now() / 1000),
+        });
+      },
+      playAudio: (n, v, l) => speakBallCall(n, v, l),
+    });
 
     return () => { cancelled = true; };
   }, [autoDraw, activeGame, isPaused, interval, voice, language, drawFromServer, applyDrawResult]);
@@ -309,12 +289,14 @@ export default function GameBoardPage() {
       message: string;
       cardNumber?: string;
       prizeAmount?: number;
+      playerCount?: number;
+      betAmount?: number;
+      totalPot?: number;
       calledCountAtWin?: number;
       winningPattern?: string;
     }>('games:validate-winner', activeGame.id, cardNumber);
 
     if (result.valid && result.prizeAmount) {
-      setProfit(result.prizeAmount);
       setActiveGame((g) => g ? { ...g, status: 'PAUSED' } : g);
       const winner: GameWinner = {
         cardNumber: result.cardNumber ?? cardNumber,
@@ -332,6 +314,9 @@ export default function GameBoardPage() {
       message: result.message,
       cardNumber: result.cardNumber ?? cardNumber,
       prizeAmount: result.prizeAmount,
+      playerCount: result.playerCount ?? playerCount,
+      betAmount: result.betAmount ?? activeGame.betAmount,
+      totalPot: result.totalPot ?? totalPot,
       calledCountAtWin: result.calledCountAtWin,
       winningPattern: result.winningPattern,
     };
@@ -381,9 +366,9 @@ export default function GameBoardPage() {
             </div>
           )}
           <div className="text-right text-sm">
-            <p>Pot: <strong>{totalPot.toFixed(0)} ETB</strong></p>
-            <p>Commission: <strong>{commissionRate}%</strong></p>
-            <p>Your cut: <strong>{agentCut.toFixed(0)} ETB</strong></p>
+            <p>Players: <strong>{playerCount}</strong></p>
+            <p>Prize pool: <strong>{totalPot.toFixed(0)} ETB</strong></p>
+            <p className="text-xs opacity-75">{playerCount} × {activeGame.betAmount} ETB</p>
           </div>
         </div>
       )}
@@ -397,12 +382,11 @@ export default function GameBoardPage() {
           {betError && <p className="mt-1 text-xs text-red-500">{betError}</p>}
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700">Sync delay</label>
+          <label className="mb-1 block text-sm font-medium text-gray-700">Call pace</label>
           <select value={interval} onChange={(e) => setInterval_(Number(e.target.value))} disabled={!!activeGame}
             className="rounded-lg border px-3 py-2 text-sm disabled:bg-gray-100">
             {DRAW_INTERVALS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
           </select>
-          <p className="mt-1 text-xs text-gray-500">Wait after each call finishes</p>
         </div>
         <div>
           <label className="mb-1 block text-sm font-medium text-gray-700">Pattern</label>
@@ -440,26 +424,14 @@ export default function GameBoardPage() {
             <option value="en">English</option>
           </select>
         </div>
-        <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700">Commission %</label>
-          <input
-            type="number"
-            min={0}
-            max={100}
-            step={1}
-            value={commissionPercent}
-            onChange={(e) => setCommissionPercent(e.target.value)}
-            disabled={!!activeGame}
-            className="w-full rounded-lg border px-3 py-2 text-sm disabled:bg-gray-100"
-          />
-          <p className="mt-1 text-xs text-gray-500">Your cut: {agentCut.toFixed(0)} ETB from pot</p>
-        </div>
-        <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700">Est. earnings</label>
-          <div className="rounded-lg border bg-gray-50 px-3 py-2 text-sm font-semibold text-indigo-700">
-            {commissionRate}% · {agentCut.toFixed(0)} ETB
+        {!activeGame && selected.length > 0 && (
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Prize pool</label>
+            <div className="rounded-lg border bg-gray-50 px-3 py-2 text-sm font-semibold text-indigo-700">
+              {calculateTotalPot(parseFloat(betAmount || '0') || 0, selected.length).toFixed(0)} ETB
+            </div>
           </div>
-        </div>
+        )}
         {!activeGame ? (
           <button onClick={handleCreateGame} disabled={creating || selected.length === 0}
             className="rounded-lg bg-green-600 px-6 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-50">
@@ -473,7 +445,7 @@ export default function GameBoardPage() {
             </button>
             <button onClick={handleDraw} disabled={isPaused || callerLocked}
               className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">Draw</button>
-            <button onClick={() => setAutoDraw(!autoDraw)} disabled={isPaused || callerLocked}
+            <button onClick={() => setAutoDraw(!autoDraw)} disabled={isPaused}
               className={`rounded-lg px-4 py-2 text-sm font-semibold text-white ${autoDraw ? 'bg-orange-500' : 'bg-gray-500'} disabled:opacity-50`}>
               {autoDraw ? 'Stop Auto' : 'Auto Call'}
             </button>
@@ -504,7 +476,7 @@ export default function GameBoardPage() {
             {gameWinners.map((w) => (
               <li key={w.cardNumber} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-white px-4 py-2 shadow-sm">
                 <span className="text-xl font-black text-green-700">Cartella #{w.cardNumber}</span>
-                <span className="font-semibold text-green-900">{w.prizeAmount.toFixed(2)} ETB</span>
+                <span className="font-semibold text-green-900">Wins {w.prizeAmount.toFixed(0)} ETB</span>
                 {w.calledCountAtWin != null && (
                   <span className="text-xs text-gray-500">after {w.calledCountAtWin} calls</span>
                 )}
@@ -515,19 +487,19 @@ export default function GameBoardPage() {
       )}
 
       <div className="mb-4 flex items-center gap-2 text-sm">
-        <span className="font-medium">Wallet profit (game):</span>
+        <span className="font-medium">Your earnings (game):</span>
         <span className="font-semibold">{showProfit ? `${profit.toFixed(2)} ETB` : '****'}</span>
         <button onClick={() => setShowProfit(!showProfit)} className="text-blue-500">
           {showProfit ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
         </button>
         {!activeGame && selected.length > 0 && (
           <span className="ml-2 text-gray-500">
-            Stake: {(selected.length * parseFloat(betAmount || '0')).toFixed(0)} ETB from wallet
+            Stake: {calculateTotalPot(parseFloat(betAmount || '0') || 0, selected.length).toFixed(0)} ETB from wallet
           </span>
         )}
       </div>
 
-      <NumberGrid selected={selected} onToggle={toggleNumber}
+      <NumberGrid selectedSet={selectedSet} onToggle={toggleNumber}
         onClear={() => setSelected([])} disabled={!!activeGame} />
 
       <CalledNumbersModal

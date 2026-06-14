@@ -1,5 +1,5 @@
 import { v4 as uuid } from 'uuid';
-import { eq, desc, and } from 'drizzle-orm';
+import { eq, desc, and, inArray } from 'drizzle-orm';
 import { getDb } from './database-service';
 import {
   games, gameCards, drawnNumbers, winners, gameRevenue, agents, bingoCards,
@@ -8,6 +8,7 @@ import { CallingEngine } from '../../src/domain/services/calling-engine';
 import { normalizeWinningPattern } from '../../src/domain/services/winner-verification';
 import { MIN_BET, CARTELLA_MAX } from '../../src/shared/constants';
 import { DRAW_BALL_COUNT } from '../../src/shared/brand';
+import { calculateTotalPot, calculateWinnerPrize } from '../../src/shared/prize';
 import { deductGameCost } from './wallet-service';
 import { ensureFullDeck } from './card-service';
 import { verifyTicketForGame } from './winner-service';
@@ -82,22 +83,24 @@ export async function createGame(agentId: string, config: {
 
   await ensureFullDeck(agentId);
   const allCards = await db.select().from(bingoCards).where(eq(bingoCards.agentId, agentId)).all();
-  for (const num of config.selectedNumbers) {
-    const card = allCards.find((c) => c.cardNumber === String(num));
-    if (card) {
-      await db.insert(gameCards).values({
-        id: uuid(),
-        gameId: id,
-        cardId: card.id,
-        playerName: `Player ${num}`,
-        status: 'ACTIVE',
-        joinedAt: now,
-      });
-    }
+  const cardByNumber = new Map(allCards.map((c) => [c.cardNumber, c]));
+  const gameCardInserts = config.selectedNumbers
+    .map((num) => cardByNumber.get(String(num)))
+    .filter((card): card is NonNullable<typeof card> => !!card)
+    .map((card) => ({
+      id: uuid(),
+      gameId: id,
+      cardId: card.id,
+      playerName: `Player ${card.cardNumber}`,
+      status: 'ACTIVE' as const,
+      joinedAt: now,
+    }));
+
+  if (gameCardInserts.length > 0) {
+    await db.insert(gameCards).values(gameCardInserts);
   }
 
-  const totalPot = config.betAmount * playerCount;
-  const agentCommission = totalPot * (commissionRate / 100);
+  const totalPot = calculateTotalPot(config.betAmount, playerCount);
 
   return {
     success: true,
@@ -107,9 +110,7 @@ export async function createGame(agentId: string, config: {
       betAmount: config.betAmount,
       playerCount,
       status: 'RUNNING',
-      commissionRate,
       totalPot,
-      agentCommission,
       maxBalls: DRAW_BALL_COUNT,
     },
   };
@@ -118,18 +119,19 @@ export async function createGame(agentId: string, config: {
 async function loadGameWinners(gameId: string) {
   const db = getDb();
   const rows = await db.select().from(winners).where(eq(winners.gameId, gameId)).all();
-  const result = [];
-  for (const w of rows) {
-    const card = await db.select().from(bingoCards).where(eq(bingoCards.id, w.cardId)).get();
-    result.push({
-      cardNumber: card?.cardNumber ?? '?',
-      prizeAmount: w.prizeAmount,
-      pattern: w.winningPattern,
-      calledCountAtWin: w.calledCountAtWin,
-      winningCallNumber: w.winningCallNumber,
-    });
-  }
-  return result;
+  if (rows.length === 0) return [];
+
+  const cardIds = rows.map((w) => w.cardId);
+  const cards = await db.select().from(bingoCards).where(inArray(bingoCards.id, cardIds)).all();
+  const cardMap = new Map(cards.map((c) => [c.id, c]));
+
+  return rows.map((w) => ({
+    cardNumber: cardMap.get(w.cardId)?.cardNumber ?? '?',
+    prizeAmount: w.prizeAmount,
+    pattern: w.winningPattern,
+    calledCountAtWin: w.calledCountAtWin,
+    winningCallNumber: w.winningCallNumber,
+  }));
 }
 
 async function formatActiveGame(game: typeof games.$inferSelect) {
@@ -138,14 +140,19 @@ async function formatActiveGame(game: typeof games.$inferSelect) {
     .where(eq(drawnNumbers.gameId, game.id))
     .orderBy(drawnNumbers.drawOrder)
     .all();
-  const agent = await db.select().from(agents).where(eq(agents.id, game.agentId)).get();
   const gameCardRows = await db.select().from(gameCards).where(eq(gameCards.gameId, game.id)).all();
   const playerCount = gameCardRows.length;
-  const commissionRate = game.commissionRate ?? agent?.commissionRate ?? 20;
-  const totalPot = game.betAmount * playerCount;
+  const totalPot = calculateTotalPot(game.betAmount, playerCount);
 
   return {
-    ...game,
+    id: game.id,
+    gameCode: game.gameCode,
+    betAmount: game.betAmount,
+    status: game.status,
+    winningPattern: game.winningPattern,
+    drawSpeedMs: game.drawSpeedMs,
+    voiceType: game.voiceType,
+    language: game.language,
     selectedNumbers: game.selectedNumbers ? JSON.parse(game.selectedNumbers) : [],
     drawnNumbers: drawn.map((d) => d.number),
     callHistory: drawn.map((d) => ({
@@ -153,9 +160,8 @@ async function formatActiveGame(game: typeof games.$inferSelect) {
       drawOrder: d.drawOrder,
       drawnAt: d.drawnAt,
     })),
-    commissionRate,
     totalPot,
-    agentCommission: totalPot * (commissionRate / 100),
+    playerCount,
     maxBalls: game.numberRangeMax,
     drawCount: drawn.length,
     winners: await loadGameWinners(game.id),
@@ -287,11 +293,9 @@ export async function validateWinner(gameId: string, agentId: string, cardNumber
 
   const gameCardRows = await db.select().from(gameCards).where(eq(gameCards.gameId, gameId)).all();
   const activeCount = gameCardRows.filter((t) => t.status !== 'CANCELLED').length;
-  const totalBets = game.betAmount * activeCount;
   const agent = await db.select().from(agents).where(eq(agents.id, agentId)).get();
   const commissionRate = game.commissionRate ?? agent?.commissionRate ?? 20;
-  const commission = totalBets * (commissionRate / 100);
-  const prize = totalBets - commission;
+  const { totalPot, prize } = calculateWinnerPrize(game.betAmount, activeCount, commissionRate);
 
   await db.insert(winners).values({
     id: uuid(),
@@ -311,11 +315,12 @@ export async function validateWinner(gameId: string, agentId: string, cardNumber
   return {
     success: true,
     valid: true,
-    message: `Cartella #${cardNumber} WINS!`,
+    message: `Cartella #${cardNumber} wins ${prize.toFixed(0)} ETB!`,
     prizeAmount: prize,
     cardNumber,
-    commissionRate,
-    agentCommission: commission,
+    playerCount: activeCount,
+    betAmount: game.betAmount,
+    totalPot,
     verificationResult: 'VALID',
     calledCountAtWin: drawOrder,
     winningPattern: pattern,

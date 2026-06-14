@@ -21,7 +21,13 @@ function nextCardNumber(existing: { cardNumber: string }[]): string | null {
 /** Create cartella #1–150, each with a random 5×5 grid (numbers 1–75) */
 export async function ensureFullDeck(agentId: string): Promise<number> {
   const db = getDb();
-  const existing = await db.select().from(bingoCards).where(eq(bingoCards.agentId, agentId)).all();
+  const existing = await db.select({ cardNumber: bingoCards.cardNumber })
+    .from(bingoCards)
+    .where(eq(bingoCards.agentId, agentId))
+    .all();
+
+  if (existing.length >= CARTELLA_MAX) return 0;
+
   const used = new Set(existing.map((c) => c.cardNumber));
   const now = Math.floor(Date.now() / 1000);
   let created = 0;
