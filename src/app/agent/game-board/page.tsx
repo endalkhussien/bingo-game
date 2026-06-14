@@ -13,6 +13,13 @@ import { speakBall, speakCartella, loadVoices } from '@/presentation/lib/tts';
 import { getBallLabel } from '@/domain/services/bingo-engine';
 import { toAmharicNumberWord } from '@/shared/tts/voice-map';
 
+interface GameWinner {
+  cardNumber: string;
+  prizeAmount: number;
+  pattern?: string;
+  calledCountAtWin?: number;
+}
+
 interface ActiveGame {
   id: string;
   gameCode: string;
@@ -27,6 +34,7 @@ interface ActiveGame {
   maxBalls?: number;
   voiceType?: string;
   language?: string;
+  winners?: GameWinner[];
 }
 
 export default function GameBoardPage() {
@@ -49,6 +57,7 @@ export default function GameBoardPage() {
   const [isPaused, setIsPaused] = useState(false);
   const [checkModalOpen, setCheckModalOpen] = useState(false);
   const [calledModalOpen, setCalledModalOpen] = useState(false);
+  const [gameWinners, setGameWinners] = useState<GameWinner[]>([]);
   const [commissionPercent, setCommissionPercent] = useState('20');
   const [gameCommission, setGameCommission] = useState({ rate: 20, pot: 0, agentCut: 0 });
   const autoDrawRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -99,6 +108,7 @@ export default function GameBoardPage() {
         if (game.voiceType) setVoice(game.voiceType);
         if (game.language) setLanguage(game.language);
         if (game.commissionRate != null) setCommissionPercent(String(game.commissionRate));
+        setGameWinners(game.winners ?? []);
       }
     });
   }, []);
@@ -181,18 +191,11 @@ export default function GameBoardPage() {
     }>('games:draw', activeGame.id);
 
     if (result.success && result.data) {
-      const { number, voiceType, language: lang, winners, gamePaused } = result.data;
+      const { number, voiceType, language: lang } = result.data;
       setCalled((prev) => [...prev, number]);
       setLastDrawn(number);
       setCalledModalOpen(true);
       speakBall(number, voiceType ?? voice, lang ?? language);
-      if (gamePaused || (winners && winners.length > 0)) {
-        setAutoDraw(false);
-        setIsPaused(true);
-        if (winners?.length) {
-          setCheckModalOpen(true);
-        }
-      }
     }
   }, [activeGame, isPaused, voice, language]);
 
@@ -206,8 +209,11 @@ export default function GameBoardPage() {
   const handleBingoClaim = async () => {
     if (!activeGame) return;
     setAutoDraw(false);
-    await ipc('games:pause', activeGame.id);
-    setIsPaused(true);
+    if (!isPaused) {
+      await ipc('games:pause', activeGame.id);
+      setIsPaused(true);
+      setActiveGame((g) => g ? { ...g, status: 'PAUSED' } : g);
+    }
     setCheckModalOpen(true);
   };
 
@@ -217,14 +223,34 @@ export default function GameBoardPage() {
       success: boolean;
       valid: boolean;
       message: string;
+      cardNumber?: string;
       prizeAmount?: number;
+      calledCountAtWin?: number;
+      winningPattern?: string;
     }>('games:validate-winner', activeGame.id, cardNumber);
 
     if (result.valid && result.prizeAmount) {
       setProfit(result.prizeAmount);
       setActiveGame((g) => g ? { ...g, status: 'PAUSED' } : g);
+      const winner: GameWinner = {
+        cardNumber: result.cardNumber ?? cardNumber,
+        prizeAmount: result.prizeAmount,
+        pattern: result.winningPattern,
+        calledCountAtWin: result.calledCountAtWin,
+      };
+      setGameWinners((prev) => {
+        if (prev.some((w) => w.cardNumber === winner.cardNumber)) return prev;
+        return [...prev, winner];
+      });
     }
-    return { valid: result.valid, message: result.message, prizeAmount: result.prizeAmount };
+    return {
+      valid: result.valid,
+      message: result.message,
+      cardNumber: result.cardNumber ?? cardNumber,
+      prizeAmount: result.prizeAmount,
+      calledCountAtWin: result.calledCountAtWin,
+      winningPattern: result.winningPattern,
+    };
   };
 
   const handleResume = async () => {
@@ -243,6 +269,7 @@ export default function GameBoardPage() {
       setActiveGame(null);
       setCalled([]);
       setLastDrawn(null);
+      setGameWinners([]);
       setCheckModalOpen(false);
       setCalledModalOpen(false);
       await refreshBalance();
@@ -381,6 +408,25 @@ export default function GameBoardPage() {
           </div>
         )}
       </div>
+
+      {activeGame && gameWinners.length > 0 && (
+        <div className="mb-4 rounded-xl border-2 border-green-400 bg-green-50 p-4">
+          <h3 className="mb-2 flex items-center gap-2 text-lg font-bold text-green-900">
+            <Megaphone className="h-5 w-5" /> Winners this game
+          </h3>
+          <ul className="space-y-2">
+            {gameWinners.map((w) => (
+              <li key={w.cardNumber} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-white px-4 py-2 shadow-sm">
+                <span className="text-xl font-black text-green-700">Cartella #{w.cardNumber}</span>
+                <span className="font-semibold text-green-900">{w.prizeAmount.toFixed(2)} ETB</span>
+                {w.calledCountAtWin != null && (
+                  <span className="text-xs text-gray-500">after {w.calledCountAtWin} calls</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="mb-4 flex items-center gap-2 text-sm">
         <span className="font-medium">Wallet profit (game):</span>

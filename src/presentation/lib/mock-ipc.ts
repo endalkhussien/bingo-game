@@ -265,9 +265,33 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
   'games:pause': async (id: unknown) => { const g = mockGames.find(x => x.id === id); if (g) g.status = 'PAUSED'; return { success: true }; },
   'games:resume': async (id: unknown) => { const g = mockGames.find(x => x.id === id); if (g) g.status = 'RUNNING'; return { success: true }; },
   'games:validate-winner': async (_id: unknown, cardNumber: unknown) => {
-    const card = mockCards.find(c => c.cardNumber === String(cardNumber));
-    if (!card) return { success: true, valid: false, message: `Card #${cardNumber} not found.` };
-    return { success: true, valid: true, message: `Card #${cardNumber} is a winner!`, prizeAmount: 80 };
+    const num = String(cardNumber);
+    const card = mockCards.find(c => c.cardNumber === num);
+    const g = mockGames.find(x => x.status === 'RUNNING' || x.status === 'PAUSED') as {
+      selectedNumbers?: number[];
+      drawnNumbers?: number[];
+      betAmount?: number;
+      winningPattern?: string;
+    } | undefined;
+    if (!card) {
+      return { success: true, valid: false, message: `Cartella #${num}: This cartella does not exist.`, cardNumber: num };
+    }
+    if (!g?.selectedNumbers?.includes(Number(num))) {
+      return { success: true, valid: false, message: `Cartella #${num}: This cartella is not in the current game.`, cardNumber: num };
+    }
+    const { checkWinningPattern } = await import('@/domain/services/winner-verification');
+    const drawn = g.drawnNumbers ?? [];
+    const valid = checkWinningPattern(card.grid, drawn, g.winningPattern ?? 'FIRST_LINE');
+    if (!valid) {
+      return { success: true, valid: false, message: `Cartella #${num}: Not a winner yet.`, cardNumber: num };
+    }
+    const prize = (g.betAmount ?? 10) * (g.selectedNumbers?.length ?? 1) * 0.8;
+    return {
+      success: true, valid: true,
+      message: `Cartella #${num} WINS!`,
+      cardNumber: num, prizeAmount: prize,
+      calledCountAtWin: drawn.length, winningPattern: g.winningPattern,
+    };
   },
   'games:end': async () => ({ success: true, data: { totalBets: 100, agentRevenue: 80, totalPayouts: 0, commissionRevenue: 20, commissionRate: 20 } }),
   'games:list': async () => mockGames.map((g, i) => ({ id: g.id, gameCode: g.gameCode, date: Date.now() / 1000 - i * 86400, betAmount: g.betAmount || 10, playersNumber: (g as { playerCount?: number }).playerCount || 0, commissionPercent: 20, profit: 80, status: g.status || 'COMPLETED', agentName: 'Demo Agent' })),
@@ -294,7 +318,11 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
   'audit:list': async () => mockAuditLogs,
 
   'tts:speak': async (_n: unknown, _v: unknown, _l: unknown, _m: unknown) => ({ success: true, engine: 'browser-mock' }),
-  'tts:speak-ball-call': async () => ({ success: true, engine: 'browser-mock' }),
+  'tts:speak-ball-call': async (number: unknown, language: unknown, voiceType: unknown) => {
+    const { speakBall } = await import('@/presentation/lib/tts');
+    speakBall(Number(number), String(voiceType ?? 'AMHARIC_MALE'), String(language ?? 'am'));
+    return { success: true, engine: 'browser-tts' };
+  },
   'tts:test': async (_v: unknown, _l: unknown, _s: unknown) => ({ success: true, engine: 'browser-mock', text: 'N ሰላሳ አራት' }),
   'tts:list-voices': async () => ['Microsoft Amharic [am-ET] (mock)'],
 };

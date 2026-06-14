@@ -100,16 +100,16 @@ export interface TicketVerificationResult {
 /** Step-by-step ticket verification for manual claims and auto-scan */
 export function verifyTicketWin(input: TicketVerificationInput): TicketVerificationResult {
   if (!input.ticketExists) {
-    return { valid: false, message: 'Ticket not found.' };
+    return { valid: false, message: 'This cartella does not exist.' };
   }
   if (!input.ticketInGame) {
-    return { valid: false, message: 'Ticket does not belong to the current game.' };
+    return { valid: false, message: 'This cartella is not in the current game.' };
   }
   if (input.ticketCancelled) {
-    return { valid: false, message: 'Ticket is cancelled.' };
+    return { valid: false, message: 'This cartella is cancelled.' };
   }
   if (input.alreadyWonSamePattern) {
-    return { valid: false, message: 'Ticket has already won this prize category.' };
+    return { valid: false, message: 'This cartella already won this prize.' };
   }
   if (!input.grid) {
     return { valid: false, message: 'Ticket data is missing.' };

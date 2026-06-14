@@ -1,10 +1,8 @@
 import { buildCartellaAnnouncement } from '@/shared/tts/voice-map';
 import { getBallCallSpeechParts } from '@/shared/tts/ball-call';
-import { playAmharicBall, playBallCallAudio, playEnglishBingoLetter } from './amharic-audio';
+import { playAmharicBall, playEnglishBingoLetter } from './amharic-audio';
 import { ipc, isElectron } from './ipc';
-import { DRAW_BALL_COUNT } from '@/shared/brand';
 
-let voicesReady = false;
 let queue: Promise<void> = Promise.resolve();
 
 type SpeakMode = 'ball' | 'cartella';
@@ -15,12 +13,10 @@ function waitForBrowserVoices(): Promise<SpeechSynthesisVoice[]> {
   return new Promise((resolve) => {
     const existing = window.speechSynthesis.getVoices();
     if (existing.length > 0) {
-      voicesReady = true;
       resolve(existing);
       return;
     }
     const onVoices = () => {
-      voicesReady = true;
       window.speechSynthesis.removeEventListener('voiceschanged', onVoices);
       resolve(window.speechSynthesis.getVoices());
     };
@@ -45,22 +41,27 @@ function pickVoice(voices: SpeechSynthesisVoice[], lang: string, preferFemale: b
   return langVoices.find((v) => /male|man/i.test(v.name)) ?? langVoices[0];
 }
 
-async function speakBrowser(text: string, lang: string, preferFemale: boolean): Promise<boolean> {
-  if (typeof window === 'undefined' || !window.speechSynthesis) return false;
+function delay(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+async function speakBrowser(text: string, lang: string, preferFemale: boolean): Promise<void> {
+  if (typeof window === 'undefined' || !window.speechSynthesis) return;
 
   const voices = await waitForBrowserVoices();
-  return new Promise((resolve) => {
+  await new Promise<void>((resolve) => {
     const u = new SpeechSynthesisUtterance(text);
     u.lang = lang;
     u.rate = preferFemale ? 1.0 : 0.95;
     const voice = pickVoice(voices, lang, preferFemale);
     if (voice) u.voice = voice;
-    u.onend = () => resolve(true);
-    u.onerror = () => resolve(false);
+    u.onend = () => resolve();
+    u.onerror = () => resolve();
     window.speechSynthesis.speak(u);
   });
 }
 
+/** Step 1: English B/I/N/G/O. Step 2: number in selected language. */
 async function speakBallCall(number: number, voiceType: string, language: string): Promise<void> {
   const preferFemale = voiceType.includes('FEMALE');
   const { letter, numberText, numberLang } = getBallCallSpeechParts(number, language);
@@ -70,20 +71,17 @@ async function speakBallCall(number: number, voiceType: string, language: string
     if (result?.success) return;
   }
 
-  if (number <= DRAW_BALL_COUNT && await playBallCallAudio(number, language)) {
-    if (language === 'en') {
-      await speakBrowser(numberText, 'en-US', preferFemale);
-    }
-    return;
-  }
-
   if (letter) {
-    const letterOk = await playEnglishBingoLetter(letter);
-    if (!letterOk) await speakBrowser(letter, 'en-US', preferFemale);
+    const letterFromMp3 = await playEnglishBingoLetter(letter);
+    if (!letterFromMp3) {
+      await speakBrowser(letter, 'en-US', preferFemale);
+    }
+    await delay(120);
   }
 
   if (language === 'am') {
-    if (!(await playAmharicBall(number))) {
+    const numberFromMp3 = await playAmharicBall(number);
+    if (!numberFromMp3) {
       await speakBrowser(numberText, numberLang, preferFemale);
     }
   } else {
@@ -92,51 +90,31 @@ async function speakBallCall(number: number, voiceType: string, language: string
 }
 
 export function speakBall(number: number, voiceType: string, language: string): void {
-  enqueueSpeak(number, voiceType, language, 'ball');
+  queue = queue.then(() => speakBallCall(number, voiceType, language));
 }
 
 export function speakCartella(number: number, voiceType: string, language: string): void {
-  enqueueSpeak(number, voiceType, language, 'cartella');
-}
-
-function enqueueSpeak(number: number, voiceType: string, language: string, mode: SpeakMode): void {
   queue = queue.then(async () => {
-    if (mode === 'ball') {
-      await speakBallCall(number, voiceType, language);
-      return;
-    }
-
     const payload = buildCartellaAnnouncement(number, voiceType, language);
-    if (payload.isAmharic && number <= DRAW_BALL_COUNT && await playAmharicBall(number)) {
+
+    if (payload.isAmharic && await playAmharicBall(number)) {
       return;
     }
 
     if (isElectron()) {
-      const result = await ipc<{ success: boolean }>('tts:speak', number, voiceType, language, mode);
+      const result = await ipc<{ success: boolean }>('tts:speak', number, voiceType, language, 'cartella');
       if (result?.success) return;
     }
 
-    const ok = await speakBrowser(payload.text, payload.lang, payload.preferFemale);
-    if (!ok && payload.isAmharic) {
-      await speakBrowser(payload.text, 'en-US', payload.preferFemale);
-    }
+    await speakBrowser(payload.text, payload.lang, payload.preferFemale);
   });
 }
 
 export async function testVoice(voiceType: string, language: string, sample = 42): Promise<string> {
   const { letter, numberText } = getBallCallSpeechParts(sample, language);
   const label = `${letter} ${numberText}`;
-
-  if (isElectron()) {
-    const result = await ipc<{ success: boolean; engine?: string; error?: string }>(
-      'tts:speak-ball-call', sample, language, voiceType,
-    );
-    if (result?.success) return `Spoken via ${result.engine}: "${label}"`;
-    return result?.error ?? 'TTS failed';
-  }
-
-  speakBall(sample, voiceType, language);
-  return `Ball call: "${label}" (English letter, then ${language === 'am' ? 'Amharic' : 'English'} number)`;
+  await speakBallCall(sample, voiceType, language);
+  return `Ball call: "${label}"`;
 }
 
 export function loadVoices(): void {

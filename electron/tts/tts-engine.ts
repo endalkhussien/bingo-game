@@ -158,6 +158,7 @@ export async function speakBallCall(
         await speakEspeak(letter, 'en', preferFemale);
       }
     }
+    await new Promise((r) => setTimeout(r, 150));
   }
 
   if (language === 'am' && number <= DRAW_BALL_COUNT) {
