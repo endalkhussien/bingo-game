@@ -58,10 +58,10 @@ export function checkWinningPattern(
 }
 
 export function getBallLabel(number: number): string {
-  if (number <= 15) return `B-${number}`;
-  if (number <= 30) return `I-${number}`;
-  if (number <= 45) return `N-${number}`;
-  if (number <= 60) return `G-${number}`;
-  if (number <= 75) return `O-${number}`;
+  if (number <= 30) return `B-${number}`;
+  if (number <= 60) return `I-${number}`;
+  if (number <= 90) return `N-${number}`;
+  if (number <= 120) return `G-${number}`;
+  if (number <= 150) return `O-${number}`;
   return String(number);
 }

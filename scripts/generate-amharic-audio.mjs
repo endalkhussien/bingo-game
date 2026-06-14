@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Generates offline Amharic ball-call audio (1–75) into public/sounds/am/.
+ * Generates offline Amharic ball-call audio (1–150) into public/sounds/am/.
  * Run once during dev/build when network is available: node scripts/generate-amharic-audio.mjs
  */
 import fs from 'fs';
@@ -23,7 +23,7 @@ function toAmharicNumber(n) {
     return `${AMHARIC_TENS[tens]} ${AMHARIC_ONES[ones]}`;
   }
   if (n === 100) return 'መቶ';
-  if (n < 150) {
+  if (n <= 150) {
     const rest = n - 100;
     return rest === 0 ? 'መቶ' : `መቶ ${toAmharicNumber(rest)}`;
   }
@@ -41,7 +41,7 @@ async function fetchTts(text) {
 
 async function main() {
   fs.mkdirSync(OUT_DIR, { recursive: true });
-  const max = 75;
+  const max = 150;
   let created = 0;
 
   for (let n = 1; n <= max; n++) {

@@ -13,7 +13,7 @@ function toAmharicNumber(n: number): string {
     return `${AMHARIC_TENS[tens]} ${AMHARIC_ONES[ones]}`;
   }
   if (n === 100) return 'መቶ';
-  if (n < 150) {
+  if (n <= 150) {
     const rest = n - 100;
     return rest === 0 ? 'መቶ' : `መቶ ${toAmharicNumber(rest)}`;
   }
