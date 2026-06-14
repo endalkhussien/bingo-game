@@ -1,6 +1,6 @@
 # TEBIB-Bingo v1.0.0 — Release checklist (today)
 
-Use this on a **Windows 10 or 11 PC (64-bit)** to produce the installer agents receive.
+Use this on a **Windows 8+ PC (64-bit)** to produce the installer agents receive.
 
 ## Before you build
 
@@ -51,10 +51,9 @@ On a clean Windows PC:
 |----|------------|
 | Windows 11 64-bit | Yes |
 | Windows 10 64-bit | Yes |
-| Windows 8 / 8.1 | **No** (Electron 33 requirement) |
-| 32-bit Windows | **No** |
-
-For very old PCs, use a Windows 10+ machine or contact developer for a legacy build.
+| Windows 8.1 64-bit | Yes |
+| Windows 8 64-bit | Yes |
+| Windows 7 / 32-bit | **No** |
 
 ## Already verified in CI / dev (Linux)
 

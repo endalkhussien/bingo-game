@@ -23,6 +23,8 @@ console.log('TEBIB-Bingo release validation\n');
 
 const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
 check('package.json version', pkg.version === '1.0.0', `got ${pkg.version}`);
+check('Electron 22 (Windows 8+)', pkg.devDependencies?.electron === '22.3.27', `got ${pkg.devDependencies?.electron}`);
+check('better-sqlite3 9.6 (Electron 22 ABI)', pkg.dependencies?.['better-sqlite3'] === '9.6.0', `got ${pkg.dependencies?.['better-sqlite3']}`);
 
 const audioCount = fs.existsSync(path.join(root, 'public/audio'))
   ? fs.readdirSync(path.join(root, 'public/audio')).filter((f) => f.endsWith('.mp3')).length

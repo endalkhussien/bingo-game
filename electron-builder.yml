@@ -25,6 +25,8 @@ win:
         - x64
   artifactName: TEBIB-Bingo-${version}-${os}-${arch}.${ext}
   signAndEditExecutable: false
+  # Electron 22 — last major version supporting Windows 8 / 8.1
+  electronVersion: 22.3.27
 
 nsis:
   oneClick: false

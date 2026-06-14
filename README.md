@@ -27,12 +27,12 @@ Output: `release/TEBIB-Bingo-1.0.0-win-x64.exe` (+ portable variant)
 
 | | |
 |--|--|
-| **Supported** | Windows 10 or 11 (64-bit) |
-| **Not supported** | Windows 8 / 8.1, 32-bit Windows |
+| **Supported** | Windows 8, 8.1, 10, and 11 (64-bit) |
+| **Not supported** | 32-bit Windows, Windows 7 |
 | **Internet** | Not needed after install |
 | **RAM** | 4 GB+ recommended |
 
-> Electron 33 requires Windows 10+. For older PCs, upgrade the OS or use a Windows 10+ machine.
+> Uses **Electron 22** — the last Electron version that runs on Windows 8/8.1.
 
 ---
 

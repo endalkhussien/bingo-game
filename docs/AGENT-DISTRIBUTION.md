@@ -17,7 +17,7 @@ Optional: USB stick with both files.
 
 ## Build the installer (you — one time)
 
-On a **Windows 10/11** PC with **Node.js 20 LTS**:
+On a **Windows 8+** PC with **Node.js 20 LTS**:
 
 ```bash
 git clone https://github.com/endalkhussien/bingo-game.git
@@ -51,11 +51,11 @@ Copy either file to agents.
 
 | | |
 |--|--|
-| **Works on** | Windows 10 or 11 (64-bit) |
+| **Works on** | Windows 8, 8.1, 10, or 11 (64-bit) |
 | **RAM** | 4 GB or more |
 | **Disk** | ~300 MB free |
 | **Internet** | Not required during games |
-| **Windows 8 / 8.1** | **Not supported** — app needs Windows 10+ (Chromium engine). Upgrade the PC or use Windows 10+. |
+| **Windows 7 / 32-bit** | **Not supported** |
 
 ---
 

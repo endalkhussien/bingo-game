@@ -26,7 +26,7 @@ Other people **do not need** Node.js, Git, or npm. They only install the `.exe` 
 
 ### Requirements
 
-- Windows 10 or 11 (64-bit)
+- Windows 8, 8.1, 10, or 11 (64-bit)
 - No internet needed after install
 - ~200 MB disk space
 

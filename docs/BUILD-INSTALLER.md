@@ -1,6 +1,6 @@
 # Build the Windows installer
 
-Build the `.exe` on a **Windows 10/11 PC** with Node.js 20 or 22 installed.
+Build the `.exe` on a **Windows 8+ PC** with Node.js 20 or 22 installed.
 
 ---
 
@@ -63,8 +63,9 @@ See **[RELEASE-CHECKLIST.md](./RELEASE-CHECKLIST.md)** for smoke-test steps.
 |----|-----------|
 | Windows 11 64-bit | Yes |
 | Windows 10 64-bit | Yes |
-| Windows 8 / 8.1 | **No** (Electron 33) |
-| 32-bit Windows | **No** |
+| Windows 8.1 64-bit | Yes |
+| Windows 8 64-bit | Yes |
+| Windows 7 / 32-bit | **No** |
 
 ---
 
