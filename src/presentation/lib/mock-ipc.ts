@@ -284,7 +284,7 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
     const drawn = g.drawnNumbers ?? [];
     const valid = checkWinningPattern(card.grid, drawn, g.winningPattern ?? 'FIRST_LINE');
     if (!valid) {
-      return { success: true, valid: false, message: `Cartella #${num}: Not a winner yet.`, cardNumber: num };
+      return { success: true, valid: false, message: `Cartella #${num}: Not a winner yet.`, cardNumber: num, calledNumbers: drawn, grid: card.grid };
     }
     const playerCount = g.selectedNumbers?.length ?? 1;
     const betAmount = g.betAmount ?? 10;
@@ -294,6 +294,7 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
       success: true, valid: true,
       message: `Cartella #${num} wins ${prize.toFixed(0)} ETB!`,
       cardNumber: num, prizeAmount: prize, playerCount, betAmount, totalPot,
+      calledNumbers: drawn, grid: card.grid,
       calledCountAtWin: drawn.length, winningPattern: g.winningPattern,
     };
   },

@@ -2,10 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { X, XCircle, Trophy } from 'lucide-react';
+import { BingoCardVerifyView } from './bingo-card-verify-view';
 
 interface CheckCardModalProps {
   open: boolean;
   onClose: () => void;
+  calledNumbers: number[];
   onValidate: (cardNumber: string) => Promise<{
     valid: boolean;
     message: string;
@@ -16,10 +18,19 @@ interface CheckCardModalProps {
     totalPot?: number;
     calledCountAtWin?: number;
     winningPattern?: string;
+    grid?: number[][] | null;
+    calledNumbers?: number[];
   }>;
+  onInvalidClaim?: () => void;
 }
 
-export function CheckCardModal({ open, onClose, onValidate }: CheckCardModalProps) {
+export function CheckCardModal({
+  open,
+  onClose,
+  calledNumbers,
+  onValidate,
+  onInvalidClaim,
+}: CheckCardModalProps) {
   const [cardNumber, setCardNumber] = useState('');
   const [result, setResult] = useState<{
     valid: boolean;
@@ -31,6 +42,8 @@ export function CheckCardModal({ open, onClose, onValidate }: CheckCardModalProp
     totalPot?: number;
     calledCountAtWin?: number;
     winningPattern?: string;
+    grid?: number[][] | null;
+    calledNumbers?: number[];
   } | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -50,6 +63,7 @@ export function CheckCardModal({ open, onClose, onValidate }: CheckCardModalProp
     const res = await onValidate(cardNumber.trim());
     setResult(res);
     setLoading(false);
+    if (!res.valid) onInvalidClaim?.();
   };
 
   const handleClose = () => {
@@ -58,15 +72,19 @@ export function CheckCardModal({ open, onClose, onValidate }: CheckCardModalProp
     onClose();
   };
 
+  const displayCalled = result?.calledNumbers ?? calledNumbers;
+  const showCard = result?.grid && result.grid.length > 0;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+      <div className="max-h-[95vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-bold text-gray-900">Verify BINGO claim</h2>
+          <h2 className="text-xl font-bold text-gray-900">BINGO — verify cartella</h2>
           <button onClick={handleClose} className="rounded-lg p-1 hover:bg-gray-100"><X className="h-5 w-5" /></button>
         </div>
         <p className="mb-4 text-sm text-gray-600">
-          Game is paused. Enter the player&apos;s <strong>cartella number</strong> to check if they win.
+          Calling is paused. Enter the player&apos;s <strong>cartella number</strong> and verify against the
+          {' '}{calledNumbers.length} balls already called.
         </p>
         <label className="mb-1 block text-sm font-medium text-gray-700">Cartella number</label>
         <input
@@ -79,6 +97,17 @@ export function CheckCardModal({ open, onClose, onValidate }: CheckCardModalProp
           autoFocus
           onKeyDown={(e) => e.key === 'Enter' && handleCheck()}
         />
+
+        {showCard && (
+          <div className="mb-4">
+            <BingoCardVerifyView
+              cardNumber={result?.cardNumber ?? cardNumber}
+              grid={result!.grid!}
+              calledNumbers={displayCalled}
+            />
+          </div>
+        )}
+
         {result && (
           <div className={`mb-4 rounded-xl p-4 ${result.valid ? 'bg-green-50 text-green-900 ring-2 ring-green-300' : 'bg-red-50 text-red-900 ring-2 ring-red-200'}`}>
             <div className="flex items-start gap-3">
@@ -105,13 +134,14 @@ export function CheckCardModal({ open, onClose, onValidate }: CheckCardModalProp
                   <>
                     <p className="font-bold">Not a winner</p>
                     <p className="text-sm">{result.message}</p>
-                    <p className="mt-2 text-xs">Click Resume to continue calling numbers.</p>
+                    <p className="mt-2 text-xs">Resume calling when ready.</p>
                   </>
                 )}
               </div>
             </div>
           </div>
         )}
+
         <div className="flex gap-3">
           <button onClick={handleClose} className="flex-1 rounded-lg border py-2.5 text-sm font-medium hover:bg-gray-50">Close</button>
           <button onClick={handleCheck} disabled={loading || !cardNumber.trim()}

@@ -11,6 +11,7 @@ import { DRAW_BALL_COUNT } from '../../src/shared/brand';
 import { calculateTotalPot, calculateWinnerPrize } from '../../src/shared/prize';
 import { deductGameCost } from './wallet-service';
 import { ensureFullDeck } from './card-service';
+import { parseCardData } from '../../src/domain/services/card-generator';
 import { verifyTicketForGame } from './winner-service';
 
 function generateGameCode(): string {
@@ -258,7 +259,8 @@ export async function validateWinner(gameId: string, agentId: string, cardNumber
     return { success: false, valid: false, error: 'Game already ended' };
   }
 
-  const { card, verification, pattern, existing } = await verifyTicketForGame(game, agentId, cardNumber);
+  const { card, verification, pattern, existing, calledNumbers } = await verifyTicketForGame(game, agentId, cardNumber);
+  const grid = card ? parseCardData(card.cardData) : null;
 
   if (!verification.valid) {
     return {
@@ -266,6 +268,8 @@ export async function validateWinner(gameId: string, agentId: string, cardNumber
       valid: false,
       message: `Cartella #${cardNumber}: ${verification.message}`,
       cardNumber,
+      calledNumbers,
+      grid,
       verificationResult: 'INVALID',
     };
   }
@@ -282,6 +286,8 @@ export async function validateWinner(gameId: string, agentId: string, cardNumber
       message: `Cartella #${cardNumber} already validated as winner.`,
       prizeAmount: prior.prizeAmount,
       cardNumber,
+      calledNumbers,
+      grid,
       verificationResult: 'VALID',
     };
   }
@@ -321,6 +327,8 @@ export async function validateWinner(gameId: string, agentId: string, cardNumber
     playerCount: activeCount,
     betAmount: game.betAmount,
     totalPot,
+    calledNumbers,
+    grid,
     verificationResult: 'VALID',
     calledCountAtWin: drawOrder,
     winningPattern: pattern,
