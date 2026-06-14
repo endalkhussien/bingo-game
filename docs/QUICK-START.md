@@ -92,7 +92,7 @@ Double-click **`Start TEBIB-Bingo.bat`** in the project folder. It opens Termina
    - **Pattern** — winning pattern (e.g. 1 line)
    - **Voice** — Amharic Male / Amharic Female / English
    - **Language** — **Amharic** or **English** (this controls announcements)
-4. Click numbers on the grid to select **cartella** cards (**1–75**)
+4. Click numbers on the grid to select **cartella** cards (**1–150**)
 5. Click **Start Game**
 6. Click **Draw** or **Auto Draw**
 7. Counter shows **e.g. 15/75** — balls are called from **1–75** (B:1–15, I:16–30, N:31–45, G:46–60, O:61–75)

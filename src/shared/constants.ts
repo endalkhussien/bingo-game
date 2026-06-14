@@ -1,7 +1,7 @@
-import { DRAW_BALL_COUNT } from './brand';
+import { CARTELLA_COUNT } from './brand';
 
-/** Cartella card numbers — 1 to 75 (same pool as called balls) */
-export const CARTELLA_MAX = DRAW_BALL_COUNT;
+/** Cartella card numbers — 1 to 150 (each card grid uses numbers 1–75) */
+export const CARTELLA_MAX = CARTELLA_COUNT;
 export const MIN_BET = 10;
 export const CURRENCY = 'ETB';
 export const CURRENCY_LABEL = 'Birr';

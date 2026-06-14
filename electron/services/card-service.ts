@@ -1,9 +1,14 @@
 import { v4 as uuid } from 'uuid';
-import { eq, desc } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { getDb } from './database-service';
 import { bingoCards } from '../../src/infrastructure/database/schema';
 import { CARTELLA_MAX } from '../../src/shared/constants';
-import { generateBingoCard, serializeCardData, parseCardData } from '../../src/domain/services/card-generator';
+import {
+  generateBingoCard,
+  serializeCardData,
+  parseCardData,
+  isValidBingoGrid,
+} from '../../src/domain/services/card-generator';
 
 function nextCardNumber(existing: { cardNumber: string }[]): string | null {
   const used = new Set(existing.map((c) => c.cardNumber));
@@ -13,7 +18,7 @@ function nextCardNumber(existing: { cardNumber: string }[]): string | null {
   return null;
 }
 
-/** Ensure cartella #1–75 exist, each with a random 1–75 bingo grid */
+/** Create cartella #1–150, each with a random 5×5 grid (numbers 1–75) */
 export async function ensureFullDeck(agentId: string): Promise<number> {
   const db = getDb();
   const existing = await db.select().from(bingoCards).where(eq(bingoCards.agentId, agentId)).all();
@@ -37,13 +42,33 @@ export async function ensureFullDeck(agentId: string): Promise<number> {
   return created;
 }
 
-export async function listCards(agentId: string) {
+/** Fix old/invalid cards and optionally regenerate every grid */
+export async function rebuildDeck(agentId: string, regenerateAll = false): Promise<number> {
   await ensureFullDeck(agentId);
   const db = getDb();
-  const cards = await db.select().from(bingoCards)
-    .where(eq(bingoCards.agentId, agentId))
-    .orderBy(desc(bingoCards.createdAt))
-    .all();
+  const cards = await db.select().from(bingoCards).where(eq(bingoCards.agentId, agentId)).all();
+  const now = Math.floor(Date.now() / 1000);
+  let updated = 0;
+
+  for (const card of cards) {
+    const grid = parseCardData(card.cardData);
+    if (regenerateAll || !isValidBingoGrid(grid)) {
+      await db.update(bingoCards).set({
+        cardData: serializeCardData(generateBingoCard()),
+        updatedAt: now,
+      }).where(eq(bingoCards.id, card.id));
+      updated++;
+    }
+  }
+
+  return updated;
+}
+
+export async function listCards(agentId: string) {
+  await ensureFullDeck(agentId);
+  await rebuildDeck(agentId, false);
+  const db = getDb();
+  const cards = await db.select().from(bingoCards).where(eq(bingoCards.agentId, agentId)).all();
   return cards
     .map((c) => ({
       ...c,

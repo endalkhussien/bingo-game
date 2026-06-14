@@ -57,7 +57,7 @@ function generateCard(): number[][] {
 }
 
 function ensureMockDeck() {
-  for (let n = 1; n <= 75; n++) {
+  for (let n = 1; n <= 150; n++) {
     if (!mockCards.some((c) => c.cardNumber === String(n))) {
       cardCounter++;
       const grid = generateCard();
@@ -205,12 +205,22 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
   'cards:list': async () => { ensureMockDeck(); return mockCards; },
   'cards:create': async () => {
     ensureMockDeck();
-    if (mockCards.length >= 75) return { error: 'All 75 cartella cards exist' };
+    if (mockCards.length >= 150) return { error: 'All 150 cartella cards exist' };
     const n = mockCards.length + 1;
     const grid = generateCard();
     const card = { id: `card-${n}`, cardNumber: String(n), grid, cardData: JSON.stringify({ grid }), agentId: 'agent-1', createdAt: Date.now() / 1000, updatedAt: Date.now() / 1000 };
     mockCards.push(card);
     return card;
+  },
+  'cards:rebuild-deck': async (regenerateAll: unknown) => {
+    ensureMockDeck();
+    if (regenerateAll) {
+      for (const card of mockCards) {
+        card.grid = generateCard();
+        card.cardData = JSON.stringify({ grid: card.grid });
+      }
+    }
+    return { success: true, updated: mockCards.length };
   },
   'cards:regenerate': async (id: unknown) => {
     const card = mockCards.find((c) => c.id === id);

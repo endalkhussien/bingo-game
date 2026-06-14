@@ -14,6 +14,7 @@ interface CardItem {
 export default function CardsPage() {
   const [cards, setCards] = useState<CardItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [rebuilding, setRebuilding] = useState(false);
 
   const loadCards = async () => {
     setLoading(true);
@@ -29,6 +30,13 @@ export default function CardsPage() {
     await loadCards();
   };
 
+  const handleRebuildAll = async () => {
+    setRebuilding(true);
+    await ipc('cards:rebuild-deck', true);
+    await loadCards();
+    setRebuilding(false);
+  };
+
   if (loading) {
     return <div className="flex h-64 items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" /></div>;
   }
@@ -39,29 +47,31 @@ export default function CardsPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Bingo Cards (Cartella)</h1>
           <p className="mt-1 text-sm text-gray-500">
-            {CARTELLA_MAX} cards (#1–{CARTELLA_MAX}). Each card holds random numbers from 1–75 (B-I-N-G-O columns).
+            {CARTELLA_MAX} cards (#1–{CARTELLA_MAX}), each 5×5 with random numbers from 1–75 (B-I-N-G-O columns).
           </p>
         </div>
-        <p className="text-sm font-medium text-gray-700">{cards.length}/{CARTELLA_MAX} cards ready</p>
+        <div className="flex items-center gap-3">
+          <p className="text-sm font-medium text-gray-700">{cards.length}/{CARTELLA_MAX} cards</p>
+          <button
+            onClick={handleRebuildAll}
+            disabled={rebuilding}
+            className="rounded-lg bg-yellow-500 px-4 py-2 text-sm font-semibold text-white hover:bg-yellow-600 disabled:opacity-50"
+          >
+            {rebuilding ? 'Rebuilding…' : 'Rebuild all 150'}
+          </button>
+        </div>
       </div>
 
-      {cards.length === 0 ? (
-        <div className="flex h-64 flex-col items-center justify-center rounded-xl bg-white text-gray-500 shadow-sm">
-          <p className="mb-4">Loading cartella deck…</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {cards.map((card) => (
-            <BingoCardView
-              key={card.id}
-              cardNumber={card.cardNumber}
-              grid={card.grid}
-              onUpdate={() => handleRegenerate(card.id)}
-              onDelete={undefined}
-            />
-          ))}
-        </div>
-      )}
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {cards.map((card) => (
+          <BingoCardView
+            key={card.id}
+            cardNumber={card.cardNumber}
+            grid={card.grid}
+            onUpdate={() => handleRegenerate(card.id)}
+          />
+        ))}
+      </div>
     </div>
   );
 }
