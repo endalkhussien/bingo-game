@@ -50,3 +50,29 @@ export function buildAnnouncement(
     preferFemale,
   };
 }
+
+/** Spoken when an agent selects a player cartella on the game board */
+export function buildCartellaAnnouncement(
+  number: number,
+  voiceType: string,
+  language: string,
+): { text: string; lang: string; isAmharic: boolean; preferFemale: boolean } {
+  const isAmharic = language === 'am';
+  const preferFemale = voiceType.includes('FEMALE');
+
+  if (isAmharic) {
+    return {
+      text: `ካርቴላ ${toAmharicNumber(number)}`,
+      lang: 'am-ET',
+      isAmharic: true,
+      preferFemale,
+    };
+  }
+
+  return {
+    text: `Cartella ${number}`,
+    lang: 'en-US',
+    isAmharic: false,
+    preferFemale,
+  };
+}

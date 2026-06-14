@@ -8,7 +8,7 @@ import { NumberGrid } from '@/presentation/components/bingo/number-grid';
 import { CheckCardModal } from '@/presentation/components/bingo/check-card-modal';
 import { WINNING_PATTERNS, DRAW_INTERVALS, VOICE_TYPES, MIN_BET } from '@/shared/constants';
 import { DRAW_BALL_COUNT } from '@/shared/brand';
-import { speakBall, loadVoices } from '@/presentation/lib/tts';
+import { speakBall, speakCartella, loadVoices } from '@/presentation/lib/tts';
 import { getBallLabel } from '@/domain/services/bingo-engine';
 import { toAmharicNumberWord } from '@/shared/tts/voice-map';
 
@@ -102,7 +102,13 @@ export default function GameBoardPage() {
 
   const toggleNumber = (num: number) => {
     if (activeGame) return;
-    setSelected((prev) => prev.includes(num) ? prev.filter((n) => n !== num) : [...prev, num]);
+    setSelected((prev) => {
+      if (prev.includes(num)) {
+        return prev.filter((n) => n !== num);
+      }
+      speakCartella(num, voice, language);
+      return [...prev, num];
+    });
   };
 
   const handleCreateGame = async () => {

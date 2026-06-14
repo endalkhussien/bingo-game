@@ -42,7 +42,7 @@ export function NumberGrid({ selected, called = [], onToggle, onClear, disabled 
         </div>
       </div>
       <p className="mt-2 text-sm text-gray-500">
-        Cartella 1–{CARTELLA_MAX}: blue = selected cards · green = ball called (1–75)
+        Cartella 1–{CARTELLA_MAX}: blue = selected · green = ball called (1–75) · voice plays on select
       </p>
     </div>
   );

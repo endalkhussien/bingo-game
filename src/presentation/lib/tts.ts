@@ -1,9 +1,12 @@
-import { buildAnnouncement } from '@/shared/tts/voice-map';
+import { buildAnnouncement, buildCartellaAnnouncement } from '@/shared/tts/voice-map';
 import { playAmharicBall } from './amharic-audio';
 import { ipc, isElectron } from './ipc';
+import { DRAW_BALL_COUNT } from '@/shared/brand';
 
 let voicesReady = false;
 let queue: Promise<void> = Promise.resolve();
+
+type SpeakMode = 'ball' | 'cartella';
 
 function waitForBrowserVoices(): Promise<SpeechSynthesisVoice[]> {
   if (typeof window === 'undefined' || !window.speechSynthesis) return Promise.resolve([]);
@@ -60,16 +63,27 @@ async function speakBrowser(text: string, lang: string, preferFemale: boolean): 
 
 /** Speak drawn bingo number — Amharic uses bundled audio; English uses Windows SAPI / Web Speech */
 export function speakBall(number: number, voiceType: string, language: string): void {
-  queue = queue.then(async () => {
-    const payload = buildAnnouncement(number, voiceType, language);
+  enqueueSpeak(number, voiceType, language, 'ball');
+}
 
-    if (payload.isAmharic) {
+/** Speak cartella number when agent selects a player card on the game board */
+export function speakCartella(number: number, voiceType: string, language: string): void {
+  enqueueSpeak(number, voiceType, language, 'cartella');
+}
+
+function enqueueSpeak(number: number, voiceType: string, language: string, mode: SpeakMode): void {
+  queue = queue.then(async () => {
+    const payload = mode === 'ball'
+      ? buildAnnouncement(number, voiceType, language)
+      : buildCartellaAnnouncement(number, voiceType, language);
+
+    if (payload.isAmharic && number <= DRAW_BALL_COUNT) {
       if (await playAmharicBall(number)) return;
     }
 
     if (isElectron()) {
       const result = await ipc<{ success: boolean; engine?: string }>(
-        'tts:speak', number, voiceType, language,
+        'tts:speak', number, voiceType, language, mode,
       );
       if (result?.success) return;
     }
