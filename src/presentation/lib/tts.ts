@@ -1,4 +1,5 @@
 import { buildAnnouncement } from '@/shared/tts/voice-map';
+import { playAmharicBall } from './amharic-audio';
 import { ipc, isElectron } from './ipc';
 
 let voicesReady = false;
@@ -57,10 +58,14 @@ async function speakBrowser(text: string, lang: string, preferFemale: boolean): 
   });
 }
 
-/** Speak drawn bingo number — Electron uses Windows SAPI / espeak-ng; browser uses Web Speech */
+/** Speak drawn bingo number — Amharic uses bundled audio; English uses Windows SAPI / Web Speech */
 export function speakBall(number: number, voiceType: string, language: string): void {
   queue = queue.then(async () => {
     const payload = buildAnnouncement(number, voiceType, language);
+
+    if (payload.isAmharic) {
+      if (await playAmharicBall(number)) return;
+    }
 
     if (isElectron()) {
       const result = await ipc<{ success: boolean; engine?: string }>(
@@ -77,15 +82,21 @@ export function speakBall(number: number, voiceType: string, language: string): 
 }
 
 export async function testVoice(voiceType: string, language: string, sample = 42): Promise<string> {
+  const p = buildAnnouncement(sample, voiceType, language);
+
+  if (p.isAmharic && await playAmharicBall(sample)) {
+    return `Spoken via bundled Amharic audio: "${p.text}"`;
+  }
+
   if (isElectron()) {
     const result = await ipc<{ success: boolean; engine?: string; error?: string; text?: string }>(
       'tts:test', voiceType, language, sample,
     );
-    if (result?.success) return `Spoken via ${result.engine}: "${result.text}"`;
+    if (result?.success) return `Spoken via ${result.engine}: "${result.text ?? p.text}"`;
     return result?.error ?? 'TTS failed';
   }
+
   speakBall(sample, voiceType, language);
-  const p = buildAnnouncement(sample, voiceType, language);
   return `Browser TTS: "${p.text}"`;
 }
 

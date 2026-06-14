@@ -10,6 +10,7 @@ import { WINNING_PATTERNS, DRAW_INTERVALS, VOICE_TYPES, MIN_BET } from '@/shared
 import { DRAW_BALL_COUNT } from '@/shared/brand';
 import { speakBall, loadVoices } from '@/presentation/lib/tts';
 import { getBallLabel } from '@/domain/services/bingo-engine';
+import { toAmharicNumberWord } from '@/shared/tts/voice-map';
 
 interface ActiveGame {
   id: string;
@@ -56,6 +57,21 @@ export default function GameBoardPage() {
 
   useEffect(() => { loadVoices(); }, []);
 
+  const handleLanguageChange = (lang: string) => {
+    setLanguage(lang);
+    if (lang === 'en') {
+      setVoice('ENGLISH');
+    } else if (voice === 'ENGLISH') {
+      setVoice('AMHARIC_MALE');
+    }
+  };
+
+  const handleVoiceChange = (v: string) => {
+    setVoice(v);
+    if (v === 'ENGLISH') setLanguage('en');
+    else setLanguage('am');
+  };
+
   useEffect(() => {
     ipc<ActiveGame | null>('games:active').then((game) => {
       if (game) {
@@ -70,6 +86,8 @@ export default function GameBoardPage() {
           pot: game.totalPot ?? 0,
           agentCut: game.agentCommission ?? 0,
         });
+        if (game.voiceType) setVoice(game.voiceType);
+        if (game.language) setLanguage(game.language);
       }
     });
   }, []);
@@ -204,6 +222,9 @@ export default function GameBoardPage() {
             <div className="flex h-20 w-20 flex-col items-center justify-center rounded-full bg-white/20 backdrop-blur">
               <span className="text-xs font-medium">{getBallLabel(lastDrawn).split('-')[0] || 'N'}</span>
               <span className="text-3xl font-bold">{lastDrawn}</span>
+              {language === 'am' && (
+                <span className="mt-0.5 text-[10px] font-medium leading-tight">{toAmharicNumberWord(lastDrawn)}</span>
+              )}
             </div>
           )}
           <div className="text-right text-sm">
@@ -239,14 +260,14 @@ export default function GameBoardPage() {
         </div>
         <div>
           <label className="mb-1 block text-sm font-medium text-gray-700">Voice</label>
-          <select value={voice} onChange={(e) => setVoice(e.target.value)} disabled={!!activeGame}
+          <select value={voice} onChange={(e) => handleVoiceChange(e.target.value)} disabled={!!activeGame}
             className="rounded-lg border px-3 py-2 text-sm disabled:bg-gray-100">
             {VOICE_TYPES.map((v) => <option key={v.value} value={v.value}>{v.label}</option>)}
           </select>
         </div>
         <div>
           <label className="mb-1 block text-sm font-medium text-gray-700">Language</label>
-          <select value={language} onChange={(e) => setLanguage(e.target.value)} disabled={!!activeGame}
+          <select value={language} onChange={(e) => handleLanguageChange(e.target.value)} disabled={!!activeGame}
             className="rounded-lg border px-3 py-2 text-sm disabled:bg-gray-100">
             <option value="am">Amharic</option>
             <option value="en">English</option>

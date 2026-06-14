@@ -20,12 +20,16 @@ function toAmharicNumber(n: number): string {
   return String(n);
 }
 
+export function toAmharicNumberWord(n: number): string {
+  return toAmharicNumber(n);
+}
+
 export function buildAnnouncement(
   number: number,
   voiceType: string,
   language: string,
 ): { text: string; lang: string; isAmharic: boolean; preferFemale: boolean } {
-  const isAmharic = voiceType.startsWith('AMHARIC') || language === 'am';
+  const isAmharic = language === 'am';
   const preferFemale = voiceType.includes('FEMALE');
 
   if (isAmharic) {
