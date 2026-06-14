@@ -6,7 +6,7 @@ Other people **do not need** Node.js, Git, or npm. They only install the `.exe` 
 
 ## For the person installing (end user)
 
-1. Copy **`TEBIB-Bingo-Setup-1.0.0.exe`** to their Windows PC (USB, Telegram, etc.)
+1. Copy **`TEBIB-Bingo-1.0.0-win-x64.exe`** to their Windows PC (USB, Telegram, etc.)
 2. Double-click the installer
 3. If Windows SmartScreen warns “Unknown publisher” → click **More info** → **Run anyway**
 4. Choose install folder (or keep default) → **Install**
@@ -52,7 +52,7 @@ npm install
 npm run pack:win
 ```
 
-Give users: `release/TEBIB-Bingo-Setup-1.0.0.exe`
+Give users: `release/TEBIB-Bingo-1.0.0-win-x64.exe` and `AGENTS-QUICK-GUIDE.txt`
 
 ---
 

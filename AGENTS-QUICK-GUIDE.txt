@@ -1,0 +1,49 @@
+================================================================================
+  TEBIB-BINGO v1.0.0 — Agent Quick Guide
+================================================================================
+
+INSTALL
+-------
+1. Run TEBIB-Bingo-1.0.0-win-x64.exe
+2. If Windows asks about publisher: More info -> Run anyway
+3. Install -> open TEBIB-Bingo from Desktop
+
+LOGIN
+-----
+  Username: agent
+  Password: agent123
+  (Change password in Settings after first login)
+
+SET YOUR COMMISSION
+-------------------
+  Settings -> "Commission from pot %" -> Save
+  (This is your cut from the prize pool before the winner is paid.)
+
+RUN A GAME
+----------
+  1. Game Board
+  2. Set bet amount (ETB)
+  3. Language: Amharic (for voice)
+  4. Click cartella numbers players bought (blue = in game)
+  5. Set your commission % for this game
+  6. Start Game
+  7. Draw or Auto Call (calls numbers 1-75 with voice)
+
+WHEN PLAYER SAYS BINGO
+----------------------
+  1. Click BINGO! (calling stops)
+  2. Enter player's cartella number
+  3. Verify -> shows if winner + prize amount
+  4. If not winner: Resume calling
+  5. If winner: End Game when finished
+
+REQUIREMENTS
+------------
+  Windows 10 or 11 (64-bit)
+  No internet needed after install
+
+HELP
+----
+  Contact your admin for wallet recharge and password reset.
+
+================================================================================

@@ -5,7 +5,7 @@
  *
  *   npm run pack:win
  *
- * Output: release/TEBIB-Bingo-Setup-<version>.exe
+ * Output: release/TEBIB-Bingo-<version>-win-x64.exe (installer + portable)
  */
 import fs from 'fs';
 import path from 'path';
@@ -48,10 +48,15 @@ run('npx electron-builder install-app-deps');
 console.log('\n→ Building production app (Next.js + Electron)...\n');
 run('npm run build', { NODE_ENV: 'production' });
 
-console.log('\n→ Creating NSIS installer...\n');
+console.log('\n→ Running release validation...\n');
+run('node scripts/validate-release.mjs');
+
+console.log('\n→ Creating Windows installer + portable...\n');
 run('npx electron-builder --win --config electron-builder.yml', { NODE_ENV: 'production' });
 
 console.log('\n========================================');
 console.log('  Done! Check the release/ folder.');
-console.log('  Give TEBIB-Bingo-Setup-*.exe to other PCs.');
+console.log('  Installer:  TEBIB-Bingo-1.0.0-win-x64.exe');
+console.log('  Portable:   TEBIB-Bingo-1.0.0-win-x64.exe (portable target)');
+console.log('  Also send:  AGENTS-QUICK-GUIDE.txt');
 console.log('========================================\n');

@@ -24,11 +24,11 @@ cd ~/dev
 git clone https://github.com/endalkhussien/bingo-game.git
 cd bingo-game
 git fetch origin
-git checkout cursor/fix-amharic-tts-2cae
+git checkout cursor/desktop-release-and-commission-2cae
 ```
 
 > **Tip:** If you already have the folder, go into it and run:
-> `git fetch origin && git checkout cursor/fix-amharic-tts-2cae && git pull`
+> `git fetch origin && git checkout cursor/desktop-release-and-commission-2cae && git pull`
 
 ---
 

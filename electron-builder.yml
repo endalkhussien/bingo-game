@@ -20,12 +20,19 @@ win:
     - target: nsis
       arch:
         - x64
-  artifactName: TEBIB-Bingo-Setup-${version}.${ext}
+    - target: portable
+      arch:
+        - x64
+  artifactName: TEBIB-Bingo-${version}-${os}-${arch}.${ext}
+  signAndEditExecutable: false
+
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
   allowElevation: true
+  perMachine: false
   createDesktopShortcut: true
   createStartMenuShortcut: true
   shortcutName: TEBIB-Bingo
   uninstallDisplayName: TEBIB-Bingo
+  include: build/installer.nsh
