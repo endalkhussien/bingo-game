@@ -138,14 +138,39 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
   'cards:generate': async (count: unknown) => { const r = []; for (let i = 0; i < Number(count); i++) r.push(await mockHandlers['cards:create']()); return r; },
 
   'games:create': async (config: unknown) => {
-    const c = config as { betAmount: number; selectedNumbers: number[] };
-    const game = { id: `game-${mockGames.length + 1}`, gameCode: `BNG-${1000 + mockGames.length}`, status: 'RUNNING', betAmount: c.betAmount, playerCount: c.selectedNumbers?.length ?? 0, selectedNumbers: c.selectedNumbers, drawnNumbers: [] };
+    const c = config as { betAmount: number; selectedNumbers: number[]; voiceType?: string; language?: string };
+    const pot = c.betAmount * (c.selectedNumbers?.length ?? 0);
+    const game = {
+      id: `game-${mockGames.length + 1}`, gameCode: `TBG-${1000 + mockGames.length}`, status: 'RUNNING',
+      betAmount: c.betAmount, playerCount: c.selectedNumbers?.length ?? 0,
+      selectedNumbers: c.selectedNumbers, drawnNumbers: [], voiceType: c.voiceType ?? 'AMHARIC_MALE',
+      language: c.language ?? 'am', commissionRate: 20, totalPot: pot, agentCommission: pot * 0.2, maxBalls: 75,
+    };
     mockGames.push(game);
+    mockBalance -= pot;
+    if (currentSession?.agent) currentSession.agent.walletBalance = mockBalance;
     return { success: true, data: game };
   },
-  'games:active': async () => mockGames.find(g => g.status === 'RUNNING') ?? null,
-  'games:draw': async () => ({ success: true, data: { number: Math.floor(Math.random() * 150) + 1, drawOrder: 1, winners: [] } }),
-  'games:end': async () => ({ success: true, data: { totalBets: 100, agentRevenue: 80, totalPayouts: 0 } }),
+  'games:active': async () => mockGames.find(g => g.status === 'RUNNING' || g.status === 'PAUSED') ?? null,
+  'games:draw': async (_id: unknown) => {
+    const g = mockGames.find(x => x.status === 'RUNNING');
+    const n = Math.floor(Math.random() * 75) + 1;
+    if (g) {
+      const drawn = ((g as { drawnNumbers?: number[] }).drawnNumbers ?? []);
+      drawn.push(n);
+      (g as { drawnNumbers: number[] }).drawnNumbers = drawn;
+      return { success: true, data: { number: n, drawOrder: drawn.length, drawCount: drawn.length, maxBalls: 75, voiceType: (g as { voiceType?: string }).voiceType ?? 'AMHARIC_MALE', language: (g as { language?: string }).language ?? 'am', winners: [] } };
+    }
+    return { success: true, data: { number: n, drawOrder: 1, drawCount: 1, maxBalls: 75, voiceType: 'AMHARIC_MALE', language: 'am', winners: [] } };
+  },
+  'games:pause': async (id: unknown) => { const g = mockGames.find(x => x.id === id); if (g) g.status = 'PAUSED'; return { success: true }; },
+  'games:resume': async (id: unknown) => { const g = mockGames.find(x => x.id === id); if (g) g.status = 'RUNNING'; return { success: true }; },
+  'games:validate-winner': async (_id: unknown, cardNumber: unknown) => {
+    const card = mockCards.find(c => c.cardNumber === String(cardNumber));
+    if (!card) return { success: true, valid: false, message: `Card #${cardNumber} not found.` };
+    return { success: true, valid: true, message: `Card #${cardNumber} is a winner!`, prizeAmount: 80 };
+  },
+  'games:end': async () => ({ success: true, data: { totalBets: 100, agentRevenue: 80, totalPayouts: 0, commissionRevenue: 20, commissionRate: 20 } }),
   'games:list': async () => mockGames.map((g, i) => ({ id: g.id, gameCode: g.gameCode, date: Date.now() / 1000 - i * 86400, betAmount: g.betAmount || 10, playersNumber: (g as { playerCount?: number }).playerCount || 0, commissionPercent: 20, profit: 80, status: g.status || 'COMPLETED', agentName: 'Demo Agent' })),
 
   'reports:revenue': async () => mockGames.map(g => ({ gameCode: g.gameCode, agentName: 'Demo Agent', date: Date.now() / 1000, totalBets: 100, platformRevenue: 20, agentRevenue: 80 })),

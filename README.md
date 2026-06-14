@@ -1,30 +1,21 @@
 # Minch Bingo — Desktop Bingo Management Platform
 
-> **New to desktop apps?** Read **[docs/GETTING-STARTED.md](./docs/GETTING-STARTED.md)** first — it explains the process in web-dev terms.
-
 Offline desktop app for bingo operators. Built with **Electron + Next.js + SQLite**.
 
 ---
 
-## Quick Start (4 commands)
+## For developers taking over this project
+
+**Start here:** **[docs/HANDOVER.md](./docs/HANDOVER.md)**
+
+Then read in order: [docs/README.md](./docs/README.md) → IPC reference → Routes map.
 
 ```bash
-npm run setup          # ① Once — install everything
-npm run web            # ② Daily — UI work in browser (like normal web dev)
-npm start              # ③ Test — real desktop window + database
-npm test               # ④ Verify — automated tests
+git checkout cursor/full-implementation-2cae
+npm run setup
+npm run web          # browser dev at http://localhost:3000
+npm start            # real desktop app
 ```
-
-| Command | Opens | Like web dev? |
-|---------|-------|---------------|
-| `npm run web` | Browser → http://localhost:3000 | **Yes — start here** |
-| `npm start` | Desktop window "Minch Bingo" | Real app with SQLite |
-
-**Windows:** double-click `Start Minch Bingo.bat` instead of `npm start`.
-
----
-
-## Login
 
 | Role | Username | Password |
 |------|----------|----------|
@@ -33,10 +24,26 @@ npm test               # ④ Verify — automated tests
 
 ---
 
-## Docs
+## Quick Start
 
-| Guide | What's inside |
-|-------|---------------|
-| **[GETTING-STARTED.md](./docs/GETTING-STARTED.md)** | Full process for web developers |
-| [DESKTOP.md](./docs/DESKTOP.md) | Technical architecture |
-| [architecture/](./docs/architecture/) | System design docs |
+```bash
+npm run setup          # ① Once — install everything
+npm run web            # ② Daily — UI work in browser (like normal web dev)
+npm start              # ③ Test — real desktop window + database
+npm test               # ④ Verify — automated tests
+```
+
+**Windows:** double-click `Start Minch Bingo.bat` instead of `npm start`.
+
+---
+
+## Documentation index
+
+| Document | Purpose |
+|----------|---------|
+| **[docs/HANDOVER.md](./docs/HANDOVER.md)** | **Main developer guide — read this first** |
+| [docs/IPC-REFERENCE.md](./docs/IPC-REFERENCE.md) | All backend API channels |
+| [docs/ROUTES-AND-SCREENS.md](./docs/ROUTES-AND-SCREENS.md) | All pages and screens |
+| [docs/GETTING-STARTED.md](./docs/GETTING-STARTED.md) | Web-dev workflow for desktop |
+| [docs/DESKTOP.md](./docs/DESKTOP.md) | Run, test, package |
+| [docs/architecture/](./docs/architecture/) | Original system design (ERD, ADRs) |

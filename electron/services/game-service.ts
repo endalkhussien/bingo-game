@@ -6,10 +6,12 @@ import {
 } from '../../src/infrastructure/database/schema';
 import { drawRandomNumber, checkWinningPattern } from '../../src/domain/services/bingo-engine';
 import { parseCardData } from '../../src/domain/services/card-generator';
-import { BALL_COUNT, MIN_BET } from '../../src/shared/constants';
+import { MIN_BET } from '../../src/shared/constants';
+import { DRAW_BALL_COUNT } from '../../src/shared/brand';
+import { deductGameCost } from './wallet-service';
 
 function generateGameCode(): string {
-  return `BNG-${Math.floor(1000 + Math.random() * 9000)}`;
+  return `TBG-${Math.floor(1000 + Math.random() * 9000)}`;
 }
 
 export async function createGame(agentId: string, config: {
@@ -17,6 +19,7 @@ export async function createGame(agentId: string, config: {
   winningPattern: string;
   drawSpeedMs: number;
   voiceType: string;
+  language?: string;
   selectedNumbers: number[];
 }) {
   const db = getDb();
@@ -31,8 +34,8 @@ export async function createGame(agentId: string, config: {
 
   const playerCount = config.selectedNumbers.length;
   const gameCost = config.betAmount * playerCount;
-  if (agent.walletBalance < gameCost && playerCount > 0) {
-    return { success: false, error: 'Insufficient wallet balance' };
+  if (playerCount > 0 && agent.walletBalance < gameCost) {
+    return { success: false, error: `Insufficient wallet balance. Need ${gameCost} ETB.` };
   }
 
   const id = uuid();
@@ -47,9 +50,9 @@ export async function createGame(agentId: string, config: {
     winningPattern: config.winningPattern,
     drawSpeedMs: config.drawSpeedMs,
     voiceType: config.voiceType,
-    language: 'en',
-    numberRangeMax: BALL_COUNT,
-    maxPlayers: BALL_COUNT,
+    language: config.language ?? 'am',
+    numberRangeMax: DRAW_BALL_COUNT,
+    maxPlayers: DRAW_BALL_COUNT,
     status: 'RUNNING',
     selectedNumbers: JSON.stringify(config.selectedNumbers),
     startedAt: now,
@@ -57,7 +60,10 @@ export async function createGame(agentId: string, config: {
     updatedAt: now,
   });
 
-  // Assign cards for selected numbers
+  if (gameCost > 0) {
+    await deductGameCost(agentId, gameCost, gameCode);
+  }
+
   const allCards = await db.select().from(bingoCards).where(eq(bingoCards.agentId, agentId)).all();
   for (const num of config.selectedNumbers) {
     const card = allCards.find((c) => c.cardNumber === String(num));
@@ -72,6 +78,10 @@ export async function createGame(agentId: string, config: {
     }
   }
 
+  const commissionRate = agent.commissionRate;
+  const totalPot = config.betAmount * playerCount;
+  const agentCommission = totalPot * (commissionRate / 100);
+
   return {
     success: true,
     data: {
@@ -80,35 +90,55 @@ export async function createGame(agentId: string, config: {
       betAmount: config.betAmount,
       playerCount,
       status: 'RUNNING',
+      commissionRate,
+      totalPot,
+      agentCommission,
+      maxBalls: DRAW_BALL_COUNT,
     },
   };
 }
 
-export async function getActiveGame(agentId: string) {
+async function formatActiveGame(game: typeof games.$inferSelect) {
   const db = getDb();
-  const game = await db.select().from(games)
-    .where(and(eq(games.agentId, agentId), eq(games.status, 'RUNNING')))
-    .orderBy(desc(games.createdAt))
-    .get();
-  if (!game) return null;
-
   const drawn = await db.select().from(drawnNumbers)
     .where(eq(drawnNumbers.gameId, game.id))
     .orderBy(drawnNumbers.drawOrder)
     .all();
+  const agent = await db.select().from(agents).where(eq(agents.id, game.agentId)).get();
+  const gameCardRows = await db.select().from(gameCards).where(eq(gameCards.gameId, game.id)).all();
+  const playerCount = gameCardRows.length;
+  const totalPot = game.betAmount * playerCount;
+  const commissionRate = agent?.commissionRate ?? 20;
 
   return {
     ...game,
     selectedNumbers: game.selectedNumbers ? JSON.parse(game.selectedNumbers) : [],
     drawnNumbers: drawn.map((d) => d.number),
+    commissionRate,
+    totalPot,
+    agentCommission: totalPot * (commissionRate / 100),
+    maxBalls: game.numberRangeMax,
+    drawCount: drawn.length,
   };
+}
+
+export async function getActiveGame(agentId: string) {
+  const db = getDb();
+  for (const status of ['RUNNING', 'PAUSED'] as const) {
+    const game = await db.select().from(games)
+      .where(and(eq(games.agentId, agentId), eq(games.status, status)))
+      .orderBy(desc(games.createdAt))
+      .get();
+    if (game) return formatActiveGame(game);
+  }
+  return null;
 }
 
 export async function drawNumber(gameId: string, agentId: string) {
   const db = getDb();
   const game = await db.select().from(games).where(eq(games.id, gameId)).get();
   if (!game || game.agentId !== agentId || game.status !== 'RUNNING') {
-    return { success: false, error: 'Game not running' };
+    return { success: false, error: game?.status === 'PAUSED' ? 'Game is paused' : 'Game not running' };
   }
 
   const drawn = await db.select().from(drawnNumbers).where(eq(drawnNumbers.gameId, gameId)).all();
@@ -117,48 +147,126 @@ export async function drawNumber(gameId: string, agentId: string) {
   try {
     const number = drawRandomNumber(drawnNums, game.numberRangeMax);
     const now = Math.floor(Date.now() / 1000);
+    const drawOrder = drawn.length + 1;
 
     await db.insert(drawnNumbers).values({
       id: uuid(),
       gameId,
       number,
-      drawOrder: drawn.length + 1,
+      drawOrder,
       drawnAt: now,
     });
 
-    // Auto-check winners
-    const gameCardRows = await db.select().from(gameCards).where(eq(gameCards.gameId, gameId)).all();
-    const newWinners = [];
-    for (const gc of gameCardRows) {
-      const card = await db.select().from(bingoCards).where(eq(bingoCards.id, gc.cardId)).get();
-      if (!card) continue;
-      const grid = parseCardData(card.cardData);
-      const allDrawn = [...drawnNums, number];
-      if (checkWinningPattern(grid, allDrawn, game.winningPattern)) {
-        const existing = await db.select().from(winners)
-          .where(and(eq(winners.gameId, gameId), eq(winners.cardId, card.id))).get();
-        if (!existing) {
-          const playerCount = gameCardRows.length;
-          const totalBets = game.betAmount * playerCount;
-          const commission = totalBets * 0.2;
-          const prize = totalBets - commission;
-          await db.insert(winners).values({
-            id: uuid(),
-            gameId,
-            cardId: card.id,
-            winningPattern: game.winningPattern,
-            prizeAmount: prize,
-            wonAt: now,
-          });
-          newWinners.push({ cardNumber: card.cardNumber, prizeAmount: prize });
-        }
-      }
-    }
-
-    return { success: true, data: { number, drawOrder: drawn.length + 1, winners: newWinners } };
+    return {
+      success: true,
+      data: {
+        number,
+        drawOrder,
+        drawCount: drawOrder,
+        maxBalls: game.numberRangeMax,
+        voiceType: game.voiceType,
+        language: game.language,
+        winners: [],
+      },
+    };
   } catch {
     return { success: false, error: 'All numbers drawn' };
   }
+}
+
+export async function pauseGame(gameId: string, agentId: string) {
+  const db = getDb();
+  const game = await db.select().from(games).where(eq(games.id, gameId)).get();
+  if (!game || game.agentId !== agentId || game.status !== 'RUNNING') {
+    return { success: false, error: 'Game not running' };
+  }
+  const now = Math.floor(Date.now() / 1000);
+  await db.update(games).set({ status: 'PAUSED', updatedAt: now }).where(eq(games.id, gameId));
+  return { success: true };
+}
+
+export async function resumeGame(gameId: string, agentId: string) {
+  const db = getDb();
+  const game = await db.select().from(games).where(eq(games.id, gameId)).get();
+  if (!game || game.agentId !== agentId || game.status !== 'PAUSED') {
+    return { success: false, error: 'Game not paused' };
+  }
+  const now = Math.floor(Date.now() / 1000);
+  await db.update(games).set({ status: 'RUNNING', updatedAt: now }).where(eq(games.id, gameId));
+  return { success: true };
+}
+
+export async function validateWinner(gameId: string, agentId: string, cardNumber: string) {
+  const db = getDb();
+  const game = await db.select().from(games).where(eq(games.id, gameId)).get();
+  if (!game || game.agentId !== agentId) {
+    return { success: false, valid: false, error: 'Game not found' };
+  }
+  if (!['RUNNING', 'PAUSED'].includes(game.status)) {
+    return { success: false, valid: false, error: 'Game already ended' };
+  }
+
+  const card = await db.select().from(bingoCards)
+    .where(and(eq(bingoCards.agentId, agentId), eq(bingoCards.cardNumber, cardNumber)))
+    .get();
+  if (!card) {
+    return { success: true, valid: false, message: `Card #${cardNumber} not found for this agent.` };
+  }
+
+  const gc = await db.select().from(gameCards)
+    .where(and(eq(gameCards.gameId, gameId), eq(gameCards.cardId, card.id)))
+    .get();
+  if (!gc) {
+    return { success: true, valid: false, message: `Card #${cardNumber} is not in this game.` };
+  }
+
+  const drawn = await db.select().from(drawnNumbers).where(eq(drawnNumbers.gameId, gameId)).all();
+  const drawnNums = drawn.map((d) => d.number);
+  const grid = parseCardData(card.cardData);
+
+  if (!checkWinningPattern(grid, drawnNums, game.winningPattern)) {
+    return {
+      success: true,
+      valid: false,
+      message: `Card #${cardNumber} does NOT have a winning pattern. Game stays paused — resume when ready.`,
+    };
+  }
+
+  const existing = await db.select().from(winners)
+    .where(and(eq(winners.gameId, gameId), eq(winners.cardId, card.id))).get();
+  if (existing) {
+    return { success: true, valid: true, message: `Card #${cardNumber} already validated.`, prizeAmount: existing.prizeAmount };
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const gameCardRows = await db.select().from(gameCards).where(eq(gameCards.gameId, gameId)).all();
+  const playerCount = gameCardRows.length;
+  const totalBets = game.betAmount * playerCount;
+  const agent = await db.select().from(agents).where(eq(agents.id, agentId)).get();
+  const commissionRate = agent?.commissionRate ?? 20;
+  const commission = totalBets * (commissionRate / 100);
+  const prize = totalBets - commission;
+
+  await db.insert(winners).values({
+    id: uuid(),
+    gameId,
+    cardId: card.id,
+    winningPattern: game.winningPattern,
+    prizeAmount: prize,
+    wonAt: now,
+  });
+
+  await db.update(games).set({ status: 'PAUSED', updatedAt: now }).where(eq(games.id, gameId));
+
+  return {
+    success: true,
+    valid: true,
+    message: `Card #${cardNumber} is a VALID winner!`,
+    prizeAmount: prize,
+    cardNumber,
+    commissionRate,
+    agentCommission: commission,
+  };
 }
 
 export async function endGame(gameId: string, agentId: string) {
@@ -167,10 +275,12 @@ export async function endGame(gameId: string, agentId: string) {
   const game = await db.select().from(games).where(eq(games.id, gameId)).get();
   if (!game || game.agentId !== agentId) return { success: false, error: 'Game not found' };
 
+  const agent = await db.select().from(agents).where(eq(agents.id, agentId)).get();
+  const commissionRate = agent?.commissionRate ?? 20;
+
   const gameCardRows = await db.select().from(gameCards).where(eq(gameCards.gameId, gameId)).all();
   const playerCount = gameCardRows.length;
   const totalBets = game.betAmount * playerCount;
-  const commissionRate = 20;
   const commissionRevenue = totalBets * (commissionRate / 100);
   const gameWinners = await db.select().from(winners).where(eq(winners.gameId, gameId)).all();
   const totalPayouts = gameWinners.reduce((s, w) => s + w.prizeAmount, 0);
@@ -191,21 +301,29 @@ export async function endGame(gameId: string, agentId: string) {
     calculatedAt: now,
   });
 
-  // Credit agent wallet with profit
-  const agent = await db.select().from(agents).where(eq(agents.id, agentId)).get();
   if (agent) {
     const newBalance = agent.walletBalance + Math.max(0, agentRevenue);
     await db.update(agents).set({ walletBalance: newBalance, updatedAt: now })
       .where(eq(agents.id, agentId));
   }
 
-  return { success: true, data: { totalBets, agentRevenue: Math.max(0, agentRevenue), totalPayouts } };
+  return {
+    success: true,
+    data: {
+      totalBets,
+      agentRevenue: Math.max(0, agentRevenue),
+      totalPayouts,
+      commissionRevenue,
+      commissionRate,
+    },
+  };
 }
 
 export async function listGames(agentId: string, filters?: { status?: string; startDate?: number; endDate?: number }) {
   const db = getDb();
-  let query = db.select().from(games).where(eq(games.agentId, agentId)).orderBy(desc(games.createdAt));
-  const allGames = await query.all();
+  const allGames = await db.select().from(games).where(eq(games.agentId, agentId)).orderBy(desc(games.createdAt)).all();
+  const agent = await db.select().from(agents).where(eq(agents.id, agentId)).get();
+  const commissionRate = agent?.commissionRate ?? 20;
 
   const results = [];
   for (const game of allGames) {
@@ -222,7 +340,7 @@ export async function listGames(agentId: string, filters?: { status?: string; st
       date: game.createdAt,
       betAmount: game.betAmount,
       playersNumber: gameCardRows.length,
-      commissionPercent: 20,
+      commissionPercent: commissionRate,
       profit: revenue?.agentRevenue ?? 0,
       status: game.status,
     });

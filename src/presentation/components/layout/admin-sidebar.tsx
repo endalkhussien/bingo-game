@@ -9,6 +9,7 @@ import {
 import { cn } from '@/presentation/lib/utils';
 import { useAuth } from '@/presentation/providers/auth-provider';
 import { useEffect, useState } from 'react';
+import { APP_NAME } from '@/shared/brand';
 import { ipc } from '@/presentation/lib/ipc';
 
 const navItems = [
@@ -37,9 +38,9 @@ export function AdminSidebar() {
   return (
     <aside className="flex w-60 flex-col bg-sidebar text-white">
       <div className="flex items-center gap-2 border-b border-white/10 px-4 py-5">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-500 text-lg font-bold">B</div>
+        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500 text-lg font-bold">T</div>
         <div>
-          <div className="text-sm font-bold">Bingo Management</div>
+          <div className="text-sm font-bold">{APP_NAME}</div>
           <div className="text-[10px] text-gray-400">Super Admin</div>
         </div>
       </div>
