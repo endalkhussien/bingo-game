@@ -13,11 +13,15 @@ function toAmharicNumber(n: number): string {
     return `${AMHARIC_TENS[tens]} ${AMHARIC_ONES[ones]}`;
   }
   if (n === 100) return 'መቶ';
-  if (n < 150) {
+  if (n <= 150) {
     const rest = n - 100;
     return rest === 0 ? 'መቶ' : `መቶ ${toAmharicNumber(rest)}`;
   }
   return String(n);
+}
+
+export function toAmharicNumberWord(n: number): string {
+  return toAmharicNumber(n);
 }
 
 export function buildAnnouncement(
@@ -25,7 +29,7 @@ export function buildAnnouncement(
   voiceType: string,
   language: string,
 ): { text: string; lang: string; isAmharic: boolean; preferFemale: boolean } {
-  const isAmharic = voiceType.startsWith('AMHARIC') || language === 'am';
+  const isAmharic = language === 'am';
   const preferFemale = voiceType.includes('FEMALE');
 
   if (isAmharic) {

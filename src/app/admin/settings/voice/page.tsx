@@ -38,8 +38,6 @@ export default function VoiceSettingsPage() {
     setTesting(false);
   };
 
-  const hasAmharicVoice = installedVoices.some((v) => /\[am/i.test(v));
-
   return (
     <div className="max-w-xl">
       <PageHeader title="Voice Settings" />
@@ -72,16 +70,14 @@ export default function VoiceSettingsPage() {
           <p className="rounded-lg bg-gray-50 p-3 text-sm text-gray-700">{testResult}</p>
         )}
 
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-          <p className="mb-2 flex items-center gap-2 font-semibold"><Info className="h-4 w-4" /> Amharic voice setup (Windows)</p>
-          <p className="mb-2">Browser voices rarely include Amharic. The desktop app uses:</p>
-          <ol className="list-decimal space-y-1 pl-5">
-            <li><strong>Windows Speech</strong> — install Amharic language pack in Settings → Time &amp; language → Language → Add Amharic → Speech</li>
-            <li><strong>espeak-ng</strong> (free backup) — download from <span className="break-all">github.com/espeak-ng/espeak-ng/releases</span> and add to PATH</li>
-          </ol>
-          {!hasAmharicVoice && installedVoices.length > 0 && (
-            <p className="mt-2 text-red-700">⚠ No Amharic voice detected on this PC. Install Amharic speech pack or espeak-ng.</p>
-          )}
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+          <p className="mb-2 flex items-center gap-2 font-semibold"><Info className="h-4 w-4" /> Amharic voice</p>
+          <p className="mb-2">
+            Amharic ball calls use <strong>built-in offline audio</strong> (numbers 1–150). No Windows speech pack or espeak-ng install is required.
+          </p>
+          <p className="text-xs text-emerald-800">
+            English uses Windows Speech or browser voices. Optional Windows Amharic pack / espeak-ng are only used if bundled audio is unavailable.
+          </p>
           {installedVoices.length > 0 && (
             <details className="mt-2">
               <summary className="cursor-pointer text-xs">Installed Windows voices ({installedVoices.length})</summary>
