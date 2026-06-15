@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/presentation/providers/auth-provider';
 import { APP_NAME, APP_TAGLINE } from '@/shared/brand';
 import { ipc } from '@/presentation/lib/ipc';
-import { getPostLoginPath } from '@/shared/roles';
+import { getPostLoginPath, getShopAdminEntryPath, isShopAdminRole, ROLE_OPERATOR } from '@/shared/roles';
 import { TextInput } from '@/presentation/components/shared/text-input';
 import { TextArea } from '@/presentation/components/shared/text-area';
 
@@ -35,14 +35,23 @@ export default function LoginPage() {
     setError('');
     setSuccess('');
     const result = await login(username, password, rememberMe);
-    setLoading(false);
     if (result.success && result.user) {
-      router.push(getPostLoginPath(result.user.role));
+      if (result.user.role === ROLE_OPERATOR) {
+        try {
+          const status = await ipc<{ active: boolean }>('license:status');
+          router.push(getShopAdminEntryPath(!!status?.active));
+        } catch {
+          router.push(getShopAdminEntryPath(false));
+        }
+      } else {
+        router.push(getPostLoginPath(result.user.role));
+      }
     } else if (result.success) {
       router.push('/login');
     } else {
       setError(result.error ?? 'Login failed');
     }
+    setLoading(false);
   };
 
   const handleActivate = async () => {

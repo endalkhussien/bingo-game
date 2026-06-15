@@ -18,7 +18,7 @@
 
 ### Vendor (your PC)
 
-1. Login as **`vendor`** → **Vendor Board** only
+1. Login as **`vendor`** → opens **`/vendor`** (dark Vendor Board — not shop admin UI)
 2. Enter shop name → **Weekly TOL** or **Monthly TOL**
 3. Copy TOL code
 4. Send shop: **installer `.exe` + TOL code + admin login** (`admin` / password they choose)

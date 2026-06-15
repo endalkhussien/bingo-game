@@ -46,7 +46,7 @@ const mockSettings: Record<string, string> = {
   currency: 'ETB', timezone: 'Africa/Addis_Ababa', default_voice: 'AMHARIC_MALE', default_language: 'en', number_range_max: '75',
 };
 const mockTxs: Array<Record<string, unknown>> = [];
-let mockLicenseUntil = Math.floor(Date.now() / 1000) + 86400 * 7;
+let mockLicenseUntil = 0;
 
 function mockTolCode(shopName: string, days: number) {
   const until = Math.floor(Date.now() / 1000) + days * 86400;
@@ -85,12 +85,17 @@ function ensureMockDeck() {
   mockCards.sort((a, b) => Number(a.cardNumber) - Number(b.cardNumber));
 }
 
-function requireShopAdminSession() {
+function requireShopAdminRoleOnly() {
   const session = requireSession();
   if (session.user.role === 'SUPER_ADMIN') {
-    throw new Error('Shop admin only. Vendor uses the Vendor Board.');
+    throw new Error('Shop admin only. Vendor uses /vendor.');
   }
   if (session.user.role !== 'OPERATOR') throw new Error('Shop admin access required');
+  return session;
+}
+
+function requireShopAdminSession() {
+  const session = requireShopAdminRoleOnly();
   const now = Math.floor(Date.now() / 1000);
   if (mockLicenseUntil <= now) throw new Error('OPERATOR_LICENSE_EXPIRED');
   return session;
@@ -431,10 +436,15 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
     };
   },
   'license:activate': async (code: unknown) => {
-    const c = String(code ?? '');
-    if (!c.startsWith('TOL-')) return { success: false, error: 'Invalid TOL code' };
-    mockLicenseUntil = Math.floor(Date.now() / 1000) + 86400 * 7;
-    return { success: true, data: { message: 'License activated (mock)' } };
+    requireShopAdminRoleOnly();
+    const c = String(code ?? '').trim();
+    const { parseOperatorLicenseCode } = await import('@/shared/voucher/operator-license-code');
+    const parsed = parseOperatorLicenseCode(c);
+    if (!parsed.valid || !parsed.payload) {
+      return { success: false, error: parsed.error ?? 'Invalid TOL code' };
+    }
+    mockLicenseUntil = parsed.payload.validUntil;
+    return { success: true, data: { message: `License active until ${new Date(mockLicenseUntil * 1000).toLocaleDateString()}` } };
   },
   'license:commission-report': async () => ({
     periodDays: 7,

@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import { ipc } from '@/presentation/lib/ipc';
 import { PageHeader } from '@/presentation/components/shared/page-header';
 import { useAuth } from '@/presentation/providers/auth-provider';
-import { isVendorRole } from '@/shared/roles';
+import { isShopAdminRole, isVendorRole } from '@/shared/roles';
+import { VENDOR_HOME } from '@/shared/admin-routes';
 import { TextArea } from '@/presentation/components/shared/text-area';
 import { formatDate } from '@/presentation/lib/utils';
 
@@ -37,7 +38,7 @@ export default function OperatorLicensePage() {
   const { user } = useAuth();
 
   useEffect(() => {
-    if (user && isVendorRole(user.role)) router.replace('/admin/vendor');
+    if (user && isVendorRole(user.role)) router.replace(VENDOR_HOME);
   }, [user, router]);
 
   const load = () => {
@@ -48,42 +49,62 @@ export default function OperatorLicensePage() {
   useEffect(() => { load(); }, []);
 
   const handleActivate = async () => {
-    if (!code.trim()) {
-      setError('Paste your TOL license code from the vendor');
+    const trimmed = code.trim();
+    if (!trimmed) {
+      setError('Paste the TOL code from your vendor');
+      return;
+    }
+    if (!isShopAdminRole(user?.role ?? '')) {
+      setError('Login as shop admin (username: admin) to activate TOL. Vendor cannot paste TOL here.');
       return;
     }
     setLoading(true);
     setError('');
     setSuccess('');
-    const result = await ipc<{ success: boolean; data?: { message: string }; error?: string }>(
-      'license:activate',
-      code.trim(),
-    );
-    setLoading(false);
-    if (result.success) {
-      setSuccess(result.data?.message ?? 'License activated');
-      setCode('');
-      load();
-      setTimeout(() => router.replace('/admin/dashboard'), 1500);
-    } else {
-      setError(result.error ?? 'Activation failed');
+    try {
+      const result = await ipc<{ success: boolean; data?: { message: string }; error?: string }>(
+        'license:activate',
+        trimmed,
+      );
+      if (result?.success) {
+        setSuccess(result.data?.message ?? 'Shop admin license activated!');
+        setCode('');
+        load();
+        setTimeout(() => router.replace('/admin/dashboard'), 1200);
+      } else {
+        setError(result?.error ?? 'Activation failed — check the TOL code');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Activation failed');
+    } finally {
+      setLoading(false);
     }
   };
+
+  if (user && isVendorRole(user.role)) {
+    return null;
+  }
 
   return (
     <div className="mx-auto max-w-xl">
       <PageHeader title="Activate Shop Admin (TOL)" />
-      <div className="mb-6 rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-sm text-indigo-900">
-        <p className="font-semibold">Step 1 for shop admin — paste TOL from vendor</p>
-        <p className="mt-1">
-          Logged in as shop admin <strong>{user?.username}</strong>. Your vendor sends a <strong>TOL-</strong> code
-          (weekly or monthly). After activation you can create agents and issue <strong>TAS</strong> codes to them.
+      <div className="mb-6 rounded-xl border-2 border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
+        <p className="font-bold">Shop admin must paste TOL here before anything else works</p>
+        <p className="mt-2">
+          Logged in as <strong>{user?.username ?? '…'}</strong>.
+          Your vendor sends a <strong>TOL-</strong> code (weekly or monthly).
+          After this works you can create agents and send them <strong>TAS</strong> codes.
         </p>
+        {user && !isShopAdminRole(user.role) && (
+          <p className="mt-2 font-semibold text-red-700">
+            Wrong account — use shop admin login <strong>admin</strong>, not vendor.
+          </p>
+        )}
       </div>
 
       {status && (
         <div className={`mb-6 rounded-xl border p-4 text-sm ${status.active ? 'border-emerald-300 bg-emerald-50 text-emerald-900' : 'border-amber-300 bg-amber-50 text-amber-900'}`}>
-          <p className="font-semibold">{status.active ? 'License active' : 'License expired or not activated'}</p>
+          <p className="font-semibold">{status.active ? 'TOL license active' : 'TOL not activated yet'}</p>
           {status.shopName && <p className="mt-1">Shop: {status.shopName}</p>}
           {status.active && (
             <p className="mt-1">Valid until {formatDate(status.validUntil)} ({status.daysRemaining} days left)</p>
@@ -93,34 +114,33 @@ export default function OperatorLicensePage() {
 
       {report && report.gameCount > 0 && (
         <div className="mb-6 rounded-xl border bg-white p-4 text-sm shadow-sm">
-          <p className="font-semibold text-gray-800">This week — commission due to vendor</p>
+          <p className="font-semibold text-gray-800">Commission due to vendor this week</p>
           <p className="mt-2 text-2xl font-bold text-indigo-700">{report.vendorCommissionDue.toFixed(0)} ETB</p>
           <p className="mt-1 text-xs text-gray-500">
-            {report.gameCount} games · {report.totalBets.toFixed(0)} ETB total bets · vendor share {report.vendorCommissionRate}%
+            {report.gameCount} games · {report.totalBets.toFixed(0)} ETB bets
           </p>
-          <p className="mt-2 text-xs text-gray-600">Pay your vendor, then paste the new TOL code below.</p>
         </div>
       )}
 
       <div className="rounded-xl border bg-white p-6 shadow-sm space-y-4">
         <TextArea
-          label="TOL code from vendor"
+          label="Paste TOL code from vendor"
           value={code}
           onChange={(e) => { setCode(e.target.value); setError(''); }}
-          placeholder="Paste TOL- code from vendor"
-          rows={4}
+          placeholder="TOL-xxxxxxxx…"
+          rows={5}
           className="font-mono text-xs"
         />
         <button
           type="button"
           onClick={handleActivate}
           disabled={loading}
-          className="w-full rounded-lg bg-emerald-600 py-3 text-sm font-semibold text-white disabled:opacity-50"
+          className="w-full rounded-lg bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
         >
-          {loading ? 'Activating…' : 'Activate shop admin license'}
+          {loading ? 'Activating…' : 'Activate TOL — unlock shop admin'}
         </button>
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        {success && <p className="text-sm text-emerald-700">{success}</p>}
+        {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+        {success && <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{success}</p>}
       </div>
     </div>
   );

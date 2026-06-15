@@ -1,6 +1,6 @@
-import { SHOP_ADMIN_HOME, VENDOR_HOME } from './admin-routes';
+import { SHOP_ADMIN_HOME, SHOP_ADMIN_LICENSE, VENDOR_HOME } from './admin-routes';
 
-/** 1. Vendor — generates weekly/monthly TOL for shop admin, sees activity board. */
+/** 1. Vendor — generates weekly/monthly TOL for shop admin. */
 export const ROLE_VENDOR = 'SUPER_ADMIN' as const;
 
 /** 2. Shop admin — activates with TOL, creates agents, issues TAS/TBG codes. */
@@ -27,6 +27,10 @@ export function getPostLoginPath(role: string): string {
   if (role === ROLE_VENDOR) return VENDOR_HOME;
   if (role === ROLE_OPERATOR) return SHOP_ADMIN_HOME;
   return '/agent/dashboard';
+}
+
+export function getShopAdminEntryPath(licenseActive: boolean): string {
+  return licenseActive ? SHOP_ADMIN_HOME : SHOP_ADMIN_LICENSE;
 }
 
 export function getRoleLabel(role: string): string {
