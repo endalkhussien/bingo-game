@@ -364,9 +364,8 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
     const rate = c.commissionRate ?? currentSession?.agent?.commissionRate ?? 20;
     const commission = pot * (rate / 100);
     const prize = pot - commission;
-    if (mockBalance <= 0) return { success: false, error: 'Wallet balance is empty. Recharge with a TBG code.' };
-    if (mockBalance < prize) {
-      return { success: false, error: `Insufficient balance. Need at least ${prize.toFixed(0)} ETB to cover winner prize.` };
+    if (mockBalance + pot < prize) {
+      return { success: false, error: `Insufficient balance to cover winner prize (${prize.toFixed(0)} ETB).` };
     }
     const game = {
       id: `game-${mockGames.length + 1}`, gameCode: `TBG-${1000 + mockGames.length}`, status: 'RUNNING',

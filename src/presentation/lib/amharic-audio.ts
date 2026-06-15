@@ -42,6 +42,7 @@ function playUrl(url: string): Promise<boolean> {
   if (typeof window === 'undefined') return Promise.resolve(false);
 
   return new Promise((resolve) => {
+    const timeout = window.setTimeout(() => resolve(false), 1200);
     try {
       if (currentAudio) {
         currentAudio.pause();
@@ -54,6 +55,7 @@ function playUrl(url: string): Promise<boolean> {
       currentAudio = audio;
 
       const finish = (ok: boolean) => {
+        window.clearTimeout(timeout);
         if (currentAudio === audio) currentAudio = null;
         resolve(ok);
       };
@@ -66,6 +68,7 @@ function playUrl(url: string): Promise<boolean> {
         started.catch(() => finish(false));
       }
     } catch {
+      window.clearTimeout(timeout);
       currentAudio = null;
       resolve(false);
     }

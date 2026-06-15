@@ -54,13 +54,11 @@ export async function createGame(agentId: string, config: {
   }
 
   const { totalPot, prize } = calculateWinnerPrize(config.betAmount, playerCount, commissionRate);
-  if (agent.walletBalance <= 0) {
-    return { success: false, error: 'Wallet balance is empty. Recharge with a TBG code before running a game.' };
-  }
-  if (agent.walletBalance < prize) {
+  // Player stakes are credited when the game starts, so balance after credit always covers the prize.
+  if (agent.walletBalance + totalPot < prize) {
     return {
       success: false,
-      error: `Insufficient balance. Need at least ${prize.toFixed(0)} ETB to cover the winner prize (${playerCount} × ${config.betAmount} ETB pot, ${commissionRate}% commission).`,
+      error: `Insufficient balance to cover winner prize (${prize.toFixed(0)} ETB).`,
     };
   }
 
