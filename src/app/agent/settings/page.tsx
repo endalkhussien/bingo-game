@@ -6,6 +6,8 @@ import { useAuth } from '@/presentation/providers/auth-provider';
 import { PageHeader } from '@/presentation/components/shared/page-header';
 import { APP_NAME } from '@/shared/brand';
 import { calculateGameEconomics } from '@/shared/prize';
+import { TextInput } from '@/presentation/components/shared/text-input';
+import { TextArea } from '@/presentation/components/shared/text-area';
 
 export default function AgentSettingsPage() {
   const { agent, refreshAgent } = useAuth();
@@ -48,8 +50,14 @@ export default function AgentSettingsPage() {
   };
 
   const handleChangePassword = async () => {
+    setErr('');
+    setMsg('');
+    if (!oldPw || !newPw) {
+      setErr('Enter current and new password.');
+      return;
+    }
     const r = await ipc<{ success: boolean; error?: string }>('auth:change-password', oldPw, newPw);
-    if (r.success) { setMsg('Password changed successfully'); setOldPw(''); setNewPw(''); setErr(''); }
+    if (r.success) { setMsg('Password changed successfully'); setOldPw(''); setNewPw(''); }
     else setErr(r.error ?? 'Failed');
   };
 
@@ -73,22 +81,19 @@ export default function AgentSettingsPage() {
         </p>
         {msg && <p className="text-sm text-green-600">{msg}</p>}
         {err && <p className="text-sm text-red-500">{err}</p>}
-        <div>
-          <label className="mb-1 block text-sm font-medium">Commission from pot %</label>
-          <input
-            type="number"
-            min={0}
-            max={100}
-            value={commissionRate}
-            onChange={(e) => setCommissionRate(e.target.value)}
-            className="w-full rounded-lg border px-3 py-2 text-sm"
-          />
-        </div>
+        <TextInput
+          label="Commission from pot %"
+          type="number"
+          min={0}
+          max={100}
+          value={commissionRate}
+          onChange={(e) => setCommissionRate(e.target.value)}
+        />
         <p className="text-xs text-gray-500">
           Example (20 players × 10 ETB): winner gets {example.prize.toFixed(0)} ETB ·
           you keep {example.agentNetCommission.toFixed(0)} ETB after admin share
         </p>
-        <button onClick={handleSaveCommission} className="rounded-lg bg-indigo-600 px-6 py-2 text-sm text-white">
+        <button type="button" onClick={handleSaveCommission} className="rounded-lg bg-indigo-600 px-6 py-2 text-sm text-white">
           Save commission rate
         </button>
       </div>
@@ -98,27 +103,35 @@ export default function AgentSettingsPage() {
         <p className="text-sm text-gray-600">
           Ask your admin for the {APP_NAME} organization key. Enter it once on this PC to redeem secure offline recharge codes.
         </p>
-        {msg && <p className="text-sm text-green-600">{msg}</p>}
-        {err && <p className="text-sm text-red-500">{err}</p>}
-        <textarea
+        <TextArea
           value={orgKey}
           onChange={(e) => setOrgKey(e.target.value)}
           placeholder="Paste organization key from admin…"
           rows={3}
-          className="w-full rounded-lg border px-3 py-2 font-mono text-xs"
+          className="font-mono text-xs"
         />
-        <button onClick={handleSaveOrgKey} className="rounded-lg bg-emerald-600 px-6 py-2 text-sm text-white">
+        <button type="button" onClick={handleSaveOrgKey} className="rounded-lg bg-emerald-600 px-6 py-2 text-sm text-white">
           Save organization key
         </button>
       </div>
 
       <div className="rounded-xl bg-white p-6 shadow-sm border space-y-4">
         <h3 className="font-semibold">Change Password</h3>
-        <input type="password" placeholder="Current password" value={oldPw} onChange={(e) => setOldPw(e.target.value)}
-          className="w-full rounded-lg border px-3 py-2 text-sm" />
-        <input type="password" placeholder="New password" value={newPw} onChange={(e) => setNewPw(e.target.value)}
-          className="w-full rounded-lg border px-3 py-2 text-sm" />
-        <button onClick={handleChangePassword} className="rounded-lg bg-blue-600 px-6 py-2 text-sm text-white">Update Password</button>
+        <TextInput
+          type="password"
+          autoComplete="current-password"
+          placeholder="Current password"
+          value={oldPw}
+          onChange={(e) => setOldPw(e.target.value)}
+        />
+        <TextInput
+          type="password"
+          autoComplete="new-password"
+          placeholder="New password"
+          value={newPw}
+          onChange={(e) => setNewPw(e.target.value)}
+        />
+        <button type="button" onClick={handleChangePassword} className="rounded-lg bg-blue-600 px-6 py-2 text-sm text-white">Update Password</button>
       </div>
     </div>
   );

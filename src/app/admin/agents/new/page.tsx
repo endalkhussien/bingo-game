@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { PageHeader } from '@/presentation/components/shared/page-header';
 import { TasSetupPanel } from '@/presentation/components/admin/tas-setup-panel';
+import { TextInput } from '@/presentation/components/shared/text-input';
 import { createAgentWithSetup } from '@/presentation/lib/create-agent-with-setup';
 
 export default function NewAgentPage() {
@@ -49,44 +50,41 @@ export default function NewAgentPage() {
       )}
       <form onSubmit={handleSubmit} className="space-y-4 rounded-xl bg-white p-6 shadow-sm border border-gray-100">
         {error && <p className="text-sm text-red-500">{error}</p>}
-        {(['fullName', 'username', 'password', 'phone'] as const).map((f) => (
-          <div key={f}>
-            <label className="mb-1 block text-sm font-medium capitalize">{f.replace(/([A-Z])/g, ' $1')}</label>
-            <input
-              type={f === 'password' ? 'password' : 'text'}
-              required={f !== 'phone'}
-              value={form[f]}
-              onChange={(e) => setForm({ ...form, [f]: e.target.value })}
-              placeholder={f === 'username' ? 'e.g. abebe (lowercase)' : undefined}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-            />
-          </div>
-        ))}
+        <TextInput label="Full name" required value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} />
+        <TextInput
+          label="Username"
+          required
+          value={form.username}
+          onChange={(e) => setForm({ ...form, username: e.target.value })}
+          placeholder="e.g. abebe (lowercase)"
+        />
+        <TextInput
+          label="Password"
+          type="password"
+          required
+          value={form.password}
+          onChange={(e) => setForm({ ...form, password: e.target.value })}
+        />
+        <TextInput label="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
         <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="mb-1 block text-sm font-medium">Admin share from agent %</label>
-            <input
-              type="number"
-              min={0}
-              max={100}
-              step={1}
-              value={form.adminCommissionRate}
-              onChange={(e) => setForm({ ...form, adminCommissionRate: e.target.value })}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-            />
-            <p className="mt-1 text-xs text-gray-500">Agent sets their own pot commission in settings</p>
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium">Initial Balance (ETB)</label>
-            <input
-              type="number"
-              min={0}
-              step={1}
-              value={form.initialBalance}
-              onChange={(e) => setForm({ ...form, initialBalance: e.target.value })}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-            />
-          </div>
+          <TextInput
+            label="Admin share from agent %"
+            type="number"
+            min={0}
+            max={100}
+            step={1}
+            value={form.adminCommissionRate}
+            onChange={(e) => setForm({ ...form, adminCommissionRate: e.target.value })}
+            hint="Agent sets their own pot commission in settings"
+          />
+          <TextInput
+            label="Initial balance (ETB)"
+            type="number"
+            min={0}
+            step={1}
+            value={form.initialBalance}
+            onChange={(e) => setForm({ ...form, initialBalance: e.target.value })}
+          />
         </div>
         <button type="submit" disabled={loading} className="w-full rounded-lg bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50">
           {loading ? 'Creating...' : 'Create Agent & Get TAS Code'}

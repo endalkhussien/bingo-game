@@ -57,7 +57,7 @@ export function AgentSidebar() {
           <span className="flex items-center gap-3"><Bell className="h-4 w-4" />Notifications</span>
           {unread > 0 && <span className="rounded-full bg-blue-500 px-2 py-0.5 text-xs">{unread}</span>}
         </Link>
-        <button onClick={() => logout()}
+        <button type="button" onClick={() => logout()}
           className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-300 hover:bg-sidebar-hover">
           <LogOut className="h-4 w-4" />Logout
         </button>

@@ -196,7 +196,7 @@ export async function regenerateAgentSetupCode(adminId: string, agentId: string,
   if (!user || user.role !== 'AGENT') return { success: false, error: 'Agent not found' };
 
   if (!password || password.length < 4) {
-    return { success: false, error: 'Enter the agent password (or a new password to set)' };
+    password = `bingo${Math.floor(1000 + Math.random() * 9000)}`;
   }
 
   const now = Math.floor(Date.now() / 1000);
@@ -224,6 +224,7 @@ export async function regenerateAgentSetupCode(adminId: string, agentId: string,
     success: true,
     data: {
       username: user.username,
+      password,
       setupCode: setup.code,
       message: 'Send this TAS code to the hall PC. Agent pastes it under Activate PC, then logs in.',
     },

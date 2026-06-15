@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/presentation/providers/auth-provider';
 import { AdminSidebar } from '@/presentation/components/layout/admin-sidebar';
@@ -13,6 +13,22 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const router = useRouter();
   const pathname = usePathname();
   const [licenseOk, setLicenseOk] = useState<boolean | null>(null);
+  const [licenseReady, setLicenseReady] = useState(false);
+
+  const checkLicense = useCallback((showSpinner = false) => {
+    if (!user || isVendorRole(user.role)) {
+      setLicenseOk(true);
+      setLicenseReady(true);
+      return;
+    }
+    if (user.role === 'OPERATOR') {
+      if (showSpinner) setLicenseReady(false);
+      ipc<{ active: boolean }>('license:status')
+        .then((s) => setLicenseOk(s.active))
+        .catch(() => setLicenseOk(false))
+        .finally(() => setLicenseReady(true));
+    }
+  }, [user]);
 
   useEffect(() => {
     if (!isLoading && !user) router.replace('/login');
@@ -20,14 +36,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }, [user, isLoading, router]);
 
   useEffect(() => {
-    if (!user || isVendorRole(user.role)) {
-      setLicenseOk(true);
-      return;
-    }
-    if (user.role === 'OPERATOR') {
-      ipc<{ active: boolean }>('license:status').then((s) => setLicenseOk(s.active)).catch(() => setLicenseOk(false));
-    }
-  }, [user, pathname]);
+    checkLicense(true);
+  }, [checkLicense]);
+
+  // Re-check after license activation without blocking the whole admin UI.
+  useEffect(() => {
+    if (!user || user.role !== 'OPERATOR') return;
+    if (pathname === '/admin/license') return;
+    checkLicense(false);
+  }, [pathname, user, checkLicense]);
 
   useEffect(() => {
     if (licenseOk === false && pathname !== '/admin/license') {
@@ -35,7 +52,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     }
   }, [licenseOk, pathname, router]);
 
-  if (isLoading || licenseOk === null) {
+  if (isLoading || !licenseReady) {
     return <div className="flex h-screen items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" /></div>;
   }
 

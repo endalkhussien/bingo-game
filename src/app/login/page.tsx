@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/presentation/providers/auth-provider';
 import { APP_NAME, APP_TAGLINE } from '@/shared/brand';
 import { ipc } from '@/presentation/lib/ipc';
+import { TextInput } from '@/presentation/components/shared/text-input';
+import { TextArea } from '@/presentation/components/shared/text-area';
 
 const BINGO_LETTERS = [
   { letter: 'B', color: 'bg-red-500' },
@@ -120,12 +122,12 @@ export default function LoginPage() {
                 <p className="mt-1 text-sm text-gray-500">
                   Admin creates your account and sends a <strong>TAS-…</strong> setup code. Paste it here once.
                 </p>
-                <textarea
+                <TextArea
                   value={setupCode}
                   onChange={(e) => { setSetupCode(e.target.value); setError(''); }}
                   placeholder="Paste TAS- setup code from admin"
                   rows={4}
-                  className="mt-4 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 font-mono text-xs"
+                  className="mt-4 font-mono text-xs"
                 />
                 <button
                   type="button"
@@ -144,22 +146,22 @@ export default function LoginPage() {
                 </div>
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-gray-700">Username</label>
-                  <input
+                  <TextInput
                     type="text"
                     autoComplete="username"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
-                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3"
+                    className="rounded-xl border-gray-200 bg-gray-50 px-4 py-3"
                   />
                 </div>
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-gray-700">Password</label>
-                  <input
+                  <TextInput
                     type="password"
                     autoComplete="current-password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3"
+                    className="rounded-xl border-gray-200 bg-gray-50 px-4 py-3"
                   />
                 </div>
                 <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-600">

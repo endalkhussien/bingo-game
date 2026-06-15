@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ipc } from '@/presentation/lib/ipc';
 import { PageHeader } from '@/presentation/components/shared/page-header';
 import { useAuth } from '@/presentation/providers/auth-provider';
+import { TextArea } from '@/presentation/components/shared/text-area';
 import { formatDate } from '@/presentation/lib/utils';
 
 interface LicenseStatus {
@@ -97,13 +98,13 @@ export default function OperatorLicensePage() {
       )}
 
       <div className="rounded-xl border bg-white p-6 shadow-sm space-y-4">
-        <label className="block text-sm font-medium">TOL license code</label>
-        <textarea
+        <TextArea
+          label="TOL license code"
           value={code}
           onChange={(e) => { setCode(e.target.value); setError(''); }}
           placeholder="Paste TOL- code from vendor"
           rows={4}
-          className="w-full rounded-lg border px-3 py-2 font-mono text-xs"
+          className="font-mono text-xs"
         />
         <button
           type="button"
