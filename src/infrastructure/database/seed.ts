@@ -5,6 +5,7 @@ import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import * as schema from './schema';
 import { generateBingoCard, serializeCardData } from '../../domain/services/card-generator';
 import { CARTELLA_MAX } from '../../shared/constants';
+import { DEFAULT_OPERATOR_ORG_KEY } from '../../shared/voucher/default-org-key';
 
 export async function seedDatabase(db: BetterSQLite3Database<typeof schema>) {
   const now = Math.floor(Date.now() / 1000);
@@ -44,21 +45,23 @@ export async function seedDatabase(db: BetterSQLite3Database<typeof schema>) {
     userId: agentUserId,
     phone: '+251900000000',
     commissionRate: 20,
+    adminCommissionRate: 20,
     walletBalance: 500,
     status: 'ACTIVE',
     createdAt: now,
     updatedAt: now,
   });
 
-  for (let n = 1; n <= CARTELLA_MAX; n++) {
-    await db.insert(schema.bingoCards).values({
-      id: uuid(),
-      cardNumber: String(n),
-      agentId,
-      cardData: serializeCardData(generateBingoCard()),
-      createdAt: now,
-      updatedAt: now,
-    });
+  const cardRows = Array.from({ length: CARTELLA_MAX }, (_, i) => ({
+    id: uuid(),
+    cardNumber: String(i + 1),
+    agentId,
+    cardData: serializeCardData(generateBingoCard()),
+    createdAt: now,
+    updatedAt: now,
+  }));
+  for (let i = 0; i < cardRows.length; i += 50) {
+    await db.insert(schema.bingoCards).values(cardRows.slice(i, i + 50));
   }
 
   const vouchers = [
@@ -84,6 +87,7 @@ export async function seedDatabase(db: BetterSQLite3Database<typeof schema>) {
     { key: 'maximum_bet', value: '1000' },
     { key: 'currency', value: 'ETB' },
     { key: 'number_range_max', value: '75' },
+    { key: 'offline_voucher_org_key', value: DEFAULT_OPERATOR_ORG_KEY },
   ];
 
   for (const s of settings) {

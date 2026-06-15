@@ -22,9 +22,9 @@ let cardCounter = 0;
 const mockCards: Array<{ id: string; cardNumber: string; grid: number[][]; cardData: string; agentId: string; createdAt: number; updatedAt: number }> = [];
 const mockGames: Array<Record<string, unknown>> = [];
 const mockAgents = [
-  { id: 'agent-1', userId: 'u1', fullName: 'Demo Agent', username: 'agent', phone: '+251900000000', commissionRate: 20, walletBalance: 500, status: 'ACTIVE', userStatus: 'ACTIVE', totalGames: 0, totalProfit: 0, createdAt: Date.now() / 1000 },
+  { id: 'agent-1', userId: 'u1', fullName: 'Demo Agent', username: 'agent', phone: '+251900000000', commissionRate: 20, adminCommissionRate: 20, walletBalance: 500, status: 'ACTIVE', userStatus: 'ACTIVE', totalGames: 0, totalProfit: 0, createdAt: Date.now() / 1000 },
 ];
-type Session = { user: { id: string; fullName: string; username: string; role: string }; agent: { id: string; walletBalance: number; commissionRate: number } | null };
+type Session = { user: { id: string; fullName: string; username: string; role: string }; agent: { id: string; walletBalance: number; commissionRate: number; adminCommissionRate: number } | null };
 
 const mockRechargeRequests: Array<Record<string, unknown>> = [];
 const mockIssuedCodes: Array<{ id: string; code: string; amount: number; forUsername: string; expiresAt: number; issuedAt: number; status: string }> = [];
@@ -83,7 +83,7 @@ function requireSession() {
 export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
   'auth:login': async (username: unknown, password: unknown) => {
     if (username === 'agent' && password === 'agent123') {
-      currentSession = { user: { id: 'u1', fullName: 'Demo Agent', username: 'agent', role: 'AGENT' }, agent: { id: 'agent-1', walletBalance: mockBalance, commissionRate: 20 } };
+      currentSession = { user: { id: 'u1', fullName: 'Demo Agent', username: 'agent', role: 'AGENT' }, agent: { id: 'agent-1', walletBalance: mockBalance, commissionRate: 20, adminCommissionRate: 20 } };
       saveSession(currentSession);
       return { success: true, data: { token: 'mock', user: currentSession.user, agent: currentSession.agent } };
     }
@@ -107,16 +107,40 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
   }),
   'dashboard:agent': async () => {
     requireSession();
-    return { walletBalance: mockBalance, activeGames: mockGames.filter(g => g.status === 'RUNNING').length, totalGames: mockGames.length, totalRevenue: 2000, totalProfit: 800, commissionRate: 20 };
+    return { walletBalance: mockBalance, activeGames: mockGames.filter(g => g.status === 'RUNNING').length, totalGames: mockGames.length, totalRevenue: 2000, totalProfit: 800, commissionRate: 20, adminCommissionRate: 20 };
+  },
+
+  'agents:profile': async () => {
+    const a = mockAgents.find((x) => x.id === currentSession?.agent?.id);
+    return a ? { commissionRate: a.commissionRate, adminCommissionRate: a.adminCommissionRate, walletBalance: mockBalance } : null;
+  },
+  'agents:update-own-commission': async (rate: unknown) => {
+    const r = Number(rate);
+    if (r < 0 || r > 100) return { success: false, error: 'Invalid rate' };
+    const a = mockAgents.find((x) => x.id === currentSession?.agent?.id);
+    if (a) a.commissionRate = r;
+    if (currentSession?.agent) currentSession.agent.commissionRate = r;
+    return { success: true, data: { commissionRate: r } };
   },
 
   'agents:list': async () => mockAgents.map(a => ({ ...a, walletBalance: mockBalance })),
   'agents:create': async (data: unknown) => {
-    const d = data as Record<string, string>;
-    mockAgents.push({ id: `agent-${mockAgents.length + 1}`, userId: `u${mockAgents.length + 1}`, fullName: d.fullName, username: d.username, phone: d.phone, commissionRate: parseFloat(String(d.commissionRate)), walletBalance: parseFloat(String(d.initialBalance ?? 0)), status: 'ACTIVE', userStatus: 'ACTIVE', totalGames: 0, totalProfit: 0, createdAt: Date.now() / 1000 });
+    const d = data as { fullName: string; username: string; phone?: string; adminCommissionRate?: number; initialBalance?: number };
+    mockAgents.push({
+      id: `agent-${mockAgents.length + 1}`, userId: `u${mockAgents.length + 1}`,
+      fullName: d.fullName, username: d.username, phone: d.phone ?? '',
+      commissionRate: 20, adminCommissionRate: d.adminCommissionRate ?? 20,
+      walletBalance: parseFloat(String(d.initialBalance ?? 0)),
+      status: 'ACTIVE', userStatus: 'ACTIVE', totalGames: 0, totalProfit: 0, createdAt: Date.now() / 1000,
+    });
     return { success: true };
   },
-  'agents:update': async () => ({ success: true }),
+  'agents:update': async (id: unknown, data: unknown) => {
+    const a = mockAgents.find((x) => x.id === id);
+    const patch = data as { adminCommissionRate?: number };
+    if (a && patch.adminCommissionRate != null) a.adminCommissionRate = patch.adminCommissionRate;
+    return { success: true };
+  },
   'agents:suspend': async (id: unknown) => { const a = mockAgents.find(x => x.id === id); if (a) a.status = 'SUSPENDED'; return { success: true }; },
   'agents:activate': async (id: unknown) => { const a = mockAgents.find(x => x.id === id); if (a) a.status = 'ACTIVE'; return { success: true }; },
   'agents:reset-password': async () => ({ success: true }),
@@ -234,14 +258,15 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
   'cards:generate': async (count: unknown) => { const r = []; for (let i = 0; i < Number(count); i++) r.push(await mockHandlers['cards:create']()); return r; },
 
   'games:create': async (config: unknown) => {
-    const c = config as { betAmount: number; selectedNumbers: number[]; voiceType?: string; language?: string; drawSpeedMs?: number };
+    const c = config as { betAmount: number; selectedNumbers: number[]; voiceType?: string; language?: string; drawSpeedMs?: number; commissionRate?: number };
     const playerCount = c.selectedNumbers?.length ?? 0;
     const pot = c.betAmount * playerCount;
+    const rate = c.commissionRate ?? currentSession?.agent?.commissionRate ?? 20;
     const game = {
       id: `game-${mockGames.length + 1}`, gameCode: `TBG-${1000 + mockGames.length}`, status: 'RUNNING',
       betAmount: c.betAmount, playerCount,
       selectedNumbers: c.selectedNumbers, drawnNumbers: [], voiceType: c.voiceType ?? 'AMHARIC_MALE',
-      language: c.language ?? 'am', totalPot: pot, maxBalls: 75, drawSpeedMs: c.drawSpeedMs ?? 500,
+      language: c.language ?? 'am', totalPot: pot, maxBalls: 75, drawSpeedMs: c.drawSpeedMs ?? 500, commissionRate: rate,
     };
     mockGames.push(game);
     mockBalance -= pot;
@@ -286,9 +311,10 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
     if (!valid) {
       return { success: true, valid: false, message: `Cartella #${num}: Not a winner yet.`, cardNumber: num, calledNumbers: drawn, grid: card.grid };
     }
+    const rate = currentSession?.agent?.commissionRate ?? 20;
+    const adminRate = currentSession?.agent?.adminCommissionRate ?? 20;
     const playerCount = g.selectedNumbers?.length ?? 1;
     const betAmount = g.betAmount ?? 10;
-    const rate = currentSession?.agent?.commissionRate ?? 20;
     const { totalPot, prize } = calculateWinnerPrize(betAmount, playerCount, rate);
     return {
       success: true, valid: true,

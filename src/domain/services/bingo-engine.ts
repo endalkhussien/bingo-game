@@ -1,5 +1,3 @@
-import { DRAW_BALL_COUNT } from '../../shared/brand';
-
 export { checkWinningPattern, verifyTicketWin, normalizeWinningPattern } from './winner-verification';
 export type { TicketVerificationInput, TicketVerificationResult } from './winner-verification';
 export { CallingEngine, drawRandomNumber } from './calling-engine';

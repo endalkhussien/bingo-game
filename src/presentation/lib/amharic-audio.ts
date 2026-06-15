@@ -1,8 +1,8 @@
 import { getBallLetter } from '@/domain/services/bingo-engine';
 import { formatAmharicBallCall, getBallCallAudioUrl } from '@/shared/tts/amharic-ball-call';
-import { toAmharicNumberWord } from '@/shared/tts/voice-map';
 
 let currentAudio: HTMLAudioElement | null = null;
+const audioCache = new Map<string, HTMLAudioElement>();
 
 export function amharicAudioUrl(number: number): string {
   return `/sounds/am/${number}.mp3`;
@@ -20,6 +20,24 @@ function legacyLetterUrl(letter: string): string {
   return `/sounds/am/letters/${letter}.mp3`;
 }
 
+function getCachedAudio(url: string): HTMLAudioElement {
+  let audio = audioCache.get(url);
+  if (!audio) {
+    audio = new Audio(url);
+    audio.preload = 'auto';
+    audioCache.set(url, audio);
+  }
+  return audio;
+}
+
+/** Warm browser cache for all 75 ball-call clips (call once when game board loads). */
+export function preloadBallCallClips(): void {
+  if (typeof window === 'undefined') return;
+  for (let n = 1; n <= 75; n++) {
+    getCachedAudio(ballCallAudioUrl(n));
+  }
+}
+
 function playUrl(url: string): Promise<boolean> {
   if (typeof window === 'undefined') return Promise.resolve(false);
 
@@ -30,23 +48,22 @@ function playUrl(url: string): Promise<boolean> {
         currentAudio.currentTime = 0;
         currentAudio = null;
       }
-      const audio = new Audio(url);
-      audio.preload = 'auto';
+
+      const audio = getCachedAudio(url);
+      audio.currentTime = 0;
       currentAudio = audio;
-      audio.onended = () => {
-        currentAudio = null;
-        resolve(true);
+
+      const finish = (ok: boolean) => {
+        if (currentAudio === audio) currentAudio = null;
+        resolve(ok);
       };
-      audio.onerror = () => {
-        currentAudio = null;
-        resolve(false);
-      };
-      const p = audio.play();
-      if (p) {
-        p.catch(() => {
-          currentAudio = null;
-          resolve(false);
-        });
+
+      audio.onended = () => finish(true);
+      audio.onerror = () => finish(false);
+
+      const started = audio.play();
+      if (started) {
+        started.catch(() => finish(false));
       }
     } catch {
       currentAudio = null;
@@ -58,27 +75,24 @@ function playUrl(url: string): Promise<boolean> {
 export function stopCurrentAudio(): void {
   if (currentAudio) {
     currentAudio.pause();
+    currentAudio.currentTime = 0;
     currentAudio = null;
   }
 }
 
-/** Combined phrase clip e.g. /audio/G52.mp3 */
 export function playBallCallClip(number: number): Promise<boolean> {
   return playUrl(ballCallAudioUrl(number));
 }
 
-/** Play legacy number-only clip (cartella selection, etc.) */
 export function playAmharicBall(number: number): Promise<boolean> {
   return playUrl(amharicAudioUrl(number));
 }
 
-/** B-I-N-G-O letter always in English */
 export async function playEnglishBingoLetter(letter: string): Promise<boolean> {
   if (await playUrl(englishLetterUrl(letter))) return true;
   return playUrl(legacyLetterUrl(letter));
 }
 
-/** Prefer combined clip, then English letter + localized number. */
 export async function playBallCallAudio(number: number, language: string): Promise<boolean> {
   if (language === 'am' && await playBallCallClip(number)) {
     return true;

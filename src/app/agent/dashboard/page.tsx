@@ -8,7 +8,7 @@ import { PageHeader } from '@/presentation/components/shared/page-header';
 
 interface AgentDash {
   walletBalance: number; activeGames: number; totalGames: number;
-  totalRevenue: number; totalProfit: number; commissionRate: number;
+  totalRevenue: number; totalProfit: number; commissionRate: number; adminCommissionRate: number;
 }
 
 export default function AgentDashboardPage() {
@@ -28,7 +28,11 @@ export default function AgentDashboardPage() {
         <StatCard label="Total Games" value={data.totalGames} />
         <StatCard label="Total Revenue" value={`${data.totalRevenue.toFixed(0)} ETB`} />
         <StatCard label="Total Profit" value={`${data.totalProfit.toFixed(0)} ETB`} />
-        <StatCard label="Commission Rate" value={`${data.commissionRate}%`} />
+        <StatCard label="Your game commission" value={`${data.commissionRate}%`} />
+        <StatCard label="Admin share from you" value={`${data.adminCommissionRate}%`} />
+        <Link href="/agent/settings" className="col-span-2 text-sm text-indigo-600 hover:underline lg:col-span-4">
+          Change your commission in Settings →
+        </Link>
       </div>
     </div>
   );

@@ -1,5 +1,7 @@
 appId: com.tebibbingo.app
 productName: TEBIB-Bingo
+# Electron 22 — last major version supporting Windows 8 / 8.1
+electronVersion: 22.3.27
 directories:
   output: release
   buildResources: public
@@ -20,12 +22,22 @@ win:
     - target: nsis
       arch:
         - x64
-  artifactName: TEBIB-Bingo-Setup-${version}.${ext}
+    - target: portable
+      arch:
+        - x64
+  signAndEditExecutable: false
+
 nsis:
+  artifactName: TEBIB-Bingo-Setup-${version}.${ext}
   oneClick: false
   allowToChangeInstallationDirectory: true
   allowElevation: true
+  perMachine: false
   createDesktopShortcut: true
   createStartMenuShortcut: true
   shortcutName: TEBIB-Bingo
   uninstallDisplayName: TEBIB-Bingo
+  include: build/installer.nsh
+
+portable:
+  artifactName: TEBIB-Bingo-Portable-${version}.${ext}

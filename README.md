@@ -1,17 +1,64 @@
-# TEBIB-Bingo — Desktop Bingo Management Platform
+# TEBIB-Bingo v1.0.0 — Desktop Bingo Management Platform
 
-Offline desktop app for bingo operators. Built with **Electron + Next.js + SQLite**.
+Offline desktop app for bingo hall agents and admins. **Electron + Next.js + SQLite**.
 
 ---
 
-## Start here (clear process)
+## Send to agents today
 
-**[docs/QUICK-START.md](./docs/QUICK-START.md)** — install, run, play a game, fix common errors.
+| File | What |
+|------|------|
+| **`TEBIB-Bingo-1.0.0-win-x64.exe`** | Windows installer (build on Windows 10/11) |
+| **`AGENTS-QUICK-GUIDE.txt`** | Plain-text instructions for agents |
+
+**Build the installer:** see **[docs/RELEASE-CHECKLIST.md](./docs/RELEASE-CHECKLIST.md)** and **[docs/AGENT-DISTRIBUTION.md](./docs/AGENT-DISTRIBUTION.md)**
+
+```bash
+git checkout cursor/desktop-release-and-commission-2cae
+npm install
+npm run pack:win
+```
+
+Output: `release/TEBIB-Bingo-1.0.0-win-x64.exe` (+ portable variant)
+
+---
+
+## PC requirements
+
+| | |
+|--|--|
+| **Supported** | Windows 8, 8.1, 10, and 11 (64-bit) |
+| **Not supported** | 32-bit Windows, Windows 7 |
+| **Internet** | Not needed after install |
+| **RAM** | 4 GB+ recommended |
+
+> Uses **Electron 22** — the last Electron version that runs on Windows 8/8.1.
+
+---
+
+## Features (v1.0.0)
+
+- 75-ball bingo caller with **Amharic voice** (B1–O75)
+- **BINGO!** verification — pause calling, verify cartella, resume or end
+- **Two-tier commission** — agent sets pot cut; admin takes share from agent earnings
+- Offline SQLite — no server or internet during games
+- Agent wallet, vouchers, audit log
+
+| Role | Username | Password |
+|------|----------|----------|
+| Agent | `agent` | `agent123` |
+| Admin | `admin` | `admin123` |
+
+---
+
+## Developer quick start
+
+**[docs/QUICK-START.md](./docs/QUICK-START.md)** — install, run, play a game.
 
 **Windows:** double-click **`Start TEBIB-Bingo.bat`**
 
 ```bash
-git checkout cursor/fix-amharic-tts-2cae
+git checkout cursor/desktop-release-and-commission-2cae
 npm install
 npx electron-builder install-app-deps
 
@@ -22,61 +69,29 @@ npm run web
 npm run electron:only
 ```
 
-| Role | Username | Password |
-|------|----------|----------|
-| Agent | `agent` | `agent123` |
-| Admin | `admin` | `admin123` |
-
-**5 agents on separate PCs:** **[docs/OFFLINE-RECHARGE.md](./docs/OFFLINE-RECHARGE.md)** — signed recharge codes via SMS
-
 ---
 
-**[docs/INSTALL.md](./docs/INSTALL.md)** — give users the `.exe` installer.
-
-**Build the installer** (on Windows): `npm run pack:win` → see **[docs/BUILD-INSTALLER.md](./docs/BUILD-INSTALLER.md)**
-
-**Compare with Ethiopian bingo apps:** **[docs/ETHIOPIAN-BINGO-COMPARISON.md](./docs/ETHIOPIAN-BINGO-COMPARISON.md)**
-
----
-
-## For developers taking over this project
-
-**[docs/HANDOVER.md](./docs/HANDOVER.md)** — full technical guide.
-
-```bash
-git checkout cursor/fix-amharic-tts-2cae
-npm run setup
-npm run web          # browser dev at http://localhost:3000
-npm run electron:only   # real desktop app (use with npm run web)
-```
-
----
-
-## Quick commands
-
-| Command | When |
-|---------|------|
-| `npm install` + `npx electron-builder install-app-deps` | First time on a PC |
-| `npm run web` | Terminal 1 — UI server (keep running) |
-| `npm run electron:only` | Terminal 2 — desktop window |
-| `npm test` | Automated checks |
-| `npm run dist:win` | Build Windows installer |
-
-**Windows:** `Start TEBIB-Bingo.bat` or `Start TEBIB-Bingo.bat`
-
----
-
-## Documentation index
+## Documentation
 
 | Document | Purpose |
 |----------|---------|
-| **[docs/QUICK-START.md](./docs/QUICK-START.md)** | **Step-by-step install & run (read this first)** |
-| **[docs/INSTALL.md](./docs/INSTALL.md)** | **Install .exe on other PCs (end users)** |
+| **[docs/BUSINESS-WORKFLOW.md](./docs/BUSINESS-WORKFLOW.md)** | **Real admin + agent workflow (multi-PC)** |
+| **[docs/AGENT-DISTRIBUTION.md](./docs/AGENT-DISTRIBUTION.md)** | **Hand installer to agents** |
+| **[docs/RELEASE-CHECKLIST.md](./docs/RELEASE-CHECKLIST.md)** | **Build & smoke-test before release** |
+| **[docs/QUICK-START.md](./docs/QUICK-START.md)** | Dev install & run |
+| **[docs/INSTALL.md](./docs/INSTALL.md)** | End-user install from `.exe` |
 | **[docs/BUILD-INSTALLER.md](./docs/BUILD-INSTALLER.md)** | Build Windows installer |
-| **[docs/ETHIOPIAN-BINGO-COMPARISON.md](./docs/ETHIOPIAN-BINGO-COMPARISON.md)** | vs Bingo 10:20, Ade Bingo, etc. |
-| [docs/HANDOVER.md](./docs/HANDOVER.md) | Developer handover |
-| [docs/GETTING-STARTED.md](./docs/GETTING-STARTED.md) | Web-dev workflow |
-| [docs/DESKTOP.md](./docs/DESKTOP.md) | Run, test, package |
-| [docs/IPC-REFERENCE.md](./docs/IPC-REFERENCE.md) | Backend API channels |
-| [docs/ROUTES-AND-SCREENS.md](./docs/ROUTES-AND-SCREENS.md) | All pages |
-| [docs/architecture/](./docs/architecture/) | System design |
+| **[docs/OFFLINE-RECHARGE.md](./docs/OFFLINE-RECHARGE.md)** | Offline voucher recharge |
+| **[docs/HANDOVER.md](./docs/HANDOVER.md)** | Developer handover |
+
+---
+
+## Commands
+
+| Command | When |
+|---------|------|
+| `npm run validate:release` | Pre-flight checks before packaging |
+| `npm run pack:win` | Build Windows installer + portable (Windows only) |
+| `npm run web` + `npm run electron:only` | Dev mode |
+| `npm run typecheck` | TypeScript check |
+| `npm run test:calling-engine` | Calling engine unit tests |

@@ -19,7 +19,7 @@ export const WINNING_PATTERNS = [
 
 export const DEFAULT_JACKPOT_MAX_CALLS = 45;
 
-export const DEFAULT_CALL_COOLDOWN_MS = 500;
+export const DEFAULT_CALL_COOLDOWN_MS = 300;
 
 export const DRAW_INTERVALS = [
   { value: 0, label: 'Instant (no pause)' },

@@ -3,14 +3,37 @@ export function calculateTotalPot(betAmount: number, playerCount: number): numbe
   return betAmount * playerCount;
 }
 
-/** Winner payout after commission is deducted from the pot */
+/** Agent commission deducted from pot before winner is paid */
 export function calculateWinnerPrize(
   betAmount: number,
   playerCount: number,
-  commissionRate: number,
+  agentCommissionRate: number,
 ): { totalPot: number; commission: number; prize: number } {
   const totalPot = calculateTotalPot(betAmount, playerCount);
-  const commission = totalPot * (commissionRate / 100);
+  const commission = totalPot * (agentCommissionRate / 100);
   const prize = totalPot - commission;
   return { totalPot, commission, prize };
+}
+
+/** Full split: agent commission from pot, then admin share from agent commission */
+export function calculateGameEconomics(
+  betAmount: number,
+  playerCount: number,
+  agentCommissionRate: number,
+  adminCommissionRate: number,
+) {
+  const { totalPot, commission: agentGrossCommission, prize } = calculateWinnerPrize(
+    betAmount,
+    playerCount,
+    agentCommissionRate,
+  );
+  const adminCut = agentGrossCommission * (adminCommissionRate / 100);
+  const agentNetCommission = agentGrossCommission - adminCut;
+  return {
+    totalPot,
+    prize,
+    agentGrossCommission,
+    adminCut,
+    agentNetCommission,
+  };
 }

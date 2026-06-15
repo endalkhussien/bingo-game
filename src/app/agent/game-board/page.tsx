@@ -1,21 +1,22 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { Eye, EyeOff, Play, Megaphone, ListOrdered } from 'lucide-react';
+import { Eye, EyeOff, Play, Pause, Megaphone, ListOrdered } from 'lucide-react';
 import { ipc } from '@/presentation/lib/ipc';
 import { useAuth } from '@/presentation/providers/auth-provider';
 import { NumberGrid } from '@/presentation/components/bingo/number-grid';
 import { CalledNumbersModal } from '@/presentation/components/bingo/called-numbers-modal';
+import { CalledNumbersStrip } from '@/presentation/components/bingo/called-numbers-strip';
 import { CheckCardModal } from '@/presentation/components/bingo/check-card-modal';
 import { WINNING_PATTERNS, DRAW_INTERVALS, VOICE_TYPES, MIN_BET, DEFAULT_JACKPOT_MAX_CALLS, DEFAULT_CALL_COOLDOWN_MS } from '@/shared/constants';
 import { DRAW_BALL_COUNT } from '@/shared/brand';
 import { speakBallCall, speakCartella, loadVoices } from '@/presentation/lib/tts';
-import { stopCurrentAudio } from '@/presentation/lib/amharic-audio';
+import { stopCurrentAudio, preloadBallCallClips } from '@/presentation/lib/amharic-audio';
 import { AudioSyncManager, runAutoCallLoop } from '@/presentation/lib/audio-sync-manager';
 import { CallingEngine } from '@/domain/services/calling-engine';
 import { getBallLabel } from '@/domain/services/bingo-engine';
 import { formatBallCallLabel } from '@/shared/tts/ball-call';
-import { calculateTotalPot } from '@/shared/prize';
+import { calculateTotalPot, calculateGameEconomics } from '@/shared/prize';
 
 interface GameWinner {
   cardNumber: string;
@@ -71,6 +72,9 @@ export default function GameBoardPage() {
   const [bingoClaimActive, setBingoClaimActive] = useState(false);
   const [calledModalOpen, setCalledModalOpen] = useState(false);
   const [gameWinners, setGameWinners] = useState<GameWinner[]>([]);
+  const [commissionPercent, setCommissionPercent] = useState('20');
+
+  const adminCommissionRate = agent?.adminCommissionRate ?? 20;
 
   const syncManagerRef = useRef(new AudioSyncManager({
     cooldownMs: DEFAULT_CALL_COOLDOWN_MS,
@@ -86,9 +90,16 @@ export default function GameBoardPage() {
   const autoDrawRef = useRef(false);
   const isPausedRef = useRef(false);
   const activeGameRef = useRef<ActiveGame | null>(null);
+  const callingLoopIdRef = useRef(0);
 
   const playerCount = activeGame?.playerCount ?? activeGame?.selectedNumbers?.length ?? selected.length;
   const totalPot = activeGame?.totalPot ?? calculateTotalPot(parseFloat(betAmount || '0') || 0, playerCount);
+  const gameEconomics = useMemo(() => calculateGameEconomics(
+    parseFloat(betAmount || '0') || 0,
+    playerCount,
+    parseFloat(commissionPercent || '0') || 0,
+    adminCommissionRate,
+  ), [betAmount, playerCount, commissionPercent, adminCommissionRate]);
   const maxBalls = activeGame?.maxBalls ?? DRAW_BALL_COUNT;
   const drawCount = called.length;
 
@@ -101,7 +112,12 @@ export default function GameBoardPage() {
   const remainingCount = callerEngine.remainingNumbers.length;
   const selectedSet = useMemo(() => new Set(selected), [selected]);
 
-  useEffect(() => { loadVoices(); }, []);
+  useEffect(() => { loadVoices(); preloadBallCallClips(); }, []);
+  useEffect(() => {
+    if (agent?.commissionRate != null && !activeGame) {
+      setCommissionPercent(String(agent.commissionRate));
+    }
+  }, [agent?.commissionRate, activeGame]);
   useEffect(() => { syncManagerRef.current.setCooldownMs(interval); }, [interval]);
   useEffect(() => { autoDrawRef.current = autoDraw; }, [autoDraw]);
   useEffect(() => { isPausedRef.current = isPaused; }, [isPaused]);
@@ -126,16 +142,23 @@ export default function GameBoardPage() {
     ipc<ActiveGame | null>('games:active').then((game) => {
       if (game) {
         setActiveGame(game);
+        activeGameRef.current = game;
         setCalled(game.drawnNumbers ?? []);
         setCallHistory(game.callHistory ?? []);
         setLastDrawn(game.drawnNumbers?.length ? game.drawnNumbers[game.drawnNumbers.length - 1] : null);
         setSelected(game.selectedNumbers ?? []);
         setBetAmount(String(game.betAmount));
-        setIsPaused(game.status === 'PAUSED');
+        const paused = game.status === 'PAUSED';
+        setIsPaused(paused);
+        isPausedRef.current = paused;
         if (game.voiceType) setVoice(game.voiceType);
         if (game.language) setLanguage(game.language);
         if (game.drawSpeedMs != null) setInterval_(game.drawSpeedMs);
         setGameWinners(game.winners ?? []);
+        if (paused) {
+          autoDrawRef.current = false;
+          setAutoDraw(false);
+        }
       }
     });
   }, []);
@@ -164,6 +187,35 @@ export default function GameBoardPage() {
     }]);
     setLastDrawn(data.number);
   }, []);
+
+  const stopCalling = useCallback(async (pauseOnServer = true) => {
+    autoDrawRef.current = false;
+    setAutoDraw(false);
+    callingLoopIdRef.current += 1;
+    syncManagerRef.current.abort();
+    stopCurrentAudio();
+
+    if (!pauseOnServer || !activeGameRef.current) return;
+
+    isPausedRef.current = true;
+    setIsPaused(true);
+    await ipc('games:pause', activeGameRef.current.id);
+    setActiveGame((g) => g ? { ...g, status: 'PAUSED' } : g);
+  }, []);
+
+  const startCalling = useCallback(async (resumeOnServer = false) => {
+    if (!activeGameRef.current || bingoClaimActive) return;
+
+    if (resumeOnServer) {
+      await ipc('games:resume', activeGameRef.current.id);
+      setActiveGame((g) => g ? { ...g, status: 'RUNNING' } : g);
+    }
+
+    isPausedRef.current = false;
+    setIsPaused(false);
+    autoDrawRef.current = true;
+    setAutoDraw(true);
+  }, [bingoClaimActive]);
 
   const drawFromServer = useCallback(async () => {
     const game = activeGameRef.current;
@@ -195,6 +247,11 @@ export default function GameBoardPage() {
       setBetError('Select at least one card number.');
       return;
     }
+    const commission = parseFloat(commissionPercent);
+    if (isNaN(commission) || commission < 0 || commission > 100) {
+      setBetError('Commission must be between 0% and 100%.');
+      return;
+    }
     setBetError('');
     setCreating(true);
 
@@ -208,13 +265,14 @@ export default function GameBoardPage() {
       drawSpeedMs: interval,
       voiceType: voice,
       language,
+      commissionRate: commission,
       jackpotMaximumCalls: parseInt(jackpotMaxCalls, 10) || DEFAULT_JACKPOT_MAX_CALLS,
       selectedNumbers: selected,
     });
 
     setCreating(false);
     if (result.success && result.data) {
-      setActiveGame({
+      const game: ActiveGame = {
         ...result.data,
         selectedNumbers: selected,
         drawnNumbers: [],
@@ -222,11 +280,16 @@ export default function GameBoardPage() {
         status: 'RUNNING',
         playerCount: selected.length,
         totalPot: calculateTotalPot(bet, selected.length),
-      });
+      };
+      setActiveGame(game);
+      activeGameRef.current = game;
       setCalled([]);
       setCallHistory([]);
       setLastDrawn(null);
       setIsPaused(false);
+      isPausedRef.current = false;
+      autoDrawRef.current = false;
+      setAutoDraw(false);
       await refreshBalance();
     } else {
       setBetError(result.error ?? 'Failed to create game');
@@ -248,16 +311,22 @@ export default function GameBoardPage() {
   }, [activeGame, isPaused, drawFromServer, applyDrawResult, voice, language, interval]);
 
   useEffect(() => {
-    if (!autoDraw || !activeGame || isPaused) return;
+    if (!autoDraw || !activeGame || isPaused || bingoClaimActive) return;
 
+    const loopId = ++callingLoopIdRef.current;
     let cancelled = false;
 
     void runAutoCallLoop(syncManagerRef.current, {
       cooldownMs: interval,
       voiceType: voice,
       language,
-      isPaused: () => isPausedRef.current,
-      shouldContinue: () => !cancelled && autoDrawRef.current && !!activeGameRef.current,
+      isPaused: () => isPausedRef.current || bingoClaimActive,
+      shouldContinue: () =>
+        !cancelled
+        && callingLoopIdRef.current === loopId
+        && autoDrawRef.current
+        && !!activeGameRef.current
+        && !isPausedRef.current,
       drawNumber: drawFromServer,
       onDraw: (data) => {
         applyDrawResult({
@@ -269,23 +338,18 @@ export default function GameBoardPage() {
       playAudio: (n, v, l) => speakBallCall(n, v, l),
     });
 
-    return () => { cancelled = true; };
-  }, [autoDraw, activeGame, isPaused, interval, voice, language, drawFromServer, applyDrawResult]);
+    return () => {
+      cancelled = true;
+      syncManagerRef.current.abort();
+      stopCurrentAudio();
+    };
+  }, [autoDraw, activeGame, isPaused, bingoClaimActive, interval, voice, language, drawFromServer, applyDrawResult]);
 
   const handleBingoClaim = async () => {
     if (!activeGame) return;
 
-    // Stop calling immediately before server round-trip
-    setAutoDraw(false);
-    autoDrawRef.current = false;
-    isPausedRef.current = true;
-    setIsPaused(true);
-    syncManagerRef.current.abort();
-    stopCurrentAudio();
+    await stopCalling(true);
     setBingoClaimActive(true);
-
-    await ipc('games:pause', activeGame.id);
-    setActiveGame((g) => g ? { ...g, status: 'PAUSED' } : g);
     setCheckModalOpen(true);
   };
 
@@ -341,14 +405,13 @@ export default function GameBoardPage() {
 
   const handleResume = async () => {
     if (!activeGame || bingoClaimActive) return;
-    await ipc('games:resume', activeGame.id);
-    setIsPaused(false);
     setCheckModalOpen(false);
+    await startCalling(true);
   };
 
   const handleEndGame = async () => {
     if (!activeGame) return;
-    setAutoDraw(false);
+    await stopCalling(false);
     const result = await ipc<{ success: boolean; data?: { agentRevenue: number } }>('games:end', activeGame.id);
     if (result.success && result.data) {
       setProfit(result.data.agentRevenue);
@@ -369,7 +432,12 @@ export default function GameBoardPage() {
         <div className="mb-4 flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-gradient-to-r from-indigo-600 to-blue-700 p-5 text-white shadow-lg">
           <div>
             <p className="text-sm opacity-80">
-              {activeGame.gameCode} · {isPaused ? (bingoClaimActive ? 'BINGO CLAIM — PAUSED' : 'PAUSED') : callerLocked ? 'CALLING…' : 'LIVE'}
+              {activeGame.gameCode} ·{' '}
+              {isPaused
+                ? (bingoClaimActive ? 'BINGO CLAIM — PAUSED' : 'PAUSED')
+                : autoDraw
+                  ? (callerLocked ? 'CALLING…' : 'LIVE')
+                  : 'READY — press Start'}
             </p>
             <p className="text-4xl font-black tracking-tight">{drawCount}/{maxBalls}</p>
             <p className="text-sm opacity-80">{remainingCount} balls remaining</p>
@@ -388,6 +456,15 @@ export default function GameBoardPage() {
             <p className="text-xs opacity-75">{playerCount} × {activeGame.betAmount} ETB</p>
           </div>
         </div>
+      )}
+
+      {activeGame && (
+        <CalledNumbersStrip
+          called={called}
+          lastDrawn={lastDrawn}
+          maxBalls={maxBalls}
+          language={language}
+        />
       )}
 
       <div className="mb-4 flex flex-wrap items-end gap-4 rounded-xl bg-white p-4 shadow-sm">
@@ -442,12 +519,33 @@ export default function GameBoardPage() {
           </select>
         </div>
         {!activeGame && selected.length > 0 && (
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Prize pool</label>
-            <div className="rounded-lg border bg-gray-50 px-3 py-2 text-sm font-semibold text-indigo-700">
-              {calculateTotalPot(parseFloat(betAmount || '0') || 0, selected.length).toFixed(0)} ETB
+          <>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">Your commission %</label>
+              <input
+                type="number"
+                min={0}
+                max={100}
+                value={commissionPercent}
+                onChange={(e) => setCommissionPercent(e.target.value)}
+                className="w-full rounded-lg border px-3 py-2 text-sm"
+              />
+              <p className="mt-1 text-xs text-gray-500">From pot — winner sees net prize only</p>
             </div>
-          </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">Prize pool</label>
+              <div className="rounded-lg border bg-gray-50 px-3 py-2 text-sm font-semibold text-indigo-700">
+                {totalPot.toFixed(0)} ETB
+              </div>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">Your estimated cut</label>
+              <div className="rounded-lg border bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">
+                {gameEconomics.agentNetCommission.toFixed(0)} ETB
+              </div>
+              <p className="mt-1 text-xs text-gray-500">After admin share ({adminCommissionRate}%)</p>
+            </div>
+          </>
         )}
         {!activeGame ? (
           <button onClick={handleCreateGame} disabled={creating || selected.length === 0}
@@ -455,27 +553,36 @@ export default function GameBoardPage() {
             {creating ? 'Starting...' : `Start Game (${selected.length} cards)`}
           </button>
         ) : (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {!isPaused && !autoDraw && (
+              <button
+                onClick={() => startCalling(false)}
+                className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-6 py-2.5 text-sm font-bold text-white shadow-md hover:bg-green-700"
+              >
+                <Play className="h-5 w-5" /> Start
+              </button>
+            )}
             <button onClick={() => setCalledModalOpen(true)}
               className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">
-              <ListOrdered className="h-4 w-4" /> Called ({drawCount}/{maxBalls})
+              <ListOrdered className="h-4 w-4" /> All called ({drawCount})
             </button>
-            <button onClick={handleDraw} disabled={isPaused || callerLocked}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">Draw</button>
-            <button onClick={() => setAutoDraw(!autoDraw)} disabled={isPaused}
-              className={`rounded-lg px-4 py-2 text-sm font-semibold text-white ${autoDraw ? 'bg-orange-500' : 'bg-gray-500'} disabled:opacity-50`}>
-              {autoDraw ? 'Stop Auto' : 'Auto Call'}
-            </button>
+            <button onClick={handleDraw} disabled={isPaused || callerLocked || !autoDraw}
+              className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 disabled:opacity-50">Draw once</button>
+            {autoDraw && !isPaused ? (
+              <button onClick={() => stopCalling(true)} disabled={callerLocked}
+                className="inline-flex items-center gap-1 rounded-lg bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600 disabled:opacity-50">
+                <Pause className="h-4 w-4" /> Stop
+              </button>
+            ) : isPaused && !bingoClaimActive && gameWinners.length === 0 ? (
+              <button onClick={handleResume}
+                className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">
+                <Play className="h-4 w-4" /> Resume
+              </button>
+            ) : null}
             <button onClick={handleBingoClaim}
               className="inline-flex items-center gap-1 rounded-lg bg-yellow-500 px-4 py-2 text-sm font-bold text-white hover:bg-yellow-600">
               <Megaphone className="h-4 w-4" /> BINGO!
             </button>
-            {isPaused && !bingoClaimActive && gameWinners.length === 0 && (
-              <button onClick={handleResume}
-                className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white">
-                <Play className="h-4 w-4" /> Resume calling
-              </button>
-            )}
             <button onClick={handleEndGame}
               className="rounded-lg bg-red-500 px-4 py-2 text-sm font-semibold text-white">End Game</button>
           </div>

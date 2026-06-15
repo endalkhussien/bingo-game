@@ -13,6 +13,7 @@ import { getOrganizationKeyForDisplay, setOrganizationVoucherSecret } from '../s
 import * as backup from '../services/backup-service';
 import * as notifications from '../services/notification-service';
 import * as audit from '../services/audit-service';
+import * as agentSelf from '../services/agent-self-service';
 import { speakNumber, speakBallCall, listInstalledVoices } from '../tts/tts-engine';
 
 const sessions = new Map<number, string>();
@@ -76,6 +77,13 @@ export function registerIpcHandlers() {
     const s = await requireAdmin(event);
     return agentAdmin.createAgent(s.user.id, data);
   });
+  ipcMain.handle('agents:activate-setup', async (_event, setupCode: string) => {
+    return agentAdmin.activateAgentFromSetup(setupCode);
+  });
+  ipcMain.handle('agents:regenerate-setup', async (event, agentId: string, password: string) => {
+    const s = await requireAdmin(event);
+    return agentAdmin.regenerateAgentSetupCode(s.user.id, agentId, password);
+  });
   ipcMain.handle('agents:update', async (event, id: string, data) => {
     const s = await requireAdmin(event);
     return agentAdmin.updateAgent(s.user.id, id, data);
@@ -95,6 +103,14 @@ export function registerIpcHandlers() {
   ipcMain.handle('agents:detail', async (event, id: string) => {
     await requireAdmin(event);
     return agentAdmin.getAgentDetail(id);
+  });
+  ipcMain.handle('agents:update-own-commission', async (event, commissionRate: number) => {
+    const s = await requireAgent(event);
+    return agentSelf.updateOwnCommission(s.agent!.id, commissionRate);
+  });
+  ipcMain.handle('agents:profile', async (event) => {
+    const s = await requireAgent(event);
+    return agentSelf.getAgentProfile(s.agent!.id);
   });
 
   // ── Wallet ──
@@ -181,6 +197,11 @@ export function registerIpcHandlers() {
 
   // ── Settings ──
   ipcMain.handle('settings:get', async (event) => { await requireAuth(event); return settings.getSettings(); });
+  ipcMain.handle('settings:has-org-key', async (event) => {
+    await requireAuth(event);
+    const { hasOrganizationKey } = await import('../services/voucher-secret-service');
+    return hasOrganizationKey();
+  });
   ipcMain.handle('settings:update', async (event, data) => { await requireAdmin(event); return settings.updateSettings(data); });
 
   // ── Backup ──

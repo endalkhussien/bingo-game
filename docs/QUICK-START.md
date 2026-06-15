@@ -8,7 +8,7 @@ Use this guide to **install**, **run**, and **play a game** on Windows. No guess
 
 | Item | Details |
 |------|---------|
-| **PC** | Windows 10 or 11 |
+| **PC** | Windows 8, 8.1, 10, or 11 (64-bit) |
 | **Node.js** | Version **20 or 22 LTS** from [nodejs.org](https://nodejs.org) |
 | **Git** | [git-scm.com](https://git-scm.com) (Git Bash is fine) |
 | **Internet** | Only for the first `git clone` / `npm install` |
@@ -24,11 +24,11 @@ cd ~/dev
 git clone https://github.com/endalkhussien/bingo-game.git
 cd bingo-game
 git fetch origin
-git checkout cursor/fix-amharic-tts-2cae
+git checkout cursor/desktop-release-and-commission-2cae
 ```
 
 > **Tip:** If you already have the folder, go into it and run:
-> `git fetch origin && git checkout cursor/fix-amharic-tts-2cae && git pull`
+> `git fetch origin && git checkout cursor/desktop-release-and-commission-2cae && git pull`
 
 ---
 

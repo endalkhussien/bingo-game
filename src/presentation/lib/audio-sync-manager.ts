@@ -3,7 +3,6 @@ import { stopCurrentAudio } from './amharic-audio';
 export type AudioSyncEvent = 'lock' | 'unlock' | 'audio-start' | 'audio-end' | 'cooldown-start' | 'cooldown-end' | 'abort';
 
 export interface AudioSyncManagerOptions {
-  /** Delay after audio finishes before the next call (default 3000ms). */
   cooldownMs?: number;
   onEvent?: (event: AudioSyncEvent) => void;
 }
@@ -14,7 +13,7 @@ function delay(ms: number): Promise<void> {
 
 async function abortableDelay(ms: number, isAborted: () => boolean): Promise<void> {
   if (ms <= 0) return;
-  const step = 50;
+  const step = 25;
   let elapsed = 0;
   while (elapsed < ms && !isAborted()) {
     const chunk = Math.min(step, ms - elapsed);
@@ -23,9 +22,6 @@ async function abortableDelay(ms: number, isAborted: () => boolean): Promise<voi
   }
 }
 
-/**
- * Ensures ball calls never overlap: play audio → wait until finished → cooldown → unlock.
- */
 export class AudioSyncManager {
   private locked = false;
   private aborted = false;
@@ -33,12 +29,16 @@ export class AudioSyncManager {
   private readonly onEvent?: (event: AudioSyncEvent) => void;
 
   constructor(options: AudioSyncManagerOptions = {}) {
-    this.cooldownMs = options.cooldownMs ?? 500;
+    this.cooldownMs = options.cooldownMs ?? 300;
     this.onEvent = options.onEvent;
   }
 
   isLocked(): boolean {
     return this.locked;
+  }
+
+  isAborted(): boolean {
+    return this.aborted;
   }
 
   getCooldownMs(): number {
@@ -49,7 +49,6 @@ export class AudioSyncManager {
     this.cooldownMs = Math.max(0, ms);
   }
 
-  /** Stop audio/cooldown immediately — used when a player claims BINGO. */
   abort(): void {
     this.aborted = true;
     stopCurrentAudio();
@@ -62,10 +61,6 @@ export class AudioSyncManager {
     this.onEvent?.(event);
   }
 
-  /**
-   * Synchronized call pipeline:
-   * lock → play audio → wait for finish → cooldown → unlock
-   */
   async callNumber(
     number: number,
     playAudio: (n: number) => Promise<void>,
@@ -78,8 +73,11 @@ export class AudioSyncManager {
     this.emit('lock');
 
     try {
+      if (this.aborted) return;
+
       this.emit('audio-start');
-      if (!this.aborted) await playAudio(number);
+      await playAudio(number);
+      if (this.aborted) return;
       this.emit('audio-end');
 
       const waitMs = cooldownMs ?? this.cooldownMs;
@@ -99,6 +97,8 @@ export interface DrawResult {
   number: number;
   drawOrder?: number;
   drawnAt?: number;
+  voiceType?: string;
+  language?: string;
 }
 
 export interface GameCallerOptions {
@@ -112,9 +112,6 @@ export interface GameCallerOptions {
   playAudio: (number: number, voiceType: string, language: string) => Promise<void>;
 }
 
-/**
- * Auto-call loop: draws only when unlocked, speaks each ball, then waits cooldown.
- */
 export async function runAutoCallLoop(
   syncManager: AudioSyncManager,
   options: GameCallerOptions,
@@ -123,7 +120,11 @@ export async function runAutoCallLoop(
 
   while (options.shouldContinue() && !options.isPaused()) {
     if (syncManager.isLocked()) {
-      await delay(50);
+      if (!options.shouldContinue() || options.isPaused()) {
+        syncManager.abort();
+        break;
+      }
+      await delay(20);
       continue;
     }
 
@@ -132,12 +133,17 @@ export async function runAutoCallLoop(
 
     options.onDraw(drawn);
 
-    if (options.isPaused() || !options.shouldContinue()) break;
+    if (!options.shouldContinue() || options.isPaused()) break;
+
+    const v = drawn.voiceType ?? options.voiceType;
+    const l = drawn.language ?? options.language;
 
     await syncManager.callNumber(
       drawn.number,
-      (n) => options.playAudio(n, options.voiceType, options.language),
+      (n) => options.playAudio(n, v, l),
       options.cooldownMs,
     );
+
+    if (!options.shouldContinue() || options.isPaused()) break;
   }
 }

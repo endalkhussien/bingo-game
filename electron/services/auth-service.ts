@@ -1,9 +1,10 @@
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { v4 as uuid } from 'uuid';
-import { eq, and, gt } from 'drizzle-orm';
+import { eq, and, gt, sql } from 'drizzle-orm';
 import { getDb } from './database-service';
 import { users, agents, sessions } from '../../src/infrastructure/database/schema';
+import { normalizeUsername } from '../../src/shared/auth/normalize-username';
 
 const SESSION_TTL = 7 * 24 * 60 * 60; // 7 days
 const REMEMBER_TTL = 30 * 24 * 60 * 60; // 30 days
@@ -14,8 +15,16 @@ function hashToken(token: string) {
 
 export async function login(username: string, password: string, rememberMe = false) {
   const db = getDb();
-  const user = await db.select().from(users).where(eq(users.username, username)).get();
-  if (!user) return { success: false, error: 'Invalid username or password' };
+  const normalized = normalizeUsername(username);
+  const user = await db.select().from(users)
+    .where(sql`lower(${users.username}) = ${normalized}`)
+    .get();
+  if (!user) {
+    return {
+      success: false,
+      error: 'Invalid username or password. On a new hall PC, open Activate PC and paste your TAS setup code from admin first.',
+    };
+  }
   if (user.status === 'SUSPENDED') return { success: false, error: 'Account is suspended' };
 
   const valid = await bcrypt.compare(password, user.passwordHash);
@@ -53,6 +62,7 @@ export async function login(username: string, password: string, rememberMe = fal
         id: agent.id,
         walletBalance: agent.walletBalance,
         commissionRate: agent.commissionRate,
+        adminCommissionRate: agent.adminCommissionRate,
       } : null,
     },
   };
@@ -76,7 +86,12 @@ export async function validateSession(token: string) {
 
   return {
     user: { id: user.id, fullName: user.fullName, username: user.username, role: user.role },
-    agent: agent ? { id: agent.id, walletBalance: agent.walletBalance, commissionRate: agent.commissionRate } : null,
+    agent: agent ? {
+      id: agent.id,
+      walletBalance: agent.walletBalance,
+      commissionRate: agent.commissionRate,
+      adminCommissionRate: agent.adminCommissionRate,
+    } : null,
   };
 }
 

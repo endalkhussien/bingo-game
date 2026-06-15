@@ -80,10 +80,10 @@ export default function AdminVouchersPage() {
       <div className="mb-6 rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-sm text-indigo-900">
         <p className="flex items-center gap-2 font-semibold"><Shield className="h-4 w-4" /> Unique &amp; secure offline codes</p>
         <ul className="mt-2 list-disc space-y-1 pl-5">
+          <li>Agent must <strong>Activate PC</strong> with TAS setup code before redeeming</li>
           <li>Each code is <strong>cryptographically signed</strong> with your organization key</li>
-          <li>Bound to <strong>one agent</strong> — no one else can use it</li>
-          <li><strong>One-time use</strong> — cannot be redeemed twice</li>
-          <li>Give agents the <strong>organization key</strong> once when you install their PC</li>
+          <li>Bound to <strong>one agent username</strong> — must match exactly on agent PC</li>
+          <li><strong>One-time use</strong> per agent PC</li>
         </ul>
       </div>
 

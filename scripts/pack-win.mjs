@@ -5,7 +5,7 @@
  *
  *   npm run pack:win
  *
- * Output: release/TEBIB-Bingo-Setup-<version>.exe
+ * Output: release/TEBIB-Bingo-<version>-win-x64.exe (installer + portable)
  */
 import fs from 'fs';
 import path from 'path';
@@ -48,10 +48,24 @@ run('npx electron-builder install-app-deps');
 console.log('\n→ Building production app (Next.js + Electron)...\n');
 run('npm run build', { NODE_ENV: 'production' });
 
-console.log('\n→ Creating NSIS installer...\n');
+console.log('\n→ Running release validation...\n');
+run('node scripts/validate-release.mjs');
+
+console.log('\n→ Creating Windows installer + portable...\n');
 run('npx electron-builder --win --config electron-builder.yml', { NODE_ENV: 'production' });
 
+const releaseDir = path.join(root, 'release');
+const exes = fs.existsSync(releaseDir)
+  ? fs.readdirSync(releaseDir).filter((f) => f.endsWith('.exe'))
+  : [];
+
 console.log('\n========================================');
-console.log('  Done! Check the release/ folder.');
-console.log('  Give TEBIB-Bingo-Setup-*.exe to other PCs.');
+console.log('  Done! Installer files in release/');
+if (exes.length === 0) {
+  console.log('  WARNING: No .exe found — build may have failed.');
+  console.log('  Check errors above, then run: npm run pack:win');
+} else {
+  for (const f of exes) console.log(`  → release/${f}`);
+}
+console.log('  Also send:  AGENTS-QUICK-GUIDE.txt');
 console.log('========================================\n');

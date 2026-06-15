@@ -4,12 +4,24 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/presentation/providers/auth-provider';
 import { APP_NAME, APP_TAGLINE } from '@/shared/brand';
+import { ipc } from '@/presentation/lib/ipc';
+
+const BINGO_LETTERS = [
+  { letter: 'B', color: 'bg-red-500' },
+  { letter: 'I', color: 'bg-blue-500' },
+  { letter: 'N', color: 'bg-green-500' },
+  { letter: 'G', color: 'bg-yellow-500' },
+  { letter: 'O', color: 'bg-purple-500' },
+];
 
 export default function LoginPage() {
-  const [username, setUsername] = useState('agent');
-  const [password, setPassword] = useState('agent123');
+  const [mode, setMode] = useState<'login' | 'activate'>('login');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [setupCode, setSetupCode] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const router = useRouter();
@@ -18,6 +30,7 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     setError('');
+    setSuccess('');
     const result = await login(username, password, rememberMe);
     setLoading(false);
     if (result.success) {
@@ -27,70 +40,146 @@ export default function LoginPage() {
     }
   };
 
+  const handleActivate = async () => {
+    if (!setupCode.trim()) {
+      setError('Paste the TAS- setup code from your admin');
+      return;
+    }
+    setLoading(true);
+    setError('');
+    setSuccess('');
+    const result = await ipc<{ success: boolean; data?: { username: string; message: string }; error?: string }>(
+      'agents:activate-setup',
+      setupCode.trim(),
+    );
+    setLoading(false);
+    if (result.success && result.data) {
+      setSuccess(result.data.message);
+      setUsername(result.data.username);
+      setMode('login');
+      setSetupCode('');
+    } else {
+      setError(result.error ?? 'Activation failed');
+    }
+  };
+
+  const fillDemo = (role: 'agent' | 'admin') => {
+    setUsername(role);
+    setPassword(role === 'admin' ? 'admin123' : 'agent123');
+    setError('');
+    setSuccess('');
+    setMode('login');
+  };
+
   return (
-    <div className="flex min-h-screen">
-      {/* Left — branding */}
-      <div className="relative hidden w-1/2 overflow-hidden bg-gradient-to-br from-indigo-700 via-blue-800 to-slate-900 lg:flex lg:flex-col lg:justify-between lg:p-12">
-        <div className="absolute inset-0 opacity-20"
-          style={{ backgroundImage: 'radial-gradient(circle at 20% 50%, white 1px, transparent 1px)', backgroundSize: '32px 32px' }} />
-        <div className="relative z-10">
-          <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10 text-3xl font-black text-white backdrop-blur">T</div>
-          <h1 className="text-5xl font-black tracking-tight text-white">{APP_NAME}</h1>
-          <p className="mt-2 text-xl text-blue-200">{APP_TAGLINE}</p>
-        </div>
-        <div className="relative z-10 space-y-6 text-blue-100">
-          <div className="rounded-xl bg-white/10 p-5 backdrop-blur">
-            <p className="text-lg font-semibold text-white">For Agents</p>
-            <p className="mt-1 text-sm">Run live games, manage cards, earn commission on every round.</p>
-          </div>
-          <div className="rounded-xl bg-white/10 p-5 backdrop-blur">
-            <p className="text-lg font-semibold text-white">For Admins</p>
-            <p className="mt-1 text-sm">Create agents, approve recharges, track revenue across the platform.</p>
-          </div>
-          <div className="rounded-xl bg-white/10 p-5 backdrop-blur">
-            <p className="text-lg font-semibold text-white">Offline & Secure</p>
-            <p className="mt-1 text-sm">All data stays on your computer. No internet required.</p>
+    <div className="relative flex min-h-screen overflow-hidden bg-slate-950">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-900/40 via-slate-950 to-slate-950" />
+      <div className="pointer-events-none absolute -left-32 top-20 h-96 w-96 rounded-full bg-blue-600/20 blur-3xl" />
+      <div className="pointer-events-none absolute -right-32 bottom-20 h-96 w-96 rounded-full bg-purple-600/20 blur-3xl" />
+
+      <div className="relative z-10 flex w-full flex-col lg:flex-row">
+        <div className="flex flex-1 flex-col justify-between px-8 py-10 lg:px-14 lg:py-12">
+          <div>
+            <div className="mb-8 flex gap-2">
+              {BINGO_LETTERS.map(({ letter, color }) => (
+                <div key={letter} className={`flex h-12 w-12 items-center justify-center rounded-xl ${color} text-xl font-black text-white shadow-lg`}>
+                  {letter}
+                </div>
+              ))}
+            </div>
+            <h1 className="text-4xl font-black tracking-tight text-white lg:text-5xl">{APP_NAME}</h1>
+            <p className="mt-3 text-lg text-slate-300">{APP_TAGLINE}</p>
+            <p className="mt-2 max-w-md text-sm text-slate-400">
+              Each hall PC needs a one-time <strong className="text-white">TAS setup code</strong> from admin before login works.
+            </p>
           </div>
         </div>
-        <p className="relative z-10 text-sm text-blue-300">© {new Date().getFullYear()} {APP_NAME}</p>
-      </div>
 
-      {/* Right — login form */}
-      <div className="flex w-full flex-col items-center justify-center bg-gray-50 px-6 py-12 lg:w-1/2">
-        <div className="w-full max-w-md">
-          <div className="mb-8 lg:hidden text-center">
-            <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-xl bg-indigo-600 text-2xl font-bold text-white">T</div>
-            <h1 className="text-2xl font-bold text-gray-900">{APP_NAME}</h1>
-            <p className="text-sm text-gray-500">{APP_TAGLINE}</p>
+        <div className="flex flex-1 items-center justify-center px-6 py-10 lg:px-12">
+          <div className="w-full max-w-md rounded-3xl border border-white/10 bg-white p-8 shadow-2xl shadow-black/40">
+            <div className="mb-6 flex rounded-xl bg-gray-100 p-1">
+              <button
+                type="button"
+                onClick={() => { setMode('login'); setError(''); setSuccess(''); }}
+                className={`flex-1 rounded-lg py-2 text-sm font-semibold ${mode === 'login' ? 'bg-white text-indigo-700 shadow' : 'text-gray-600'}`}
+              >
+                Sign in
+              </button>
+              <button
+                type="button"
+                onClick={() => { setMode('activate'); setError(''); setSuccess(''); }}
+                className={`flex-1 rounded-lg py-2 text-sm font-semibold ${mode === 'activate' ? 'bg-white text-indigo-700 shadow' : 'text-gray-600'}`}
+              >
+                Activate PC
+              </button>
+            </div>
+
+            {mode === 'activate' ? (
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">First time on this PC?</h2>
+                <p className="mt-1 text-sm text-gray-500">
+                  Admin creates your account and sends a <strong>TAS-…</strong> setup code. Paste it here once.
+                </p>
+                <textarea
+                  value={setupCode}
+                  onChange={(e) => { setSetupCode(e.target.value); setError(''); }}
+                  placeholder="Paste TAS- setup code from admin"
+                  rows={4}
+                  className="mt-4 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 font-mono text-xs"
+                />
+                <button
+                  type="button"
+                  onClick={handleActivate}
+                  disabled={loading}
+                  className="mt-4 w-full rounded-xl bg-emerald-600 py-3.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+                >
+                  {loading ? 'Activating…' : 'Activate this PC'}
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleSubmit} className="space-y-5">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">Welcome back</h2>
+                  <p className="text-sm text-gray-500">Use the username and password from your admin</p>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700">Username</label>
+                  <input
+                    type="text"
+                    autoComplete="username"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700">Password</label>
+                  <input
+                    type="password"
+                    autoComplete="current-password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3"
+                  />
+                </div>
+                <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-600">
+                  <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} className="h-4 w-4 rounded" />
+                  Remember me
+                </label>
+                <button type="submit" disabled={loading} className="w-full rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 py-3.5 text-sm font-semibold text-white disabled:opacity-50">
+                  {loading ? 'Signing in…' : 'Open Dashboard'}
+                </button>
+              </form>
+            )}
+
+            {error && <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+            {success && <p className="mt-4 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{success}</p>}
+
+            <div className="mt-6 flex gap-2">
+              <button type="button" onClick={() => fillDemo('agent')} className="flex-1 rounded-lg border py-2 text-xs font-medium text-gray-600 hover:bg-gray-50">Demo agent</button>
+              <button type="button" onClick={() => fillDemo('admin')} className="flex-1 rounded-lg border py-2 text-xs font-medium text-gray-600 hover:bg-gray-50">Demo admin</button>
+            </div>
           </div>
-
-          <h2 className="mb-1 text-2xl font-bold text-gray-900">Welcome back</h2>
-          <p className="mb-8 text-sm text-gray-500">Sign in to your account</p>
-
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {error && <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">{error}</div>}
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700">Username</label>
-              <input type="text" value={username} onChange={(e) => setUsername(e.target.value)}
-                className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20" />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700">Password</label>
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20" />
-            </div>
-            <label className="flex items-center gap-2 text-sm text-gray-600">
-              <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} className="rounded" />
-              Remember me
-            </label>
-            <button type="submit" disabled={loading}
-              className="w-full rounded-xl bg-indigo-600 py-3 font-semibold text-white hover:bg-indigo-700 disabled:opacity-50">
-              {loading ? 'Signing in...' : 'Sign In'}
-            </button>
-          </form>
-          <p className="mt-6 text-center text-xs text-gray-400">
-            Demo — Agent: <code>agent</code> / <code>agent123</code> · Admin: <code>admin</code> / <code>admin123</code>
-          </p>
         </div>
       </div>
     </div>

@@ -67,5 +67,6 @@ export async function getAgentDashboard(agentId: string) {
     totalRevenue,
     totalProfit,
     commissionRate: agent?.commissionRate ?? 20,
+    adminCommissionRate: agent?.adminCommissionRate ?? 20,
   };
 }

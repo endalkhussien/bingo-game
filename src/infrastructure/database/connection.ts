@@ -1,22 +1,30 @@
+import fs from 'fs';
+import path from 'path';
 import Database from 'better-sqlite3';
 import { drizzle, BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import * as schema from './schema';
+import { DEFAULT_OPERATOR_ORG_KEY } from '../../shared/voucher/default-org-key';
 
 let db: BetterSQLite3Database<typeof schema> | null = null;
 
+function getElectronUserData(): string | null {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { app } = require('electron') as typeof import('electron');
+    return app?.getPath?.('userData') ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export function getDbPath(): string {
-  const path = require('path');
-  const { app } = require('electron');
-  const userData = app?.getPath?.('userData') ?? path.join(process.cwd(), 'data');
-  const fs = require('fs');
+  const userData = getElectronUserData() ?? path.join(process.cwd(), 'data');
   const dataDir = path.join(userData, 'data');
   if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
   return path.join(dataDir, 'bingo.db');
 }
 
 export function createDatabase(dbPath?: string): BetterSQLite3Database<typeof schema> {
-  const path = require('path');
-  const fs = require('fs');
   const finalPath = dbPath ?? path.join(process.cwd(), 'data', 'bingo.db');
   const dir = path.dirname(finalPath);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -164,6 +172,11 @@ export function runMigrations(database: BetterSQLite3Database<typeof schema>) {
 
   client.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_drawn_game_number_unique ON drawn_numbers(game_id, number)`);
 
+  const agentCols = client.prepare(`PRAGMA table_info(agents)`).all() as { name: string }[];
+  if (!agentCols.some((c) => c.name === 'admin_commission_rate')) {
+    client.exec(`ALTER TABLE agents ADD COLUMN admin_commission_rate REAL NOT NULL DEFAULT 20`);
+  }
+
   const usedCols = client.prepare(`PRAGMA table_info(used_offline_vouchers)`).all() as { name: string }[];
   if (usedCols.length > 0 && !usedCols.some((c) => c.name === 'code_hash')) {
     client.exec(`ALTER TABLE used_offline_vouchers ADD COLUMN code_hash TEXT`);
@@ -171,10 +184,6 @@ export function runMigrations(database: BetterSQLite3Database<typeof schema>) {
   }
 
   client.exec(`
-    CREATE TABLE IF NOT EXISTS used_offline_vouchers (
-      id TEXT PRIMARY KEY, nonce TEXT NOT NULL UNIQUE, code_hash TEXT NOT NULL UNIQUE,
-      amount REAL NOT NULL, agent_id TEXT NOT NULL REFERENCES agents(id), redeemed_at INTEGER NOT NULL
-    );
     CREATE TABLE IF NOT EXISTS issued_offline_vouchers (
       id TEXT PRIMARY KEY, code TEXT NOT NULL, code_hash TEXT NOT NULL UNIQUE,
       amount REAL NOT NULL, for_username TEXT NOT NULL, nonce TEXT NOT NULL UNIQUE,
@@ -183,4 +192,15 @@ export function runMigrations(database: BetterSQLite3Database<typeof schema>) {
       redeemed_at INTEGER
     );
   `);
+
+  const orgKeyRow = client.prepare(`SELECT value FROM system_settings WHERE key = 'offline_voucher_org_key'`).get() as { value: string } | undefined;
+  const now = Math.floor(Date.now() / 1000);
+  let orgKey = orgKeyRow?.value;
+  if (!orgKey || orgKey.length < 32) {
+    orgKey = DEFAULT_OPERATOR_ORG_KEY;
+  } else if (/^[a-f0-9]{64}$/.test(orgKey) && orgKey !== DEFAULT_OPERATOR_ORG_KEY) {
+    orgKey = DEFAULT_OPERATOR_ORG_KEY;
+  }
+  client.prepare(`INSERT OR REPLACE INTO system_settings (key, value, updated_at) VALUES ('offline_voucher_org_key', ?, ?)`)
+    .run(orgKey, now);
 }

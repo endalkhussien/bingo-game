@@ -81,7 +81,7 @@ export function parseOfflineVoucher(code: string, orgSecret: string): OfflineVou
   if (!/^[a-z0-9_]{2,32}$/.test(forUsername)) return null;
 
   const payload = `${amount}|${nonce}|${expiresAt}|${forUsername}`;
-  if (signPayload(payload, orgSecret) !== sig) return null;
+  if (signPayload(payload, orgSecret).toLowerCase() !== sig.toLowerCase()) return null;
 
   return { amount, nonce, expiresAt, forUsername, serial: 0 };
 }
