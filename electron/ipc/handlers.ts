@@ -121,15 +121,39 @@ export function registerIpcHandlers() {
   // ── Operator license (TOL weekly/monthly) ──
   ipcMain.handle('license:status', async () => operatorLicense.getOperatorLicenseStatus());
   ipcMain.handle('license:activate', async (event, code: string) => {
-    const session = await requireAuth(event);
-    if (session.user.role !== 'OPERATOR') {
-      throw new Error('Only shop admin can activate a TOL license code');
+    try {
+      const session = await requireAuth(event);
+      if (session.user.role !== 'OPERATOR') {
+        return {
+          success: false,
+          error: session.user.role === 'SUPER_ADMIN'
+            ? 'You are logged in as vendor. Log out and login as shop admin (admin) to paste TOL.'
+            : 'Only shop admin can activate TOL. Login as admin.',
+        };
+      }
+      return await operatorLicense.activateOperatorLicense(code.trim());
+    } catch (err) {
+      return { success: false, error: err instanceof Error ? err.message : 'Activation failed' };
     }
-    return operatorLicense.activateOperatorLicense(code);
   });
   ipcMain.handle('license:commission-report', async (event, periodDays?: number) => {
-    await requireVendorOrShopAdmin(event);
-    return operatorLicense.getVendorCommissionReport(periodDays ?? 7);
+    try {
+      await requireVendorOrShopAdmin(event);
+      return await operatorLicense.getVendorCommissionReport(periodDays ?? 7);
+    } catch (err) {
+      if (err instanceof Error && (err.message === 'OPERATOR_LICENSE_EXPIRED' || err.code === 'OPERATOR_LICENSE_EXPIRED')) {
+        return {
+          periodDays: periodDays ?? 7,
+          gameCount: 0,
+          totalBets: 0,
+          vendorCommissionDue: 0,
+          shopName: '',
+          vendorCommissionRate: 20,
+          licenseActive: false,
+        };
+      }
+      throw err;
+    }
   });
   ipcMain.handle('license:generate', async (event, shopName: string, validDays: number, commissionRate: number) => {
     await requireVendor(event);
@@ -170,6 +194,10 @@ export function registerIpcHandlers() {
   ipcMain.handle('agents:activate', async (event, id: string) => {
     const s = await requireShopAdmin(event);
     return agentAdmin.setAgentStatus(s.user.id, id, 'ACTIVE');
+  });
+  ipcMain.handle('agents:delete', async (event, id: string) => {
+    const s = await requireShopAdmin(event);
+    return agentAdmin.deleteAgent(s.user.id, id);
   });
   ipcMain.handle('agents:reset-password', async (event, id: string, pw: string) => {
     const s = await requireShopAdmin(event);

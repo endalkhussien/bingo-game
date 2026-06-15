@@ -127,6 +127,32 @@ export async function seedDatabase(db: BetterSQLite3Database<typeof schema>) {
   }
 }
 
+/** Ensure shop admin account exists with OPERATOR role (fixes old installs). */
+export async function ensureShopAdminUser(db: BetterSQLite3Database<typeof schema>) {
+  const now = Math.floor(Date.now() / 1000);
+  const admin = await db.select().from(schema.users).where(eq(schema.users.username, 'admin')).get();
+  if (admin) {
+    if (admin.role !== 'OPERATOR') {
+      await db.update(schema.users).set({
+        role: 'OPERATOR',
+        fullName: 'Shop Admin',
+        updatedAt: now,
+      }).where(eq(schema.users.id, admin.id));
+    }
+    return;
+  }
+  await db.insert(schema.users).values({
+    id: uuid(),
+    fullName: 'Shop Admin',
+    username: 'admin',
+    passwordHash: await bcrypt.hash('admin123', 12),
+    role: 'OPERATOR',
+    status: 'ACTIVE',
+    createdAt: now,
+    updatedAt: now,
+  });
+}
+
 /** Add vendor super-admin on existing installs (safe to run every startup). */
 export async function ensureVendorUser(db: BetterSQLite3Database<typeof schema>) {
   const now = Math.floor(Date.now() / 1000);
