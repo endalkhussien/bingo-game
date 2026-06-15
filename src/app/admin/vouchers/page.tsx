@@ -35,6 +35,7 @@ export default function AdminVouchersPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [autoCopied, setAutoCopied] = useState(false);
+  const [shopBalance, setShopBalance] = useState(0);
 
   const load = useCallback(() => {
     ipc<AgentOption[]>('agents:list').then((rows) => {
@@ -43,6 +44,7 @@ export default function AdminVouchersPage() {
     }).catch(() => {});
     ipc<IssuedCode[]>('vouchers:list-issued').then(setIssued).catch(() => {});
     ipc<string>('vouchers:org-key').then(setOrgKey).catch(() => {});
+    ipc<number>('operator-wallet:balance').then(setShopBalance).catch(() => {});
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -93,6 +95,10 @@ export default function AdminVouchersPage() {
   return (
     <div>
       <PageHeader title="Secure Recharge Codes" />
+      <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+        <p className="font-semibold">Shop admin balance: {shopBalance.toFixed(0)} ETB</p>
+        <p className="mt-1">Each TBG code deducts from this balance. Redeem <strong>TVP</strong> codes from vendor on <a href="/admin/wallet" className="text-indigo-700 underline">Shop Balance</a>.</p>
+      </div>
       <div className="mb-6 rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-sm text-indigo-900">
         <p className="flex items-center gap-2 font-semibold"><Shield className="h-4 w-4" /> Unique &amp; secure offline codes</p>
         <ul className="mt-2 list-disc space-y-1 pl-5">

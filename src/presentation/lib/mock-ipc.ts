@@ -2,6 +2,7 @@
 
 import { DEFAULT_CALL_COOLDOWN_MS } from '@/shared/constants';
 import { generateOperatorLicenseCode } from '@/shared/voucher/operator-license-code';
+import { generateVendorTopupCode, parseVendorTopupCode, hashVendorTopupCode } from '@/shared/voucher/vendor-topup-code';
 
 const SESSION_KEY = 'bingo_mock_session';
 
@@ -48,6 +49,10 @@ const mockSettings: Record<string, string> = {
 };
 const mockTxs: Array<Record<string, unknown>> = [];
 let mockLicenseUntil = 0;
+let mockOperatorWalletBalance = 0;
+const mockUsedTopupHashes = new Set<string>();
+const mockVendorTopups: Array<{ id: string; code: string; amount: number; shopName: string; expiresAt: number; status: string; issuedAt: number }> = [];
+const mockOperatorWalletTxs: Array<{ id: string; amount: number; transactionType: string; description: string; balanceAfter: number; createdAt: number }> = [];
 
 function generateCard(): number[][] {
   const cols = [[1, 15], [16, 30], [31, 45], [46, 60], [61, 75]] as const;
@@ -244,8 +249,21 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
   'vouchers:generate': async (amount: unknown, forUsername: unknown) => {
     requireShopAdminSession();
     if (!forUsername) return { success: false, error: 'Select an agent' };
-    const amt = Number(amount);
+    const amt = Math.round(Number(amount));
+    if (amt <= 0) return { success: false, error: 'Invalid amount' };
+    if (mockOperatorWalletBalance < amt) {
+      return { success: false, error: `Insufficient shop admin balance (${mockOperatorWalletBalance} ETB). Redeem a TVP code from vendor first.` };
+    }
     const user = String(forUsername);
+    mockOperatorWalletBalance -= amt;
+    mockOperatorWalletTxs.unshift({
+      id: `optx-${mockOperatorWalletTxs.length}`,
+      amount: -amt,
+      transactionType: 'ISSUE_TBG',
+      description: `TBG code for ${user}`,
+      balanceAfter: mockOperatorWalletBalance,
+      createdAt: Math.floor(Date.now() / 1000),
+    });
     const nonce = Math.random().toString(36).slice(2, 18).toUpperCase().padEnd(16, '0');
     const code = `TBG-${amt}-${nonce}-${(Math.floor(Date.now()/1000)+1209600).toString(36).toUpperCase()}-${user}-MOCKSIGNATUREMOCKSIGNATUREMOCKSIG`;
     const row = {
@@ -445,7 +463,13 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
       return { success: false, error: parsed.error ?? 'Invalid TOL code' };
     }
     mockLicenseUntil = parsed.payload.validUntil;
-    return { success: true, data: { message: `License active until ${new Date(mockLicenseUntil * 1000).toLocaleDateString()}` } };
+    return {
+      success: true,
+      data: {
+        validUntil: mockLicenseUntil,
+        message: `License active until ${new Date(mockLicenseUntil * 1000).toLocaleDateString()}`,
+      },
+    };
   },
   'license:commission-report': async () => ({
     periodDays: 7,
@@ -471,6 +495,80 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
         vendorCommissionRate: Number(rate) || 20,
       },
     };
+  },
+
+  'operator-wallet:balance': async () => {
+    requireShopAdminSession();
+    return mockOperatorWalletBalance;
+  },
+  'operator-wallet:transactions': async () => {
+    requireShopAdminSession();
+    return mockOperatorWalletTxs;
+  },
+  'operator-wallet:redeem': async (code: unknown) => {
+    requireShopAdminSession();
+    const parsed = parseVendorTopupCode(String(code ?? ''));
+    if (!parsed.valid || !parsed.payload) {
+      return { success: false, error: parsed.error ?? 'Invalid TVP code' };
+    }
+    const hash = hashVendorTopupCode(String(code));
+    if (mockUsedTopupHashes.has(hash)) {
+      return { success: false, error: 'This top-up code was already used' };
+    }
+    mockUsedTopupHashes.add(hash);
+    mockOperatorWalletBalance += parsed.payload.amount;
+    mockOperatorWalletTxs.unshift({
+      id: `optx-${mockOperatorWalletTxs.length}`,
+      amount: parsed.payload.amount,
+      transactionType: 'TOPUP',
+      description: `Vendor top-up for ${parsed.payload.shopName}`,
+      balanceAfter: mockOperatorWalletBalance,
+      createdAt: Math.floor(Date.now() / 1000),
+    });
+    const topup = mockVendorTopups.find((t) => t.code === String(code).trim());
+    if (topup) topup.status = 'REDEEMED';
+    return {
+      success: true,
+      data: {
+        amount: parsed.payload.amount,
+        newBalance: mockOperatorWalletBalance,
+        shopName: parsed.payload.shopName,
+        message: `${parsed.payload.amount} ETB added to shop admin balance`,
+      },
+    };
+  },
+
+  'vendor-topup:generate': async (shopName: unknown, amount: unknown) => {
+    requireVendorSession();
+    const generated = generateVendorTopupCode(String(shopName || 'Shop'), Number(amount) || 0);
+    const row = {
+      id: `tvp-${mockVendorTopups.length}`,
+      code: generated.code,
+      amount: generated.amount,
+      shopName: generated.shopName,
+      expiresAt: generated.validUntil,
+      status: 'ISSUED',
+      issuedAt: Math.floor(Date.now() / 1000),
+    };
+    mockVendorTopups.unshift(row);
+    return { success: true, data: { code: generated.code, amount: generated.amount, validUntil: generated.validUntil, shopName: generated.shopName } };
+  },
+  'vendor-topup:list': async () => {
+    requireVendorSession();
+    return mockVendorTopups;
+  },
+  'vendor-topup:summary': async () => {
+    requireVendorSession();
+    const now = Math.floor(Date.now() / 1000);
+    let totalIssued = 0;
+    let pendingCount = 0;
+    let redeemedCount = 0;
+    for (const row of mockVendorTopups) {
+      totalIssued += row.amount;
+      if (row.status === 'REDEEMED') redeemedCount += 1;
+      else if (row.expiresAt >= now) pendingCount += 1;
+    }
+    return { totalIssued, codeCount: mockVendorTopups.length, pendingCount, redeemedCount, recent: mockVendorTopups.slice(0, 10) };
   },
 
   'tts:speak': async (_n: unknown, _v: unknown, _l: unknown, _m: unknown) => ({ success: true, engine: 'browser-mock' }),
