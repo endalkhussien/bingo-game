@@ -34,7 +34,7 @@ export default function LoginPage() {
     const result = await login(username, password, rememberMe);
     setLoading(false);
     if (result.success) {
-      router.push(username === 'admin' ? '/admin/dashboard' : '/agent/dashboard');
+      router.push(username === 'vendor' || username === 'admin' || username === 'operator' ? '/admin/dashboard' : '/agent/dashboard');
     } else {
       setError(result.error ?? 'Login failed');
     }

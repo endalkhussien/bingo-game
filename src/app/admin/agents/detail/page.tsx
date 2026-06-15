@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { ipc } from '@/presentation/lib/ipc';
 import { PageHeader } from '@/presentation/components/shared/page-header';
 import { StatCard } from '@/presentation/components/shared/stat-card';
+import { TasSetupPanel } from '@/presentation/components/admin/tas-setup-panel';
 
 function AgentDetailContent() {
   const searchParams = useSearchParams();
@@ -84,18 +85,13 @@ function AgentDetailContent() {
             </button>
           </div>
           {setupCode && (
-            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
-              <p className="text-xs font-semibold text-emerald-800">Send to agent hall PC → Login → Activate PC:</p>
-              <p className="mt-1 break-all font-mono text-[10px]">{setupCode}</p>
-              <button type="button" onClick={() => navigator.clipboard.writeText(setupCode)}
-                className="mt-2 text-xs text-indigo-600 underline">Copy setup code</button>
-            </div>
+            <TasSetupPanel username={String(agent.username ?? '')} setupCode={setupCode} />
           )}
         </div>
         <div className="rounded-xl bg-white p-5 shadow-sm border border-gray-100 space-y-3">
           <h3 className="font-semibold">Admin commission from agent</h3>
           <p className="text-xs text-gray-500">Percentage taken from this agent&apos;s commission earnings each game.</p>
-          <input type="number" min={0} max={100} value={adminCommissionRate} onChange={(e) => setAdminCommissionRate(e.target.value)}
+          <input type="number" min={0} max={100} step={1} value={adminCommissionRate} onChange={(e) => setAdminCommissionRate(e.target.value)}
             className="w-full rounded-lg border px-3 py-2 text-sm" />
           <button onClick={handleSaveAdminCommission} className="rounded-lg bg-indigo-600 px-4 py-2 text-sm text-white">
             {saved ? 'Saved!' : 'Save admin share'}
@@ -103,7 +99,7 @@ function AgentDetailContent() {
         </div>
         <div className="rounded-xl bg-white p-5 shadow-sm border border-gray-100 space-y-3">
           <h3 className="font-semibold">Deposit to Wallet</h3>
-          <input type="number" value={depositAmt} onChange={(e) => setDepositAmt(e.target.value)} className="w-full rounded-lg border px-3 py-2 text-sm" />
+          <input type="number" min={1} step={1} value={depositAmt} onChange={(e) => setDepositAmt(e.target.value)} className="w-full rounded-lg border px-3 py-2 text-sm" />
           <button onClick={handleDeposit} className="rounded-lg bg-green-600 px-4 py-2 text-sm text-white">Deposit</button>
         </div>
         <div className="rounded-xl bg-white p-5 shadow-sm border border-gray-100 space-y-3">

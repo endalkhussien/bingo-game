@@ -3,14 +3,19 @@
 import { useEffect, useState } from 'react';
 import { ipc } from '@/presentation/lib/ipc';
 import { PageHeader } from '@/presentation/components/shared/page-header';
+import { withDefaultSettings } from '@/shared/default-settings';
 
 export default function CommissionsPage() {
-  const [settings, setSettings] = useState<Record<string, string>>({});
+  const [settings, setSettings] = useState<Record<string, string>>(withDefaultSettings({}));
   const [saved, setSaved] = useState(false);
   const [players, setPlayers] = useState('100');
   const [bet, setBet] = useState('10');
 
-  useEffect(() => { ipc<Record<string, string>>('settings:get').then(setSettings); }, []);
+  useEffect(() => {
+    ipc<Record<string, string>>('settings:get')
+      .then((s) => setSettings(withDefaultSettings(s)))
+      .catch(() => setSettings(withDefaultSettings({})));
+  }, []);
 
   const handleSave = async () => {
     await ipc('settings:update', {
@@ -43,7 +48,7 @@ export default function CommissionsPage() {
         ].map(({ key, label }) => (
           <div key={key}>
             <label className="mb-1 block text-sm font-medium">{label}</label>
-            <input type="number" value={settings[key] ?? ''} onChange={(e) => setSettings({ ...settings, [key]: e.target.value })}
+            <input type="number" min={0} step={1} value={settings[key] ?? ''} onChange={(e) => setSettings({ ...settings, [key]: e.target.value })}
               className="w-full rounded-lg border px-3 py-2 text-sm" />
           </div>
         ))}

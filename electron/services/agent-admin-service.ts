@@ -69,29 +69,42 @@ export async function createAgent(adminId: string, data: {
   await db.insert(agents).values({
     id: agentId, userId, phone: data.phone ?? null,
     commissionRate: data.commissionRate ?? 20,
-    adminCommissionRate: data.adminCommissionRate,
-    walletBalance: data.initialBalance ?? 0,
+    adminCommissionRate: Number.isFinite(data.adminCommissionRate) ? data.adminCommissionRate : 20,
+    walletBalance: Number.isFinite(data.initialBalance) ? data.initialBalance! : 0,
     status: 'ACTIVE', createdAt: now, updatedAt: now,
   });
 
-  await logAudit({ userId: adminId, action: 'CREATE', entityType: 'agent', entityId: agentId, newValue: data });
+  await logAudit({ userId: adminId, action: 'CREATE', entityType: 'agent', entityId: agentId, newValue: { ...data, password: '[redacted]' } });
 
-  const orgKey = await getOrganizationVoucherSecret();
-  const setup = generateAgentSetupCode({
-    username,
-    password: data.password,
-    fullName: data.fullName,
-    adminCommissionRate: data.adminCommissionRate,
-    orgKey,
-  });
+  const adminCommissionRate = Number.isFinite(data.adminCommissionRate) ? data.adminCommissionRate : 20;
+
+  let setupCode: string;
+  try {
+    const orgKey = await getOrganizationVoucherSecret();
+    const setup = generateAgentSetupCode({
+      username,
+      password: data.password,
+      fullName: data.fullName,
+      adminCommissionRate,
+      orgKey,
+    });
+    setupCode = setup.code;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Setup code generation failed';
+    return {
+      success: true,
+      data: { id: agentId, userId, username, setupCode: null },
+      warning: `Agent created but TAS code failed: ${message}. Use Generate TAS on agent detail.`,
+    };
+  }
 
   return {
     success: true,
     data: {
       id: agentId,
       userId,
-      setupCode: setup.code,
-      username: setup.username,
+      setupCode,
+      username,
     },
   };
 }

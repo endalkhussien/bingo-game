@@ -2,7 +2,7 @@ import path from 'path';
 import fs from 'fs';
 import { app } from 'electron';
 import { createDatabase, runMigrations } from '../../src/infrastructure/database/connection';
-import { seedDatabase } from '../../src/infrastructure/database/seed';
+import { seedDatabase, ensureVendorUser } from '../../src/infrastructure/database/seed';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import * as schema from '../../src/infrastructure/database/schema';
 
@@ -20,6 +20,7 @@ export async function initDatabase(): Promise<BetterSQLite3Database<typeof schem
   database = createDatabase(dbPath);
   runMigrations(database);
   await seedDatabase(database);
+  await ensureVendorUser(database);
   return database;
 }
 

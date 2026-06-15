@@ -81,7 +81,7 @@ export function parseAgentSetupCode(code: string): { valid: boolean; error?: str
   const body = rest.slice(0, -33);
   if (!body) return { valid: false, error: 'Invalid setup code format' };
 
-  if (sign(body) !== sig) {
+  if (sign(body).toLowerCase() !== sig.toLowerCase()) {
     return { valid: false, error: 'Setup code signature invalid. Request a new code from admin.' };
   }
 

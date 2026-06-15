@@ -57,6 +57,14 @@ try {
   check('Calling engine tests', false);
 }
 
+try {
+  execSync('npm run test:cross-pc', { cwd: root, stdio: 'pipe' });
+  check('Cross-PC login/recharge tests', true);
+} catch (e) {
+  const detail = e.stderr?.toString?.().trim().split('\n').pop() ?? e.message ?? '';
+  check('Cross-PC login/recharge tests', false, detail);
+}
+
 console.log('');
 if (failed > 0) {
   console.error(`${failed} check(s) failed. Fix before releasing.`);

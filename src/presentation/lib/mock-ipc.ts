@@ -44,6 +44,14 @@ const mockSettings: Record<string, string> = {
   currency: 'ETB', timezone: 'Africa/Addis_Ababa', default_voice: 'AMHARIC_MALE', default_language: 'en', number_range_max: '75',
 };
 const mockTxs: Array<Record<string, unknown>> = [];
+let mockLicenseUntil = Math.floor(Date.now() / 1000) + 86400 * 7;
+
+function mockTolCode(shopName: string, days: number) {
+  const until = Math.floor(Date.now() / 1000) + days * 86400;
+  const payload = btoa(JSON.stringify({ s: shopName, e: until, p: days >= 28 ? 'MONTHLY' : 'WEEKLY', c: 20 }));
+  const body = payload.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  return `TOL-${body}-mockmockmockmockmockmockmockmock`;
+}
 
 function generateCard(): number[][] {
   const cols = [[1, 15], [16, 30], [31, 45], [46, 60], [61, 75]] as const;
@@ -87,8 +95,14 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
       saveSession(currentSession);
       return { success: true, data: { token: 'mock', user: currentSession.user, agent: currentSession.agent } };
     }
-    if (username === 'admin' && password === 'admin123') {
-      currentSession = { user: { id: 'admin1', fullName: 'System Administrator', username: 'admin', role: 'SUPER_ADMIN' }, agent: null };
+    if (username === 'vendor' && password === 'vendor2024') {
+      currentSession = { user: { id: 'v1', fullName: 'TEBIB Vendor', username: 'vendor', role: 'SUPER_ADMIN' }, agent: null };
+      saveSession(currentSession);
+      return { success: true, data: { token: 'mock', user: currentSession.user, agent: null } };
+    }
+    if ((username === 'admin' || username === 'operator') && (password === 'admin123' || password === 'operator123')) {
+      const u = String(username);
+      currentSession = { user: { id: 'op1', fullName: 'Shop Operator', username: u, role: 'OPERATOR' }, agent: null };
       saveSession(currentSession);
       return { success: true, data: { token: 'mock', user: currentSession.user, agent: null } };
     }
@@ -125,15 +139,41 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
 
   'agents:list': async () => mockAgents.map(a => ({ ...a, walletBalance: mockBalance })),
   'agents:create': async (data: unknown) => {
-    const d = data as { fullName: string; username: string; phone?: string; adminCommissionRate?: number; initialBalance?: number };
+    const d = data as { fullName: string; username: string; password: string; phone?: string; adminCommissionRate?: number; initialBalance?: number };
+    const username = d.username.trim().toLowerCase();
+    const id = `agent-${mockAgents.length + 1}`;
     mockAgents.push({
-      id: `agent-${mockAgents.length + 1}`, userId: `u${mockAgents.length + 1}`,
-      fullName: d.fullName, username: d.username, phone: d.phone ?? '',
+      id, userId: `u${mockAgents.length + 1}`,
+      fullName: d.fullName, username, phone: d.phone ?? '',
       commissionRate: 20, adminCommissionRate: d.adminCommissionRate ?? 20,
       walletBalance: parseFloat(String(d.initialBalance ?? 0)),
-      status: 'ACTIVE', userStatus: 'ACTIVE', totalGames: 0, totalProfit: 0, createdAt: Date.now() / 1000,
+      status: 'ACTIVE', userStatus: 'ACTIVE', totalGames: 0, totalProfit: 0, createdAt: Math.floor(Date.now() / 1000),
     });
-    return { success: true };
+    const payload = btoa(JSON.stringify({ u: username, p: d.password, n: d.fullName, c: d.adminCommissionRate ?? 20 }));
+    const body = payload.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    const setupCode = `TAS-${body}-mockmockmockmockmockmockmockmock`;
+    return { success: true, data: { id, username, setupCode } };
+  },
+  'agents:regenerate-setup': async (agentId: unknown, password: unknown) => {
+    const a = mockAgents.find((x) => x.id === agentId);
+    if (!a) return { success: false, error: 'Agent not found' };
+    const pw = String(password ?? '');
+    if (pw.length < 4) return { success: false, error: 'Enter the agent password (at least 4 characters)' };
+    const payload = btoa(JSON.stringify({ u: a.username, p: pw, n: a.fullName, c: a.adminCommissionRate }));
+    const body = payload.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    return {
+      success: true,
+      data: {
+        username: a.username,
+        setupCode: `TAS-${body}-mockmockmockmockmockmockmockmock`,
+        message: 'Send this TAS code to the hall PC.',
+      },
+    };
+  },
+  'agents:activate-setup': async (setupCode: unknown) => {
+    const code = String(setupCode ?? '').trim();
+    if (!code.startsWith('TAS-')) return { success: false, error: 'Invalid setup code' };
+    return { success: true, data: { username: 'agent', message: 'Mock activation OK (browser dev only)' } };
   },
   'agents:update': async (id: unknown, data: unknown) => {
     const a = mockAgents.find((x) => x.id === id);
@@ -198,6 +238,14 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
     if (r) r.status = 'REVOKED';
     return { success: true };
   },
+  'vouchers:delete': async (id: unknown) => {
+    const i = mockIssuedCodes.findIndex((x) => x.id === id);
+    if (i < 0) return { success: false, error: 'Code not found' };
+    if (mockIssuedCodes[i].status === 'REDEEMED') return { success: false, error: 'Cannot delete redeemed code' };
+    mockIssuedCodes.splice(i, 1);
+    return { success: true };
+  },
+  'clipboard:write': async () => ({ success: true }),
   'settings:set-org-recharge-key': async (key: unknown) => {
     requireSession();
     if (String(key).length < 32) return { success: false, error: 'Key too short' };
@@ -347,6 +395,48 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
   'notifications:mark-all-read': async () => { mockNotifications.forEach(n => { n.isRead = true; }); },
 
   'audit:list': async () => mockAuditLogs,
+
+  'license:status': async () => {
+    const now = Math.floor(Date.now() / 1000);
+    return {
+      active: mockLicenseUntil > now,
+      validUntil: mockLicenseUntil,
+      shopName: 'Demo Shop',
+      period: 'WEEKLY',
+      vendorCommissionRate: 20,
+      daysRemaining: mockLicenseUntil > now ? Math.ceil((mockLicenseUntil - now) / 86400) : 0,
+    };
+  },
+  'license:activate': async (code: unknown) => {
+    const c = String(code ?? '');
+    if (!c.startsWith('TOL-')) return { success: false, error: 'Invalid TOL code' };
+    mockLicenseUntil = Math.floor(Date.now() / 1000) + 86400 * 7;
+    return { success: true, data: { message: 'License activated (mock)' } };
+  },
+  'license:commission-report': async () => ({
+    periodDays: 7,
+    gameCount: mockGames.length,
+    totalBets: mockGames.length * 100,
+    vendorCommissionDue: mockGames.length * 20,
+    shopName: 'Demo Shop',
+    vendorCommissionRate: 20,
+    licenseActive: mockLicenseUntil > Math.floor(Date.now() / 1000),
+  }),
+  'license:generate': async (shopName: unknown, validDays: unknown, rate: unknown) => {
+    const days = Number(validDays) === 30 ? 30 : 7;
+    const until = Math.floor(Date.now() / 1000) + days * 86400;
+    return {
+      success: true,
+      data: {
+        code: mockTolCode(String(shopName || 'Shop'), days),
+        validUntil: until,
+        shopName: String(shopName || 'Shop'),
+        period: days >= 28 ? 'MONTHLY' : 'WEEKLY',
+        validDays: days,
+        vendorCommissionRate: Number(rate) || 20,
+      },
+    };
+  },
 
   'tts:speak': async (_n: unknown, _v: unknown, _l: unknown, _m: unknown) => ({ success: true, engine: 'browser-mock' }),
   'tts:speak-ball-call': async (number: unknown, language: unknown, voiceType: unknown) => {

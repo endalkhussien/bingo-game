@@ -1,10 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Copy, Ticket, Shield } from 'lucide-react';
+import { useEffect, useState, useCallback } from 'react';
+import { Ticket, Shield, Trash2 } from 'lucide-react';
 import { ipc } from '@/presentation/lib/ipc';
 import { PageHeader } from '@/presentation/components/shared/page-header';
+import { CopyButton } from '@/presentation/components/shared/copy-button';
 import { formatDate } from '@/presentation/lib/utils';
+import { copyToClipboard } from '@/presentation/lib/copy-to-clipboard';
 
 interface AgentOption {
   id: string;
@@ -31,17 +33,18 @@ export default function AdminVouchersPage() {
   const [issued, setIssued] = useState<IssuedCode[]>([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [autoCopied, setAutoCopied] = useState(false);
 
-  const load = () => {
+  const load = useCallback(() => {
     ipc<AgentOption[]>('agents:list').then((rows) => {
       setAgents(rows.map((a) => ({ id: a.id, username: a.username, fullName: a.fullName })));
-      if (!forUsername && rows.length > 0) setForUsername(rows[0].username);
-    });
+      setForUsername((prev) => prev || (rows[0]?.username ?? ''));
+    }).catch(() => {});
     ipc<IssuedCode[]>('vouchers:list-issued').then(setIssued).catch(() => {});
     ipc<string>('vouchers:org-key').then(setOrgKey).catch(() => {});
-  };
+  }, []);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [load]);
 
   const handleGenerate = async () => {
     if (!forUsername) {
@@ -50,6 +53,7 @@ export default function AdminVouchersPage() {
     }
     setError('');
     setGenerated(null);
+    setAutoCopied(false);
     setLoading(true);
     const result = await ipc<{
       success: boolean;
@@ -60,18 +64,29 @@ export default function AdminVouchersPage() {
     if (result.success && result.data) {
       setGenerated(result.data);
       load();
+      const copied = await copyToClipboard(result.data.code);
+      if (copied) {
+        setAutoCopied(true);
+        setTimeout(() => setAutoCopied(false), 4000);
+      }
     } else {
       setError(result.error ?? 'Failed to generate code');
     }
   };
 
-  const handleRevoke = async (id: string) => {
-    await ipc('vouchers:revoke', id);
-    load();
-  };
+  const handleDelete = async (row: IssuedCode) => {
+    if (row.status === 'REDEEMED') return;
+    const msg = row.status === 'ISSUED'
+      ? `Delete unused ${row.amount} ETB code for ${row.forUsername}? Agent will not be able to use it.`
+      : `Remove this revoked code from the list?`;
+    if (!window.confirm(msg)) return;
 
-  const copy = async (text: string) => {
-    await navigator.clipboard.writeText(text);
+    const result = await ipc<{ success: boolean; error?: string }>('vouchers:delete', row.id);
+    if (result.success) {
+      load();
+    } else {
+      setError(result.error ?? 'Delete failed');
+    }
   };
 
   return (
@@ -90,11 +105,8 @@ export default function AdminVouchersPage() {
       {orgKey && (
         <div className="mb-6 max-w-xl rounded-xl border bg-white p-4 shadow-sm">
           <p className="text-sm font-medium text-gray-700">Organization recharge key (give to every agent PC)</p>
-          <p className="mt-2 break-all rounded-lg bg-gray-50 p-3 font-mono text-xs">{orgKey}</p>
-          <button onClick={() => copy(orgKey)}
-            className="mt-2 inline-flex items-center gap-1 rounded-lg border px-3 py-1.5 text-sm hover:bg-gray-50">
-            <Copy className="h-4 w-4" /> Copy organization key
-          </button>
+          <p className="mt-2 break-all rounded-lg bg-gray-50 p-3 font-mono text-xs select-all">{orgKey}</p>
+          <CopyButton text={orgKey} label="Copy organization key" className="mt-2" />
         </div>
       )}
 
@@ -102,7 +114,7 @@ export default function AdminVouchersPage() {
         <h3 className="flex items-center gap-2 font-semibold"><Ticket className="h-5 w-5" /> Generate unique code</h3>
         <div>
           <label className="mb-1 block text-sm font-medium">Amount (ETB)</label>
-          <input type="number" min={1} value={amount} onChange={(e) => setAmount(e.target.value)}
+          <input type="number" min={1} step={1} value={amount} onChange={(e) => setAmount(e.target.value)}
             className="w-full rounded-lg border px-3 py-2 text-sm" />
         </div>
         <div>
@@ -115,33 +127,43 @@ export default function AdminVouchersPage() {
             ))}
           </select>
         </div>
-        <button onClick={handleGenerate} disabled={loading || !forUsername}
-          className="rounded-lg bg-emerald-600 px-6 py-2 text-sm font-semibold text-white disabled:opacity-50">
+        <button type="button" onClick={handleGenerate} disabled={loading || !forUsername}
+          className="rounded-lg bg-emerald-600 px-6 py-2 text-sm font-semibold text-white disabled:opacity-50 hover:bg-emerald-700">
           {loading ? 'Generating…' : 'Generate secure code'}
         </button>
         {error && <p className="text-sm text-red-600">{error}</p>}
         {generated && (
-          <div className="rounded-lg border border-emerald-300 bg-white p-4">
-            <p className="text-xs text-gray-500">Send to <strong>{generated.forUsername}</strong> via SMS or call:</p>
-            <p className="mt-2 break-all font-mono text-base font-bold text-emerald-800">{generated.code}</p>
+          <div className="rounded-lg border-2 border-emerald-400 bg-emerald-50 p-4">
+            <p className="text-xs font-semibold text-emerald-900">
+              Send to <strong>{generated.forUsername}</strong> via SMS or Telebirr
+            </p>
+            {autoCopied && (
+              <p className="mt-1 text-xs font-medium text-emerald-700">✓ Code copied to clipboard automatically</p>
+            )}
+            <p className="mt-2 break-all rounded-lg border border-emerald-200 bg-white p-3 font-mono text-sm font-bold text-emerald-900 select-all">
+              {generated.code}
+            </p>
             <p className="mt-2 text-sm text-gray-600">
               {generated.amount} ETB · expires {formatDate(generated.expiresAt)}
             </p>
-            <button onClick={() => copy(generated.code)}
-              className="mt-3 inline-flex items-center gap-1 rounded-lg border px-3 py-1.5 text-sm hover:bg-gray-50">
-              <Copy className="h-4 w-4" /> Copy code
-            </button>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <CopyButton text={generated.code} label="Copy recharge code" variant="primary" copiedLabel="Copied!" />
+            </div>
           </div>
         )}
       </div>
 
       {issued.length > 0 && (
         <div className="overflow-hidden rounded-xl border bg-white shadow-sm">
+          <div className="border-b bg-gray-50 px-4 py-3">
+            <h3 className="text-sm font-semibold text-gray-800">Issued codes — copy or delete</h3>
+          </div>
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-gray-50 text-left">
+              <tr className="bg-gray-50 text-left border-t">
                 <th className="px-4 py-3">Amount</th>
                 <th className="px-4 py-3">Agent</th>
+                <th className="px-4 py-3">Code</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Issued</th>
                 <th className="px-4 py-3">Actions</th>
@@ -149,23 +171,37 @@ export default function AdminVouchersPage() {
             </thead>
             <tbody>
               {issued.map((r) => (
-                <tr key={r.id} className="border-t">
+                <tr key={r.id} className="border-t hover:bg-gray-50/80">
                   <td className="px-4 py-3 font-medium">{r.amount} ETB</td>
                   <td className="px-4 py-3">{r.forUsername}</td>
+                  <td className="px-4 py-3 max-w-[200px]">
+                    <span className="block truncate font-mono text-xs text-gray-600" title={r.code}>{r.code}</span>
+                  </td>
                   <td className="px-4 py-3">
-                    <span className={`rounded-full px-2 py-0.5 text-xs ${
+                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                       r.status === 'REDEEMED' ? 'bg-green-100 text-green-700'
                         : r.status === 'REVOKED' ? 'bg-red-100 text-red-700'
-                          : 'bg-yellow-100 text-yellow-700'
+                          : 'bg-yellow-100 text-yellow-800'
                     }`}>{r.status}</span>
                   </td>
-                  <td className="px-4 py-3">{formatDate(r.issuedAt)}</td>
+                  <td className="px-4 py-3 whitespace-nowrap">{formatDate(r.issuedAt)}</td>
                   <td className="px-4 py-3">
-                    {r.status === 'ISSUED' && (
-                      <button onClick={() => handleRevoke(r.id)} className="text-xs text-red-600 hover:underline">
-                        Revoke
-                      </button>
-                    )}
+                    <div className="flex flex-wrap items-center gap-2">
+                      {r.status !== 'REVOKED' && (
+                        <CopyButton text={r.code} label="Copy" className="!px-2 !py-1 !text-xs" />
+                      )}
+                      {r.status !== 'REDEEMED' && (
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(r)}
+                          className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-100"
+                          title={r.status === 'ISSUED' ? 'Delete unused code' : 'Remove from list'}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          Delete
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

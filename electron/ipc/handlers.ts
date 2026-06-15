@@ -1,4 +1,4 @@
-import { ipcMain } from 'electron';
+import { ipcMain, clipboard } from 'electron';
 import * as auth from '../services/auth-service';
 import * as cards from '../services/card-service';
 import * as games from '../services/game-service';
@@ -14,6 +14,8 @@ import * as backup from '../services/backup-service';
 import * as notifications from '../services/notification-service';
 import * as audit from '../services/audit-service';
 import * as agentSelf from '../services/agent-self-service';
+import * as operatorLicense from '../services/operator-license-service';
+import { isAdminRole, isVendorRole } from '../../src/shared/roles';
 import { speakNumber, speakBallCall, listInstalledVoices } from '../tts/tts-engine';
 
 const sessions = new Map<number, string>();
@@ -32,7 +34,23 @@ async function requireAuth(event: Electron.IpcMainInvokeEvent) {
 
 async function requireAdmin(event: Electron.IpcMainInvokeEvent) {
   const session = await requireAuth(event);
-  if (session.user.role !== 'SUPER_ADMIN') throw new Error('Admin access required');
+  if (isVendorRole(session.user.role)) return session;
+  if (session.user.role === 'OPERATOR') {
+    const licensed = await operatorLicense.isOperatorLicensed();
+    if (!licensed) {
+      const err = new Error('OPERATOR_LICENSE_EXPIRED') as Error & { code?: string };
+      err.code = 'OPERATOR_LICENSE_EXPIRED';
+      throw err;
+    }
+    return session;
+  }
+  if (isAdminRole(session.user.role)) return session;
+  throw new Error('Admin access required');
+}
+
+async function requireVendor(event: Electron.IpcMainInvokeEvent) {
+  const session = await requireAuth(event);
+  if (!isVendorRole(session.user.role)) throw new Error('Vendor super-admin access required');
   return session;
 }
 
@@ -43,6 +61,16 @@ async function requireAgent(event: Electron.IpcMainInvokeEvent) {
 }
 
 export function registerIpcHandlers() {
+  // ── Clipboard (Electron — reliable copy on Windows) ──
+  ipcMain.handle('clipboard:write', async (_event, text: string) => {
+    try {
+      clipboard.writeText(String(text ?? ''));
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err instanceof Error ? err.message : 'Copy failed' };
+    }
+  });
+
   // ── Auth ──
   ipcMain.handle('auth:login', async (event, username: string, password: string, rememberMe?: boolean) => {
     const result = await auth.login(username, password, rememberMe);
@@ -67,6 +95,24 @@ export function registerIpcHandlers() {
     return auth.changePassword(session.user.id, oldPw, newPw);
   });
 
+  // ── Operator license (TOL weekly/monthly) ──
+  ipcMain.handle('license:status', async () => operatorLicense.getOperatorLicenseStatus());
+  ipcMain.handle('license:activate', async (event, code: string) => {
+    const session = await requireAuth(event);
+    if (!isAdminRole(session.user.role)) throw new Error('Shop admin access required');
+    return operatorLicense.activateOperatorLicense(code);
+  });
+  ipcMain.handle('license:commission-report', async (event, periodDays?: number) => {
+    const session = await requireAuth(event);
+    if (!isAdminRole(session.user.role)) throw new Error('Admin access required');
+    return operatorLicense.getVendorCommissionReport(periodDays ?? 7);
+  });
+  ipcMain.handle('license:generate', async (event, shopName: string, validDays: number, commissionRate: number) => {
+    await requireVendor(event);
+    const days = validDays === 30 ? 30 : 7;
+    return operatorLicense.generateVendorLicenseCode(shopName, days as 7 | 30, commissionRate);
+  });
+
   // ── Dashboard ──
   ipcMain.handle('dashboard:admin', async (event) => requireAdmin(event).then(() => dashboard.getAdminDashboard()));
   ipcMain.handle('dashboard:agent', async (event) => requireAgent(event).then((s) => dashboard.getAgentDashboard(s.agent!.id)));
@@ -74,8 +120,13 @@ export function registerIpcHandlers() {
   // ── Agents (admin) ──
   ipcMain.handle('agents:list', async (event) => { await requireAdmin(event); return agentAdmin.listAgents(); });
   ipcMain.handle('agents:create', async (event, data) => {
-    const s = await requireAdmin(event);
-    return agentAdmin.createAgent(s.user.id, data);
+    try {
+      const s = await requireAdmin(event);
+      return await agentAdmin.createAgent(s.user.id, data);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to create agent';
+      return { success: false, error: message };
+    }
   });
   ipcMain.handle('agents:activate-setup', async (_event, setupCode: string) => {
     return agentAdmin.activateAgentFromSetup(setupCode);
@@ -126,6 +177,10 @@ export function registerIpcHandlers() {
   ipcMain.handle('vouchers:revoke', async (event, id: string) => {
     await requireAdmin(event);
     return wallet.revokeOfflineCode(id);
+  });
+  ipcMain.handle('vouchers:delete', async (event, id: string) => {
+    await requireAdmin(event);
+    return wallet.deleteIssuedOfflineCode(id);
   });
   ipcMain.handle('vouchers:org-key', async (event) => {
     await requireAdmin(event);
