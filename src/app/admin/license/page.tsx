@@ -6,7 +6,7 @@ import { ipc } from '@/presentation/lib/ipc';
 import { PageHeader } from '@/presentation/components/shared/page-header';
 import { useAuth } from '@/presentation/providers/auth-provider';
 import { isShopAdminRole, isVendorRole } from '@/shared/roles';
-import { VENDOR_HOME } from '@/shared/admin-routes';
+import { SHOP_ADMIN_HOME, VENDOR_HOME } from '@/shared/admin-routes';
 import { TextArea } from '@/presentation/components/shared/text-area';
 import { formatDate } from '@/presentation/lib/utils';
 
@@ -70,7 +70,10 @@ export default function OperatorLicensePage() {
         setSuccess(result.data?.message ?? 'Shop admin license activated!');
         setCode('');
         load();
-        setTimeout(() => router.replace('/admin/dashboard'), 1200);
+        const fresh = await ipc<LicenseStatus>('license:status');
+        if (fresh?.active) {
+          router.replace(SHOP_ADMIN_HOME);
+        }
       } else {
         setError(result?.error ?? 'Activation failed — check the TOL code');
       }

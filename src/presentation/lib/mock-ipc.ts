@@ -1,6 +1,7 @@
 // In-memory mock store for browser development without Electron
 
 import { DEFAULT_CALL_COOLDOWN_MS } from '@/shared/constants';
+import { generateOperatorLicenseCode } from '@/shared/voucher/operator-license-code';
 
 const SESSION_KEY = 'bingo_mock_session';
 
@@ -47,13 +48,6 @@ const mockSettings: Record<string, string> = {
 };
 const mockTxs: Array<Record<string, unknown>> = [];
 let mockLicenseUntil = 0;
-
-function mockTolCode(shopName: string, days: number) {
-  const until = Math.floor(Date.now() / 1000) + days * 86400;
-  const payload = btoa(JSON.stringify({ s: shopName, e: until, p: days >= 28 ? 'MONTHLY' : 'WEEKLY', c: 20 }));
-  const body = payload.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  return `TOL-${body}-mockmockmockmockmockmockmockmock`;
-}
 
 function generateCard(): number[][] {
   const cols = [[1, 15], [16, 30], [31, 45], [46, 60], [61, 75]] as const;
@@ -465,14 +459,14 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
   'license:generate': async (shopName: unknown, validDays: unknown, rate: unknown) => {
     requireVendorSession();
     const days = Number(validDays) === 30 ? 30 : 7;
-    const until = Math.floor(Date.now() / 1000) + days * 86400;
+    const generated = generateOperatorLicenseCode(String(shopName || 'Shop'), days, Number(rate) || 20);
     return {
       success: true,
       data: {
-        code: mockTolCode(String(shopName || 'Shop'), days),
-        validUntil: until,
-        shopName: String(shopName || 'Shop'),
-        period: days >= 28 ? 'MONTHLY' : 'WEEKLY',
+        code: generated.code,
+        validUntil: generated.validUntil,
+        shopName: generated.shopName,
+        period: generated.period,
         validDays: days,
         vendorCommissionRate: Number(rate) || 20,
       },
