@@ -1,4 +1,4 @@
-import { ipcMain } from 'electron';
+import { ipcMain, clipboard } from 'electron';
 import * as auth from '../services/auth-service';
 import * as cards from '../services/card-service';
 import * as games from '../services/game-service';
@@ -61,6 +61,16 @@ async function requireAgent(event: Electron.IpcMainInvokeEvent) {
 }
 
 export function registerIpcHandlers() {
+  // ── Clipboard (Electron — reliable copy on Windows) ──
+  ipcMain.handle('clipboard:write', async (_event, text: string) => {
+    try {
+      clipboard.writeText(String(text ?? ''));
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err instanceof Error ? err.message : 'Copy failed' };
+    }
+  });
+
   // ── Auth ──
   ipcMain.handle('auth:login', async (event, username: string, password: string, rememberMe?: boolean) => {
     const result = await auth.login(username, password, rememberMe);
@@ -167,6 +177,10 @@ export function registerIpcHandlers() {
   ipcMain.handle('vouchers:revoke', async (event, id: string) => {
     await requireAdmin(event);
     return wallet.revokeOfflineCode(id);
+  });
+  ipcMain.handle('vouchers:delete', async (event, id: string) => {
+    await requireAdmin(event);
+    return wallet.deleteIssuedOfflineCode(id);
   });
   ipcMain.handle('vouchers:org-key', async (event) => {
     await requireAdmin(event);

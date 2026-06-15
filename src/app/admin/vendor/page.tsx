@@ -6,6 +6,7 @@ import { ipc } from '@/presentation/lib/ipc';
 import { PageHeader } from '@/presentation/components/shared/page-header';
 import { useAuth } from '@/presentation/providers/auth-provider';
 import { isVendorRole } from '@/shared/roles';
+import { CopyButton } from '@/presentation/components/shared/copy-button';
 import { formatDate } from '@/presentation/lib/utils';
 
 export default function VendorPortalPage() {
@@ -104,8 +105,7 @@ export default function VendorPortalPage() {
             </p>
             <p className="mt-1 text-xs text-emerald-800">Expires {formatDate(generated.validUntil)}</p>
             <p className="mt-3 break-all font-mono text-xs">{generated.code}</p>
-            <button type="button" onClick={() => navigator.clipboard.writeText(generated.code)}
-              className="mt-3 text-xs font-semibold text-indigo-600 underline">Copy TOL code</button>
+            <CopyButton text={generated.code} label="Copy TOL code" variant="primary" className="mt-3" />
           </div>
         )}
       </div>

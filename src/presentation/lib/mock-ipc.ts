@@ -238,6 +238,14 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
     if (r) r.status = 'REVOKED';
     return { success: true };
   },
+  'vouchers:delete': async (id: unknown) => {
+    const i = mockIssuedCodes.findIndex((x) => x.id === id);
+    if (i < 0) return { success: false, error: 'Code not found' };
+    if (mockIssuedCodes[i].status === 'REDEEMED') return { success: false, error: 'Cannot delete redeemed code' };
+    mockIssuedCodes.splice(i, 1);
+    return { success: true };
+  },
+  'clipboard:write': async () => ({ success: true }),
   'settings:set-org-recharge-key': async (key: unknown) => {
     requireSession();
     if (String(key).length < 32) return { success: false, error: 'Key too short' };

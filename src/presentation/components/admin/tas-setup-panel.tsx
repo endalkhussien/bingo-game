@@ -1,5 +1,8 @@
 'use client';
 
+import { CopyButton } from '@/presentation/components/shared/copy-button';
+import { copyToClipboard } from '@/presentation/lib/copy-to-clipboard';
+
 interface TasSetupPanelProps {
   username: string;
   password?: string;
@@ -15,23 +18,6 @@ export function TasSetupPanel({
   title = 'TAS setup code — send to agent hall PC',
   onCopy,
 }: TasSetupPanelProps) {
-  const copyCode = async () => {
-    await navigator.clipboard.writeText(setupCode);
-    onCopy?.();
-  };
-
-  const copyAll = async () => {
-    const lines = [
-      `Username: ${username}`,
-      password ? `Password: ${password}` : '',
-      '',
-      'Activate PC code (paste on hall PC login screen):',
-      setupCode,
-    ].filter(Boolean);
-    await navigator.clipboard.writeText(lines.join('\n'));
-    onCopy?.();
-  };
-
   return (
     <div className="rounded-xl border-2 border-emerald-400 bg-emerald-50 p-5 text-sm text-emerald-950 shadow-sm">
       <p className="text-lg font-bold text-emerald-900">{title}</p>
@@ -47,12 +33,22 @@ export function TasSetupPanel({
         {setupCode}
       </p>
       <div className="mt-3 flex flex-wrap gap-2">
-        <button type="button" onClick={copyCode}
-          className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700">
-          Copy TAS code
-        </button>
-        <button type="button" onClick={copyAll}
-          className="rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-xs font-semibold hover:bg-emerald-50">
+        <CopyButton text={setupCode} label="Copy TAS code" variant="primary" onCopied={onCopy} />
+        <button
+          type="button"
+          onClick={async () => {
+            const lines = [
+              `Username: ${username}`,
+              password ? `Password: ${password}` : '',
+              '',
+              'Activate PC code (paste on hall PC login screen):',
+              setupCode,
+            ].filter(Boolean).join('\n');
+            const ok = await copyToClipboard(lines);
+            if (ok) onCopy?.();
+          }}
+          className="rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-xs font-semibold hover:bg-emerald-50"
+        >
           Copy all credentials
         </button>
       </div>

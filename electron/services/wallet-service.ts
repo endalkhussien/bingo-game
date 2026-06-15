@@ -253,10 +253,25 @@ export async function revokeOfflineCode(codeId: string) {
     .where(eq(issuedOfflineVouchers.id, codeId))
     .get();
   if (!row) return { success: false, error: 'Code not found' };
-  if (row.status === 'REDEEMED') return { success: false, error: 'Code already redeemed' };
+  if (row.status === 'REDEEMED') return { success: false, error: 'Code already redeemed — cannot revoke' };
 
   await db.update(issuedOfflineVouchers).set({ status: 'REVOKED' })
     .where(eq(issuedOfflineVouchers.id, codeId));
+  return { success: true };
+}
+
+/** Permanently remove an unused or revoked code from the issued list. */
+export async function deleteIssuedOfflineCode(codeId: string) {
+  const db = getDb();
+  const row = await db.select().from(issuedOfflineVouchers)
+    .where(eq(issuedOfflineVouchers.id, codeId))
+    .get();
+  if (!row) return { success: false, error: 'Code not found' };
+  if (row.status === 'REDEEMED') {
+    return { success: false, error: 'Cannot delete a redeemed code — keep for records' };
+  }
+
+  await db.delete(issuedOfflineVouchers).where(eq(issuedOfflineVouchers.id, codeId));
   return { success: true };
 }
 
