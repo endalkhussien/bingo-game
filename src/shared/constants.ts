@@ -19,14 +19,15 @@ export const WINNING_PATTERNS = [
 
 export const DEFAULT_JACKPOT_MAX_CALLS = 45;
 
-export const DEFAULT_CALL_COOLDOWN_MS = 300;
+/** Pause after each ball call audio finishes — typical hall pace is 3–5 seconds. */
+export const DEFAULT_CALL_COOLDOWN_MS = 4000;
 
 export const DRAW_INTERVALS = [
-  { value: 0, label: 'Instant (no pause)' },
-  { value: 500, label: '0.5 sec after call' },
-  { value: 1000, label: '1 sec after call' },
-  { value: 2000, label: '2 sec after call' },
-  { value: 3000, label: '3 sec after call' },
+  { value: 2000, label: '2 sec (fast)' },
+  { value: 3000, label: '3 sec (normal)' },
+  { value: 4000, label: '4 sec (standard)' },
+  { value: 5000, label: '5 sec (relaxed)' },
+  { value: 6000, label: '6 sec (slow)' },
 ] as const;
 
 export const VOICE_TYPES = [

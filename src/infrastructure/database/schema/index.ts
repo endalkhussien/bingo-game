@@ -96,7 +96,7 @@ export const games = sqliteTable('games', {
   betAmount: real('bet_amount').notNull(),
   winningPattern: text('winning_pattern').notNull(),
   jackpotMaximumCalls: integer('jackpot_maximum_calls').default(45),
-  drawSpeedMs: integer('draw_speed_ms').notNull().default(2000),
+  drawSpeedMs: integer('draw_speed_ms').notNull().default(4000),
   voiceType: text('voice_type').notNull().default('AMHARIC_MALE'),
   language: text('language').notNull().default('en'),
   numberRangeMax: integer('number_range_max').notNull().default(75),
