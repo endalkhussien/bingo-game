@@ -40,7 +40,7 @@ export default function VoiceSettingsPage() {
 
   return (
     <div className="max-w-xl">
-      <PageHeader title="Voice Settings" />
+      <PageHeader title="Voice Settings" backHref="/admin/settings" backLabel="Back to Settings" />
       <div className="rounded-xl bg-white p-6 shadow-sm border space-y-4">
         <div>
           <label className="mb-1 block text-sm font-medium">Default Voice</label>

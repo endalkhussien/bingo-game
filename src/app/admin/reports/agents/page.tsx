@@ -9,7 +9,7 @@ export default function AgentPerformancePage() {
   useEffect(() => { ipc('reports:agents').then(setRows); }, []);
   return (
     <div>
-      <PageHeader title="Agent Performance" />
+      <PageHeader title="Agent Performance" backHref="/admin/reports" backLabel="Back to Reports" />
       <div className="overflow-hidden rounded-xl bg-white shadow-sm border">
         <table className="w-full text-sm">
           <thead><tr className="bg-gray-50 text-left">

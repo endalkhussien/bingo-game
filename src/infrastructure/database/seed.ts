@@ -57,7 +57,7 @@ export async function seedDatabase(db: BetterSQLite3Database<typeof schema>) {
     phone: '+251900000000',
     commissionRate: 20,
     adminCommissionRate: 20,
-    walletBalance: 500,
+    walletBalance: 0,
     status: 'ACTIVE',
     createdAt: now,
     updatedAt: now,
@@ -73,23 +73,6 @@ export async function seedDatabase(db: BetterSQLite3Database<typeof schema>) {
   }));
   for (let i = 0; i < cardRows.length; i += 50) {
     await db.insert(schema.bingoCards).values(cardRows.slice(i, i + 50));
-  }
-
-  const vouchers = [
-    { code: 'VOUCHER100', amount: 100 },
-    { code: 'VOUCHER500', amount: 500 },
-    { code: 'VOUCHER1000', amount: 1000 },
-    { code: 'DEMO2024', amount: 250 },
-  ];
-
-  for (const v of vouchers) {
-    await db.insert(schema.rechargeVouchers).values({
-      id: uuid(),
-      code: v.code,
-      amount: v.amount,
-      isUsed: false,
-      createdAt: now,
-    });
   }
 
   const settings = [

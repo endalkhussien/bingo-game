@@ -12,7 +12,6 @@ function AgentDetailContent() {
   const searchParams = useSearchParams();
   const id = searchParams.get('id') ?? '';
   const [agent, setAgent] = useState<Record<string, unknown> | null>(null);
-  const [depositAmt, setDepositAmt] = useState('100');
   const [newPw, setNewPw] = useState('');
   const [setupPw, setSetupPw] = useState('');
   const [setupCode, setSetupCode] = useState('');
@@ -33,14 +32,6 @@ function AgentDetailContent() {
 
   if (!id) return <p className="text-gray-500">No agent selected.</p>;
   if (!agent) return <div className="flex h-64 items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" /></div>;
-
-  const handleDeposit = async () => {
-    setActionError('');
-    setActionSuccess('');
-    await ipc('wallet:deposit', id, parseFloat(depositAmt), 'Admin deposit');
-    ipc<Record<string, unknown> | null>('agents:detail', id).then(setAgent);
-    setActionSuccess('Deposit added to wallet.');
-  };
 
   const handleResetPw = async () => {
     setActionError('');
@@ -97,7 +88,10 @@ function AgentDetailContent() {
 
   return (
     <div>
-      <PageHeader title={String(agent.fullName)} />
+      <PageHeader title={String(agent.fullName)} backHref="/admin/agents" backLabel="Back to Agents" />
+      <p className="mb-4 text-sm text-gray-600">
+        Recharge this agent with a <strong>TBG</strong> code from <a href="/admin/vouchers" className="text-blue-600 underline">Recharge (TBG)</a> — uses your shop balance from vendor TVP codes.
+      </p>
       {actionError && <p className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{actionError}</p>}
       {actionSuccess && <p className="mb-4 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{actionSuccess}</p>}
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -155,17 +149,6 @@ function AgentDetailContent() {
           <button type="button" onClick={handleSaveAdminCommission} className="rounded-lg bg-indigo-600 px-4 py-2 text-sm text-white">
             {saved ? 'Saved!' : 'Save admin share'}
           </button>
-        </div>
-        <div className="rounded-xl bg-white p-5 shadow-sm border border-gray-100 space-y-3">
-          <h3 className="font-semibold">Deposit to Wallet</h3>
-          <TextInput
-            type="number"
-            min={1}
-            step={1}
-            value={depositAmt}
-            onChange={(e) => setDepositAmt(e.target.value)}
-          />
-          <button type="button" onClick={handleDeposit} className="rounded-lg bg-green-600 px-4 py-2 text-sm text-white">Deposit</button>
         </div>
         <div className="rounded-xl bg-white p-5 shadow-sm border border-gray-100 space-y-3">
           <h3 className="font-semibold">Reset Password</h3>

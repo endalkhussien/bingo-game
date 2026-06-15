@@ -15,7 +15,6 @@ export async function createAgentWithSetup(data: {
   password: string;
   phone?: string;
   adminCommissionRate: number;
-  initialBalance: number;
 }): Promise<{ ok: true; result: CreateAgentResult } | { ok: false; error: string }> {
   const username = data.username.trim().toLowerCase();
   if (!/^[a-z0-9_]{2,32}$/.test(username)) {
@@ -34,7 +33,6 @@ export async function createAgentWithSetup(data: {
     ...data,
     username,
     adminCommissionRate: Number.isFinite(data.adminCommissionRate) ? data.adminCommissionRate : 20,
-    initialBalance: Number.isFinite(data.initialBalance) ? data.initialBalance : 0,
   });
 
   if (!response.success) {
@@ -61,7 +59,7 @@ export async function createAgentWithSetup(data: {
   if (!setupCode) {
     return {
       ok: false,
-      error: warning ?? 'Agent may have been created but TAS code is missing. Open Agents → Deposit → Generate TAS.',
+      error: warning ?? 'Agent may have been created but TAS code is missing. Open Agents and generate TAS.',
     };
   }
 

@@ -18,6 +18,18 @@ const EN_LETTERS_DIR = path.join(__dirname, '../public/sounds/en/letters');
 
 const AMHARIC_ONES = ['', 'አንድ', 'ሁለት', 'ሶስት', 'አራት', 'አምስት', 'ስድስት', 'ሰባት', 'ስምንት', 'ዘጠኝ'];
 const AMHARIC_TENS = ['', 'አስር', 'ሀያ', 'ሰላሳ', 'አርባ', 'ሀምሳ', 'ስልሳ', 'ሰባ', 'ሰማንያ', 'ዘጠኝ'];
+const AMHARIC_TEENS = {
+  10: 'አስር',
+  11: 'አስራ አንድ',
+  12: 'አስራ ሁለት',
+  13: 'አስራ ሶስት',
+  14: 'አስራ አራት',
+  15: 'አስራ አምስት',
+  16: 'አስራ ስድስት',
+  17: 'አስራ ሰባት',
+  18: 'አስራ ስምንት',
+  19: 'አስራ ዘጠኝ',
+};
 const AMHARIC_LETTERS = { B: 'ቢ', I: 'አይ', N: 'ኤን', G: 'ጂ', O: 'ኦ' };
 
 function getBallLetter(n) {
@@ -31,6 +43,7 @@ function getBallLetter(n) {
 
 function toAmharicNumber(n) {
   if (n <= 0) return String(n);
+  if (n >= 10 && n <= 19) return AMHARIC_TEENS[n];
   if (n < 10) return AMHARIC_ONES[n];
   if (n < 100) {
     const tens = Math.floor(n / 10);

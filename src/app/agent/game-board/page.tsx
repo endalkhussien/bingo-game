@@ -75,6 +75,8 @@ export default function GameBoardPage() {
   const [commissionPercent, setCommissionPercent] = useState('20');
 
   const adminCommissionRate = agent?.adminCommissionRate ?? 20;
+  const walletBalance = agent?.walletBalance ?? 0;
+  const canSelectCartellas = !activeGame && walletBalance > 0;
 
   const syncManagerRef = useRef(new AudioSyncManager({
     cooldownMs: DEFAULT_CALL_COOLDOWN_MS,
@@ -164,7 +166,7 @@ export default function GameBoardPage() {
   }, []);
 
   const toggleNumber = (num: number) => {
-    if (activeGame) return;
+    if (activeGame || !canSelectCartellas) return;
     setSelected((prev) => {
       if (prev.includes(num)) {
         return prev.filter((n) => n !== num);
@@ -533,10 +535,11 @@ export default function GameBoardPage() {
               <p className="mt-1 text-xs text-gray-500">From pot — winner sees net prize only</p>
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">Prize pool</label>
-              <div className="rounded-lg border bg-gray-50 px-3 py-2 text-sm font-semibold text-indigo-700">
-                {totalPot.toFixed(0)} ETB
+              <label className="mb-1 block text-sm font-medium text-gray-700">Winner prize</label>
+              <div className="rounded-lg border bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">
+                {gameEconomics.prize.toFixed(0)} ETB
               </div>
+              <p className="mt-1 text-xs text-gray-500">{totalPot.toFixed(0)} ETB pot − {commissionPercent}% commission</p>
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">Your estimated cut</label>
@@ -548,7 +551,7 @@ export default function GameBoardPage() {
           </>
         )}
         {!activeGame ? (
-          <button onClick={handleCreateGame} disabled={creating || selected.length === 0}
+          <button onClick={handleCreateGame} disabled={creating || selected.length === 0 || walletBalance <= 0}
             className="rounded-lg bg-green-600 px-6 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-50">
             {creating ? 'Starting...' : `Start Game (${selected.length} cards)`}
           </button>
@@ -616,13 +619,20 @@ export default function GameBoardPage() {
         </button>
         {!activeGame && selected.length > 0 && (
           <span className="ml-2 text-gray-500">
-            Stake: {calculateTotalPot(parseFloat(betAmount || '0') || 0, selected.length).toFixed(0)} ETB from wallet
+            Pot: {totalPot.toFixed(0)} ETB · Winner: {gameEconomics.prize.toFixed(0)} ETB
           </span>
         )}
       </div>
 
+      {!activeGame && walletBalance <= 0 && (
+        <div className="mb-4 rounded-xl border-2 border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+          <p className="font-semibold">Wallet empty — cartella selection disabled</p>
+          <p className="mt-1">Ask shop admin for a <strong>TBG</strong> recharge code, then redeem it on the Recharge page.</p>
+        </div>
+      )}
+
       <NumberGrid selectedSet={selectedSet} onToggle={toggleNumber}
-        onClear={() => setSelected([])} disabled={!!activeGame} />
+        onClear={() => setSelected([])} disabled={!!activeGame || !canSelectCartellas} />
 
       <CalledNumbersModal
         open={calledModalOpen && !!activeGame}

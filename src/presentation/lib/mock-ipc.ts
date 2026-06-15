@@ -21,12 +21,12 @@ function loadSession(): Session | null {
 }
 
 let currentSession: Session | null = loadSession();
-let mockBalance = 500;
+let mockBalance = 0;
 let cardCounter = 0;
 const mockCards: Array<{ id: string; cardNumber: string; grid: number[][]; cardData: string; agentId: string; createdAt: number; updatedAt: number }> = [];
 const mockGames: Array<Record<string, unknown>> = [];
 const mockAgents = [
-  { id: 'agent-1', userId: 'u1', fullName: 'Demo Agent', username: 'agent', phone: '+251900000000', commissionRate: 20, adminCommissionRate: 20, walletBalance: 500, status: 'ACTIVE', userStatus: 'ACTIVE', totalGames: 0, totalProfit: 0, createdAt: Date.now() / 1000 },
+  { id: 'agent-1', userId: 'u1', fullName: 'Demo Agent', username: 'agent', phone: '+251900000000', commissionRate: 20, adminCommissionRate: 20, walletBalance: 0, status: 'ACTIVE', userStatus: 'ACTIVE', totalGames: 0, totalProfit: 0, createdAt: Date.now() / 1000 },
 ];
 type Session = { user: { id: string; fullName: string; username: string; role: string }; agent: { id: string; walletBalance: number; commissionRate: number; adminCommissionRate: number } | null };
 
@@ -165,14 +165,14 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
   'agents:list': async () => { requireShopAdminSession(); return mockAgents.map(a => ({ ...a, walletBalance: mockBalance })); },
   'agents:create': async (data: unknown) => {
     requireShopAdminSession();
-    const d = data as { fullName: string; username: string; password: string; phone?: string; adminCommissionRate?: number; initialBalance?: number };
+    const d = data as { fullName: string; username: string; password: string; phone?: string; adminCommissionRate?: number };
     const username = d.username.trim().toLowerCase();
     const id = `agent-${mockAgents.length + 1}`;
     mockAgents.push({
       id, userId: `u${mockAgents.length + 1}`,
       fullName: d.fullName, username, phone: d.phone ?? '',
       commissionRate: 20, adminCommissionRate: d.adminCommissionRate ?? 20,
-      walletBalance: parseFloat(String(d.initialBalance ?? 0)),
+      walletBalance: 0,
       status: 'ACTIVE', userStatus: 'ACTIVE', totalGames: 0, totalProfit: 0, createdAt: Math.floor(Date.now() / 1000),
     });
     const payload = btoa(JSON.stringify({ u: username, p: d.password, n: d.fullName, c: d.adminCommissionRate ?? 20 }));
@@ -298,7 +298,10 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
     if (String(key).length < 32) return { success: false, error: 'Key too short' };
     return { success: true };
   },
-  'wallet:deposit': async (_id: unknown, amount: unknown) => { mockBalance += Number(amount); return { success: true, data: { newBalance: mockBalance } }; },
+  'wallet:deposit': async () => ({
+    success: false,
+    error: 'Direct deposits are disabled. Generate a TBG recharge code for this agent.',
+  }),
   'wallet:withdraw': async () => ({ success: true }),
 
   'recharge:submit': async (data: unknown) => {
@@ -353,10 +356,18 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
   'cards:generate': async (count: unknown) => { const r = []; for (let i = 0; i < Number(count); i++) r.push(await mockHandlers['cards:create']()); return r; },
 
   'games:create': async (config: unknown) => {
+    requireSession();
     const c = config as { betAmount: number; selectedNumbers: number[]; voiceType?: string; language?: string; drawSpeedMs?: number; commissionRate?: number };
     const playerCount = c.selectedNumbers?.length ?? 0;
+    if (playerCount === 0) return { success: false, error: 'Select at least one cartella.' };
     const pot = c.betAmount * playerCount;
     const rate = c.commissionRate ?? currentSession?.agent?.commissionRate ?? 20;
+    const commission = pot * (rate / 100);
+    const prize = pot - commission;
+    if (mockBalance <= 0) return { success: false, error: 'Wallet balance is empty. Recharge with a TBG code.' };
+    if (mockBalance < prize) {
+      return { success: false, error: `Insufficient balance. Need at least ${prize.toFixed(0)} ETB to cover winner prize.` };
+    }
     const game = {
       id: `game-${mockGames.length + 1}`, gameCode: `TBG-${1000 + mockGames.length}`, status: 'RUNNING',
       betAmount: c.betAmount, playerCount,
@@ -364,7 +375,7 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
       language: c.language ?? 'am', totalPot: pot, maxBalls: 75, drawSpeedMs: c.drawSpeedMs ?? DEFAULT_CALL_COOLDOWN_MS, commissionRate: rate,
     };
     mockGames.push(game);
-    mockBalance -= pot;
+    mockBalance += pot;
     if (currentSession?.agent) currentSession.agent.walletBalance = mockBalance;
     return { success: true, data: game };
   },
@@ -411,6 +422,8 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
     const playerCount = g.selectedNumbers?.length ?? 1;
     const betAmount = g.betAmount ?? 10;
     const { totalPot, prize } = calculateWinnerPrize(betAmount, playerCount, rate);
+    mockBalance -= prize;
+    if (currentSession?.agent) currentSession.agent.walletBalance = mockBalance;
     return {
       success: true, valid: true,
       message: `Cartella #${num} wins ${prize.toFixed(0)} ETB!`,
@@ -569,6 +582,25 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
       else if (row.expiresAt >= now) pendingCount += 1;
     }
     return { totalIssued, codeCount: mockVendorTopups.length, pendingCount, redeemedCount, recent: mockVendorTopups.slice(0, 10) };
+  },
+
+  'database:factory-reset': async () => {
+    requireShopAdminRoleOnly();
+    mockAgents.length = 0;
+    mockGames.length = 0;
+    mockIssuedCodes.length = 0;
+    mockRechargeRequests.length = 0;
+    mockAuditLogs.length = 0;
+    mockOperatorWalletBalance = 0;
+    mockOperatorWalletTxs.length = 0;
+    mockUsedTopupHashes.clear();
+    mockVendorTopups.length = 0;
+    mockLicenseUntil = 0;
+    mockBalance = 0;
+    return {
+      success: true,
+      message: 'All data cleared. Paste TOL and TVP from vendor to start fresh.',
+    };
   },
 
   'tts:speak': async (_n: unknown, _v: unknown, _l: unknown, _m: unknown) => ({ success: true, engine: 'browser-mock' }),

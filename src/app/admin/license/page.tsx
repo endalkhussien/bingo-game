@@ -90,7 +90,7 @@ export default function OperatorLicensePage() {
 
   return (
     <div className="mx-auto max-w-xl">
-      <PageHeader title="Activate Shop Admin (TOL)" />
+      <PageHeader title="Activate Shop Admin (TOL)" backHref="/login" backLabel="Back to Login" />
       <div className="mb-6 rounded-xl border-2 border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
         <p className="font-bold">Shop admin setup — two codes from vendor</p>
         <p className="mt-2">

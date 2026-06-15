@@ -10,7 +10,7 @@ export default function ProfitReportPage() {
   const total = rows.reduce((s, r) => s + Number(r.profit ?? 0), 0);
   return (
     <div>
-      <PageHeader title="Profit Report" />
+      <PageHeader title="Profit Report" backHref="/admin/reports" backLabel="Back to Reports" />
       <p className="mb-4 text-lg font-semibold">Total Platform Profit: {total.toFixed(0)} ETB</p>
       <div className="overflow-hidden rounded-xl bg-white shadow-sm border">
         <table className="w-full text-sm">

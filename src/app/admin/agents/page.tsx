@@ -19,7 +19,7 @@ export default function AgentsPage() {
   const [agents, setAgents] = useState<AgentRow[]>([]);
   const [search, setSearch] = useState('');
   const [showQuickCreate, setShowQuickCreate] = useState(false);
-  const [form, setForm] = useState({ fullName: '', username: '', password: '', phone: '', adminCommissionRate: '20', initialBalance: '0' });
+  const [form, setForm] = useState({ fullName: '', username: '', password: '', phone: '', adminCommissionRate: '20' });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -71,13 +71,12 @@ export default function AgentsPage() {
       password: form.password,
       phone: form.phone,
       adminCommissionRate: parseFloat(form.adminCommissionRate) || 20,
-      initialBalance: parseFloat(form.initialBalance) || 0,
     });
 
     if (outcome.ok) {
       setLastSetup(outcome.result);
       setSuccess(`Agent "${outcome.result.username}" created. Copy the TAS code below.`);
-      setForm({ fullName: '', username: '', password: '', phone: '', adminCommissionRate: '20', initialBalance: '0' });
+      setForm({ fullName: '', username: '', password: '', phone: '', adminCommissionRate: '20' });
       load();
     } else {
       setError(outcome.error);
@@ -101,7 +100,7 @@ export default function AgentsPage() {
           <h3 className="mb-4 flex items-center gap-2 font-semibold text-indigo-900">
             <Users className="h-5 w-5" /> Create New Agent Account
           </h3>
-          <p className="mb-4 text-sm text-gray-600">Create as many agents as you need. Each gets their own login to run games and earn commission.</p>
+          <p className="mb-4 text-sm text-gray-600">Agents start with <strong>0 ETB</strong>. After they activate their PC with TAS, recharge them using <strong>TBG</strong> codes from Recharge (TBG).</p>
           {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
           {success && <p className="mb-3 text-sm text-green-600">{success}</p>}
           {lastSetup && (
@@ -148,14 +147,6 @@ export default function AgentsPage() {
               value={form.adminCommissionRate}
               onChange={(e) => setForm({ ...form, adminCommissionRate: e.target.value })}
               hint="Taken from agent commission earnings"
-            />
-            <TextInput
-              label="Starting wallet (ETB)"
-              type="number"
-              min={0}
-              step={1}
-              value={form.initialBalance}
-              onChange={(e) => setForm({ ...form, initialBalance: e.target.value })}
             />
           </div>
           <button type="submit" className="mt-4 rounded-lg bg-indigo-600 px-6 py-2 text-sm font-semibold text-white hover:bg-indigo-700">
