@@ -1,97 +1,62 @@
-# Vendor + Operator model (commission & weekly license)
+# Three-party model — Vendor · Shop Admin · Agent
 
-How **you (vendor)** control shops while **operators** run admin themselves.
+## The three parties
 
----
+| Party | Login | Code they use | Role |
+|-------|-------|---------------|------|
+| **1. Vendor (you)** | `vendor` | Generates **TOL** for shop admin | Distribute `.exe` + weekly/monthly TOL |
+| **2. Shop admin** | `admin` | Pastes **TOL**, issues **TAS** + **TBG** | Runs the shop after TOL activation |
+| **3. Agent** | custom name | Pastes **TAS** on hall PC | Runs games on hall computers |
 
-## Two admin accounts
-
-| Login | Role | Who uses it |
-|-------|------|-------------|
-| `vendor` / `vendor2024` | **Super Admin (vendor)** | **You only** — change password on first use |
-| `admin` or `operator` / `admin123` or `operator123` | **Shop operator** | Shop owner — daily admin |
-
-> On existing databases, `vendor` is added automatically on startup if missing.
-
----
-
-## Weekly / monthly license (TOL codes)
-
-Operators need an active **TOL-** license to use admin (agents, recharge, reports).
-
-### Your workflow (vendor)
-
-1. Login as **`vendor`**
-2. Open **Vendor Portal**
-3. See **commission due this week** (from games on their PC)
-4. Shop pays you that amount
-5. Click **Generate weekly TOL (7 days)** or **monthly TOL (30 days)**
-6. Copy **TOL-** code → send SMS/Telegram to shop
-
-### Shop workflow (operator)
-
-1. Login as **`admin`** or **`operator`**
-2. If license expired → **Shop License** page opens
-3. See **commission due this week**
-4. Pay vendor → paste **TOL-** code → **Activate license**
-5. Run admin normally until expiry
+> **TOL** = shop admin license (weekly/monthly) — from vendor only  
+> **TAS** = agent hall PC activation — from shop admin only  
+> **TBG** = agent wallet recharge — from shop admin only  
 
 ---
 
-## Commission calculation
+## Step-by-step workflow
 
-Commission due = sum of **platform revenue** from completed games in the last 7 days.
+### Vendor (your PC)
 
-This is the **admin share** taken from agent commission each game (`adminCommissionRate` on each agent).
+1. Login as **`vendor`** → **Vendor Board** only
+2. Enter shop name → **Weekly TOL** or **Monthly TOL**
+3. Copy TOL code
+4. Send shop: **installer `.exe` + TOL code + admin login** (`admin` / password they choose)
 
-Example:
-- 50 games this week
-- 500 ETB admin cut total → shop pays you **500 ETB** → you send weekly TOL
+Vendor does **not** create agents or TAS codes.
 
----
+### Shop admin (shop PC)
 
-## Agent hall PCs (unchanged)
+1. Install `.exe`
+2. Login as **`admin`** → paste **TOL** on **Activate Shop Admin (TOL)**
+3. **Agents** → create agent → copy **TAS** code + username + password
+4. Send each agent their credentials + TAS
+5. **Recharge Codes** → generate **TBG** when agents pay
 
-| Code | Purpose |
-|------|---------|
-| **TAS-** | Activate agent account on hall PC |
-| **TBG-** | Recharge agent wallet |
+### Agent (hall PC)
 
-Operator generates TAS/TBG from their licensed admin PC.
-
----
-
-## Handover checklist
-
-### Give shop
-
-- Installer `.exe`
-- `AGENTS-QUICK-GUIDE.txt`
-- Operator login: `admin` / password they choose (change from `admin123` on day 1)
-- First **TOL** code (weekly or monthly)
-
-### Keep secret (you only)
-
-- `vendor` / your password
-- Never share Vendor Portal access
+1. Install `.exe`
+2. **Activate PC** → paste **TAS** from shop admin
+3. **Sign in** with username + password
+4. **Recharge** with **TBG** code from shop admin
+5. **Game Board** → run games
 
 ---
 
-## Default passwords (change immediately)
+## Default passwords (change on day 1)
 
-| Account | Default | Change to |
-|---------|---------|-----------|
-| vendor | vendor2024 | Your secret |
-| admin | admin123 | Shop chooses |
-| operator | operator123 | Optional alternate |
+| Account | Default | Who |
+|---------|---------|-----|
+| `vendor` | `vendor2024` | You only — never share |
+| `admin` | `admin123` | Shop owner — change immediately |
+| `agent` | `agent123` | Demo on one PC only |
 
 ---
 
 ## Summary
 
 ```
-You (vendor)  →  weekly TOL license  →  Shop operator runs admin
-Shop operator →  TAS codes  →  Agent hall PCs
-Shop operator →  TBG codes  →  Agent recharge
-Games run  →  commission calculated  →  you invoice weekly  →  new TOL
+Vendor     →  TOL (weekly/monthly)  →  Shop admin activates
+Shop admin →  TAS (one-time per hall PC)  →  Agent activates
+Shop admin →  TBG (recharge)  →  Agent wallet
 ```

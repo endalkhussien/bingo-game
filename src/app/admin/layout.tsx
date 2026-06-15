@@ -6,7 +6,8 @@ import { useAuth } from '@/presentation/providers/auth-provider';
 import { AdminSidebar } from '@/presentation/components/layout/admin-sidebar';
 import { AdminHeader } from '@/presentation/components/layout/admin-header';
 import { ipc } from '@/presentation/lib/ipc';
-import { isAdminRole, isVendorRole } from '@/shared/roles';
+import { isAdminRole, isShopAdminRole, isVendorRole } from '@/shared/roles';
+import { isShopAdminOnlyPath, VENDOR_HOME } from '@/shared/admin-routes';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
@@ -21,7 +22,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       setLicenseReady(true);
       return;
     }
-    if (user.role === 'OPERATOR') {
+    if (isShopAdminRole(user.role)) {
       if (showSpinner) setLicenseReady(false);
       ipc<{ active: boolean }>('license:status')
         .then((s) => setLicenseOk(s.active))
@@ -36,23 +37,29 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }, [user, isLoading, router]);
 
   useEffect(() => {
+    if (!user || !isVendorRole(user.role)) return;
+    if (isShopAdminOnlyPath(pathname) && pathname !== VENDOR_HOME) {
+      router.replace(VENDOR_HOME);
+    }
+  }, [user, pathname, router]);
+
+  useEffect(() => {
     checkLicense(true);
   }, [checkLicense]);
 
-  // Re-check after license activation without blocking the whole admin UI.
   useEffect(() => {
-    if (!user || user.role !== 'OPERATOR') return;
+    if (!user || !isShopAdminRole(user.role)) return;
     if (pathname === '/admin/license') return;
     checkLicense(false);
   }, [pathname, user, checkLicense]);
 
   useEffect(() => {
-    if (licenseOk === false && pathname !== '/admin/license') {
+    if (licenseOk === false && isShopAdminRole(user?.role ?? '') && pathname !== '/admin/license') {
       router.replace('/admin/license');
     }
-  }, [licenseOk, pathname, router]);
+  }, [licenseOk, pathname, router, user]);
 
-  if (isLoading || !licenseReady) {
+  if (isLoading || (!isVendorRole(user?.role ?? '') && !licenseReady)) {
     return <div className="flex h-screen items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" /></div>;
   }
 

@@ -15,14 +15,15 @@ export function TasSetupPanel({
   username,
   password,
   setupCode,
-  title = 'TAS setup code — send to agent hall PC',
+  title = 'Agent TAS code — send to hall PC',
   onCopy,
 }: TasSetupPanelProps) {
   return (
     <div className="rounded-xl border-2 border-emerald-400 bg-emerald-50 p-5 text-sm text-emerald-950 shadow-sm">
       <p className="text-lg font-bold text-emerald-900">{title}</p>
       <p className="mt-1 text-xs text-emerald-800">
-        Required for each hall PC. Agent: Login → <strong>Activate PC</strong> → paste code → Sign in.
+        Required on each agent hall PC. Agent: Login → <strong>Activate PC</strong> → paste TAS → Sign in.
+        (Shop admin license uses TOL — not this code.)
       </p>
       <div className="mt-4 grid gap-2 sm:grid-cols-2">
         <p>Username: <strong className="font-mono">{username}</strong></p>

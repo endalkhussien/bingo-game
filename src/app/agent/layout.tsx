@@ -3,6 +3,8 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/presentation/providers/auth-provider';
+import { isAdminRole } from '@/shared/roles';
+import { getPostLoginPath } from '@/shared/roles';
 import { AgentSidebar } from '@/presentation/components/layout/agent-sidebar';
 import { AgentHeader } from '@/presentation/components/layout/agent-header';
 
@@ -12,7 +14,7 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     if (!isLoading && !user) router.replace('/login');
-    if (!isLoading && user && (user.role === 'SUPER_ADMIN' || user.role === 'OPERATOR')) router.replace('/admin/dashboard');
+    if (!isLoading && user && isAdminRole(user.role)) router.replace(getPostLoginPath(user.role));
   }, [user, isLoading, router]);
 
   if (isLoading) {
