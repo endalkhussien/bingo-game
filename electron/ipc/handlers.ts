@@ -77,6 +77,13 @@ export function registerIpcHandlers() {
     const s = await requireAdmin(event);
     return agentAdmin.createAgent(s.user.id, data);
   });
+  ipcMain.handle('agents:activate-setup', async (_event, setupCode: string) => {
+    return agentAdmin.activateAgentFromSetup(setupCode);
+  });
+  ipcMain.handle('agents:regenerate-setup', async (event, agentId: string, password: string) => {
+    const s = await requireAdmin(event);
+    return agentAdmin.regenerateAgentSetupCode(s.user.id, agentId, password);
+  });
   ipcMain.handle('agents:update', async (event, id: string, data) => {
     const s = await requireAdmin(event);
     return agentAdmin.updateAgent(s.user.id, id, data);

@@ -194,9 +194,13 @@ export function runMigrations(database: BetterSQLite3Database<typeof schema>) {
   `);
 
   const orgKeyRow = client.prepare(`SELECT value FROM system_settings WHERE key = 'offline_voucher_org_key'`).get() as { value: string } | undefined;
-  if (!orgKeyRow?.value || orgKeyRow.value.length < 32) {
-    const now = Math.floor(Date.now() / 1000);
-    client.prepare(`INSERT OR REPLACE INTO system_settings (key, value, updated_at) VALUES ('offline_voucher_org_key', ?, ?)`)
-      .run(DEFAULT_OPERATOR_ORG_KEY, now);
+  const now = Math.floor(Date.now() / 1000);
+  let orgKey = orgKeyRow?.value;
+  if (!orgKey || orgKey.length < 32) {
+    orgKey = DEFAULT_OPERATOR_ORG_KEY;
+  } else if (/^[a-f0-9]{64}$/.test(orgKey) && orgKey !== DEFAULT_OPERATOR_ORG_KEY) {
+    orgKey = DEFAULT_OPERATOR_ORG_KEY;
   }
+  client.prepare(`INSERT OR REPLACE INTO system_settings (key, value, updated_at) VALUES ('offline_voucher_org_key', ?, ?)`)
+    .run(orgKey, now);
 }

@@ -2,32 +2,37 @@
   TEBIB-BINGO v1.0.0 — Agent Quick Guide (REAL SHOPS)
 ================================================================================
 
-INSTALL (once per PC)
----------------------
+INSTALL (once per hall PC)
+--------------------------
 1. Run TEBIB-Bingo-Setup-1.0.0.exe
 2. Install -> open TEBIB-Bingo from Desktop
 
-YOUR LOGIN (from your admin — NOT demo)
----------------------------------------
-  Your admin gives you:
-    Username: (e.g. abebe)
-    Password: (your password)
+FIRST TIME ON THIS PC (REQUIRED)
+--------------------------------
+  Your admin creates your account on THEIR admin PC, then sends you:
+    - Username (e.g. abebe)
+    - Password
+    - TAS- setup code (long code starting with TAS-)
 
-  First time on this PC only:
-    Admin may login as admin/admin123 and create your account here
-    with the SAME username and password.
+  On YOUR hall PC:
+    1. Open TEBIB-Bingo
+    2. Login screen -> click "Activate PC"
+    3. Paste the full TAS- code from admin
+    4. Click "Activate this PC"
+    5. Then click "Sign in" and use your username + password
 
-  Demo (testing only): agent / agent123
+  Without the TAS code, login will NOT work on a new PC.
 
 RECHARGE WALLET (after you pay admin)
 -------------------------------------
   1. Pay admin cash or Telebirr
-  2. Admin sends you a TBG-... code by SMS
+  2. Admin sends you a TBG-... code by SMS (for YOUR username only)
   3. Recharge menu -> paste code -> Recharge
-  4. Code works once, for your username only
+  4. Code works once
 
   If error "wrong organization key":
-    Settings -> paste organization key from admin -> Save
+    You probably skipped Activate PC. Go back to login -> Activate PC
+    with your TAS code, then ask admin for a NEW TBG code.
 
 RUN A GAME
 ----------
@@ -38,6 +43,12 @@ RUN A GAME
   5. STOP to pause, RESUME to continue
   6. BINGO! -> verify cartella -> End Game
 
+DEMO (testing one PC only)
+--------------------------
+  Username: agent
+  Password: agent123
+  Demo recharge: VOUCHER500
+
 REQUIREMENTS
 ------------
   Windows 8, 8.1, 10, or 11 (64-bit)
@@ -45,6 +56,6 @@ REQUIREMENTS
 
 HELP
 ----
-  Contact your admin for login, recharge codes, and password reset.
+  Contact your admin for TAS setup code, login, recharge codes, password reset.
 
 ================================================================================

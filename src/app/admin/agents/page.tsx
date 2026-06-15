@@ -31,17 +31,21 @@ export default function AgentsPage() {
   const handleSuspend = async (id: string) => { await ipc('agents:suspend', id); load(); };
   const handleActivate = async (id: string) => { await ipc('agents:activate', id); load(); };
 
+  const [lastSetup, setLastSetup] = useState<{ username: string; setupCode: string } | null>(null);
+
   const handleQuickCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setSuccess('');
-    const result = await ipc<{ success: boolean; error?: string }>('agents:create', {
+    setLastSetup(null);
+    const result = await ipc<{ success: boolean; data?: { setupCode?: string; username?: string }; error?: string }>('agents:create', {
       fullName: form.fullName, username: form.username, password: form.password,
       phone: form.phone, adminCommissionRate: parseFloat(form.adminCommissionRate),
       initialBalance: parseFloat(form.initialBalance),
     });
-    if (result.success) {
-      setSuccess(`Agent "${form.username}" created! Create another or close this form.`);
+    if (result.success && result.data?.setupCode) {
+      setLastSetup({ username: result.data.username ?? form.username, setupCode: result.data.setupCode });
+      setSuccess(`Agent "${form.username}" created! Copy the TAS setup code below and send to the hall PC.`);
       setForm({ fullName: '', username: '', password: '', phone: '', adminCommissionRate: '20', initialBalance: '0' });
       load();
     } else {
@@ -69,6 +73,14 @@ export default function AgentsPage() {
           <p className="mb-4 text-sm text-gray-600">Create as many agents as you need. Each gets their own login to run games and earn commission.</p>
           {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
           {success && <p className="mb-3 text-sm text-green-600">{success}</p>}
+          {lastSetup && (
+            <div className="mb-4 rounded-lg border border-emerald-200 bg-white p-3">
+              <p className="text-xs font-semibold text-emerald-800">TAS setup code for {lastSetup.username}:</p>
+              <p className="mt-1 break-all font-mono text-[10px]">{lastSetup.setupCode}</p>
+              <button type="button" onClick={() => navigator.clipboard.writeText(lastSetup.setupCode)}
+                className="mt-2 text-xs text-indigo-600 underline">Copy code</button>
+            </div>
+          )}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {(['fullName', 'username', 'password', 'phone'] as const).map((f) => (
               <div key={f}>

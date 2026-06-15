@@ -8,9 +8,13 @@ import {
 import {
   generateOfflineVoucher,
   verifyOfflineVoucher,
+  parseOfflineVoucher,
   offlineVoucherNonceKey,
 } from '../../src/shared/voucher/offline-voucher';
+import { DEFAULT_OPERATOR_ORG_KEY } from '../../src/shared/voucher/default-org-key';
 import { getConfiguredOrganizationKey, getOrganizationVoucherSecret } from './voucher-secret-service';
+import { normalizeUsername } from '../../src/shared/auth/normalize-username';
+import { sql } from 'drizzle-orm';
 
 export async function getBalance(agentId: string) {
   const db = getDb();
@@ -67,7 +71,7 @@ export async function redeemVoucher(agentId: string, code: string) {
   if (!agent) return { success: false, error: 'Agent not found' };
 
   const agentUser = await db.select().from(users).where(eq(users.id, agent.userId)).get();
-  const agentUsername = agentUser?.username ?? '';
+  const agentUsername = normalizeUsername(agentUser?.username ?? '');
 
   // 1) Legacy DB voucher (same PC / seeded codes)
   const voucher = await db.select().from(rechargeVouchers)
@@ -91,16 +95,43 @@ export async function redeemVoucher(agentId: string, code: string) {
   }
 
   // 2) Signed offline code — unique per agent, verified with organization key
-  const orgSecret = await getConfiguredOrganizationKey();
-  if (!orgSecret) {
+  const configuredKey = await getConfiguredOrganizationKey();
+  const orgKeys = [...new Set([
+    configuredKey,
+    DEFAULT_OPERATOR_ORG_KEY,
+    await getOrganizationVoucherSecret().catch(() => null),
+  ].filter((k): k is string => !!k && k.length >= 32))];
+
+  let matchedKey: string | null = null;
+  let parsedPayload: ReturnType<typeof parseOfflineVoucher> = null;
+
+  for (const key of orgKeys) {
+    const payload = parseOfflineVoucher(code, key);
+    if (payload) {
+      matchedKey = key;
+      parsedPayload = payload;
+      break;
+    }
+  }
+
+  if (!parsedPayload || !matchedKey) {
     return {
       success: false,
-      error: 'Organization key not set on this PC. Open Settings → paste the key from Admin → Recharge Codes, then try again.',
+      error: 'Invalid recharge code or wrong organization key. On a new hall PC: Login → Activate PC → paste your TAS setup code from admin, then ask admin for a new TBG code.',
     };
   }
-  const verification = verifyOfflineVoucher(code, orgSecret, agentUsername);
+
+  const verification = verifyOfflineVoucher(code, matchedKey, agentUsername);
   if (!verification.valid || !verification.payload || !verification.codeHash) {
-    return { success: false, error: verification.error ?? 'Invalid or already used recharge code' };
+    return {
+      success: false,
+      error: verification.error ?? `This code is for agent "${parsedPayload.forUsername}" but you are logged in as "${agentUsername}". Ask admin to generate a new code for your username.`,
+    };
+  }
+
+  if (matchedKey !== configuredKey) {
+    const { setOrganizationVoucherSecret } = await import('./voucher-secret-service');
+    await setOrganizationVoucherSecret(matchedKey);
   }
 
   const { amount, nonce } = verification.payload;
@@ -159,12 +190,14 @@ export async function createOfflineRechargeCode(
   const db = getDb();
   const now = Math.floor(Date.now() / 1000);
 
-  const username = forUsername?.trim().toLowerCase();
+  const username = normalizeUsername(forUsername);
   if (!username) {
     return { success: false, error: 'Select an agent — each code is unique and bound to one agent' };
   }
 
-  const target = await db.select().from(users).where(eq(users.username, username)).get();
+  const target = await db.select().from(users)
+    .where(sql`lower(${users.username}) = ${username}`)
+    .get();
   if (!target || target.role !== 'AGENT') {
     return { success: false, error: `Agent username "${forUsername}" not found` };
   }

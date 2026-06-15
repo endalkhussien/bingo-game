@@ -26,7 +26,7 @@
     "test:smoke": "node scripts/smoke-test.mjs",
     "generate:amharic-audio": "node scripts/generate-amharic-audio.mjs",
     "validate:release": "node scripts/validate-release.mjs",
-    "test:calling-engine": "npx tsx scripts/test-calling-engine.mjs",
+    "test:cross-pc": "npx tsx scripts/test-cross-pc-flow.mjs",
     "test:ui": "playwright test --ui",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.electron.json --noEmit"
   },

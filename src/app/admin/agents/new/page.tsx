@@ -8,22 +8,22 @@ export default function NewAgentPage() {
   const [form, setForm] = useState({ fullName: '', username: '', password: '', phone: '', adminCommissionRate: '20', initialBalance: '0' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [created, setCreated] = useState<{ username: string; password: string } | null>(null);
+  const [created, setCreated] = useState<{ username: string; password: string; setupCode: string } | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setCreated(null);
-    const result = await ipc<{ success: boolean; error?: string }>('agents:create', {
+    const result = await ipc<{ success: boolean; data?: { setupCode?: string; username?: string }; error?: string }>('agents:create', {
       fullName: form.fullName, username: form.username, password: form.password,
       phone: form.phone, adminCommissionRate: parseFloat(form.adminCommissionRate),
       initialBalance: parseFloat(form.initialBalance),
     });
-    setLoading(false);
-    if (result.success) {
-      setCreated({ username: form.username, password: form.password });
+    if (result.success && result.data?.setupCode) {
+      setCreated({ username: result.data.username ?? form.username, password: form.password, setupCode: result.data.setupCode });
       setForm({ fullName: '', username: '', password: '', phone: '', adminCommissionRate: '20', initialBalance: '0' });
     } else setError(result.error ?? 'Failed');
+    setLoading(false);
   };
 
   return (
@@ -31,15 +31,20 @@ export default function NewAgentPage() {
       <PageHeader title="Create Agent" />
       {created && (
         <div className="mb-6 rounded-xl border border-emerald-300 bg-emerald-50 p-5 text-sm text-emerald-900">
-          <p className="font-bold">Agent registered on this PC</p>
+          <p className="font-bold text-lg">Send this to the agent hall PC</p>
           <p className="mt-2">Username: <strong>{created.username}</strong></p>
           <p>Password: <strong>{created.password}</strong></p>
-          <p className="mt-3 font-medium">Next steps for a separate agent PC:</p>
-          <ol className="mt-1 list-decimal space-y-1 pl-5">
-            <li>Install TEBIB-Bingo on the hall PC</li>
-            <li>Login admin → create agent with <strong>same username</strong></li>
-            <li>Agent logs in and changes password</li>
-            <li>When they need balance: generate TBG code for <strong>{created.username}</strong></li>
+          <p className="mt-3 font-semibold">Setup code (paste on agent PC → Activate PC):</p>
+          <p className="mt-1 break-all rounded-lg bg-white p-3 font-mono text-xs border">{created.setupCode}</p>
+          <button type="button" onClick={() => navigator.clipboard.writeText(created.setupCode)}
+            className="mt-2 rounded-lg border bg-white px-3 py-1.5 text-xs font-medium hover:bg-gray-50">
+            Copy setup code
+          </button>
+          <ol className="mt-4 list-decimal space-y-1 pl-5 text-xs">
+            <li>Agent installs TEBIB-Bingo on hall PC</li>
+            <li>Login screen → <strong>Activate PC</strong> → paste TAS code</li>
+            <li>Then sign in with username + password above</li>
+            <li>Recharge: admin sends TBG- code after payment</li>
           </ol>
         </div>
       )}
