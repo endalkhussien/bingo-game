@@ -9,7 +9,7 @@ interface Plan { id: string; name: string; planType: string; price: number; card
 export default function PricingPage() {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name: '', planType: 'CARD_PACK', price: '', cardLimit: '', duration: '' });
+  const [form, setForm] = useState({ name: '', planType: 'CARD_PACK', price: '50', cardLimit: '10', duration: '' });
 
   const load = () => ipc<Plan[]>('pricing:list').then(setPlans);
   useEffect(() => { load(); }, []);
@@ -38,8 +38,8 @@ export default function PricingPage() {
             <select value={form.planType} onChange={(e) => setForm({ ...form, planType: e.target.value })} className="rounded-lg border px-3 py-2 text-sm">
               <option value="CARD_PACK">Card Pack</option><option value="MEMBERSHIP">Membership</option>
             </select>
-            <input placeholder="Price (ETB)" type="number" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} className="rounded-lg border px-3 py-2 text-sm" />
-            <input placeholder="Card limit" type="number" value={form.cardLimit} onChange={(e) => setForm({ ...form, cardLimit: e.target.value })} className="rounded-lg border px-3 py-2 text-sm" />
+            <input placeholder="Price (ETB)" type="number" min={1} step={1} value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} className="rounded-lg border px-3 py-2 text-sm" />
+            <input placeholder="Card limit" type="number" min={1} step={1} value={form.cardLimit} onChange={(e) => setForm({ ...form, cardLimit: e.target.value })} className="rounded-lg border px-3 py-2 text-sm" />
           </div>
           <button onClick={handleCreate} className="rounded-lg bg-green-600 px-4 py-2 text-sm text-white">Save Plan</button>
         </div>

@@ -74,8 +74,13 @@ export function registerIpcHandlers() {
   // ── Agents (admin) ──
   ipcMain.handle('agents:list', async (event) => { await requireAdmin(event); return agentAdmin.listAgents(); });
   ipcMain.handle('agents:create', async (event, data) => {
-    const s = await requireAdmin(event);
-    return agentAdmin.createAgent(s.user.id, data);
+    try {
+      const s = await requireAdmin(event);
+      return await agentAdmin.createAgent(s.user.id, data);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to create agent';
+      return { success: false, error: message };
+    }
   });
   ipcMain.handle('agents:activate-setup', async (_event, setupCode: string) => {
     return agentAdmin.activateAgentFromSetup(setupCode);

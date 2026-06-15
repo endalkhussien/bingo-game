@@ -125,15 +125,41 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
 
   'agents:list': async () => mockAgents.map(a => ({ ...a, walletBalance: mockBalance })),
   'agents:create': async (data: unknown) => {
-    const d = data as { fullName: string; username: string; phone?: string; adminCommissionRate?: number; initialBalance?: number };
+    const d = data as { fullName: string; username: string; password: string; phone?: string; adminCommissionRate?: number; initialBalance?: number };
+    const username = d.username.trim().toLowerCase();
+    const id = `agent-${mockAgents.length + 1}`;
     mockAgents.push({
-      id: `agent-${mockAgents.length + 1}`, userId: `u${mockAgents.length + 1}`,
-      fullName: d.fullName, username: d.username, phone: d.phone ?? '',
+      id, userId: `u${mockAgents.length + 1}`,
+      fullName: d.fullName, username, phone: d.phone ?? '',
       commissionRate: 20, adminCommissionRate: d.adminCommissionRate ?? 20,
       walletBalance: parseFloat(String(d.initialBalance ?? 0)),
-      status: 'ACTIVE', userStatus: 'ACTIVE', totalGames: 0, totalProfit: 0, createdAt: Date.now() / 1000,
+      status: 'ACTIVE', userStatus: 'ACTIVE', totalGames: 0, totalProfit: 0, createdAt: Math.floor(Date.now() / 1000),
     });
-    return { success: true };
+    const payload = btoa(JSON.stringify({ u: username, p: d.password, n: d.fullName, c: d.adminCommissionRate ?? 20 }));
+    const body = payload.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    const setupCode = `TAS-${body}-mockmockmockmockmockmockmockmock`;
+    return { success: true, data: { id, username, setupCode } };
+  },
+  'agents:regenerate-setup': async (agentId: unknown, password: unknown) => {
+    const a = mockAgents.find((x) => x.id === agentId);
+    if (!a) return { success: false, error: 'Agent not found' };
+    const pw = String(password ?? '');
+    if (pw.length < 4) return { success: false, error: 'Enter the agent password (at least 4 characters)' };
+    const payload = btoa(JSON.stringify({ u: a.username, p: pw, n: a.fullName, c: a.adminCommissionRate }));
+    const body = payload.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    return {
+      success: true,
+      data: {
+        username: a.username,
+        setupCode: `TAS-${body}-mockmockmockmockmockmockmockmock`,
+        message: 'Send this TAS code to the hall PC.',
+      },
+    };
+  },
+  'agents:activate-setup': async (setupCode: unknown) => {
+    const code = String(setupCode ?? '').trim();
+    if (!code.startsWith('TAS-')) return { success: false, error: 'Invalid setup code' };
+    return { success: true, data: { username: 'agent', message: 'Mock activation OK (browser dev only)' } };
   },
   'agents:update': async (id: unknown, data: unknown) => {
     const a = mockAgents.find((x) => x.id === id);

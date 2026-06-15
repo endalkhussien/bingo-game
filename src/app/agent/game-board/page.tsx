@@ -470,7 +470,7 @@ export default function GameBoardPage() {
       <div className="mb-4 flex flex-wrap items-end gap-4 rounded-xl bg-white p-4 shadow-sm">
         <div className="flex-1 min-w-[100px]">
           <label className="mb-1 block text-sm font-medium text-gray-700">Bet (ETB)</label>
-          <input type="number" value={betAmount} onChange={(e) => { setBetAmount(e.target.value); setBetError(''); }}
+          <input type="number" min={MIN_BET} step={1} value={betAmount} onChange={(e) => { setBetAmount(e.target.value); setBetError(''); }}
             disabled={!!activeGame}
             className="w-full rounded-lg border px-3 py-2 text-sm disabled:bg-gray-100" />
           {betError && <p className="mt-1 text-xs text-red-500">{betError}</p>}

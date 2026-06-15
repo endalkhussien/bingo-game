@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { ipc } from '@/presentation/lib/ipc';
 import { PageHeader } from '@/presentation/components/shared/page-header';
 import { UserPlus, Users } from 'lucide-react';
+import { createAgentWithSetup } from '@/presentation/lib/create-agent-with-setup';
+import { TasSetupPanel } from '@/presentation/components/admin/tas-setup-panel';
 
 interface AgentRow {
   id: string; fullName: string; username: string; phone: string | null;
@@ -31,25 +33,30 @@ export default function AgentsPage() {
   const handleSuspend = async (id: string) => { await ipc('agents:suspend', id); load(); };
   const handleActivate = async (id: string) => { await ipc('agents:activate', id); load(); };
 
-  const [lastSetup, setLastSetup] = useState<{ username: string; setupCode: string } | null>(null);
+  const [lastSetup, setLastSetup] = useState<{ username: string; password: string; setupCode: string } | null>(null);
 
   const handleQuickCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setSuccess('');
     setLastSetup(null);
-    const result = await ipc<{ success: boolean; data?: { setupCode?: string; username?: string }; error?: string }>('agents:create', {
-      fullName: form.fullName, username: form.username, password: form.password,
-      phone: form.phone, adminCommissionRate: parseFloat(form.adminCommissionRate),
-      initialBalance: parseFloat(form.initialBalance),
+
+    const outcome = await createAgentWithSetup({
+      fullName: form.fullName,
+      username: form.username,
+      password: form.password,
+      phone: form.phone,
+      adminCommissionRate: parseFloat(form.adminCommissionRate) || 20,
+      initialBalance: parseFloat(form.initialBalance) || 0,
     });
-    if (result.success && result.data?.setupCode) {
-      setLastSetup({ username: result.data.username ?? form.username, setupCode: result.data.setupCode });
-      setSuccess(`Agent "${form.username}" created! Copy the TAS setup code below and send to the hall PC.`);
+
+    if (outcome.ok) {
+      setLastSetup(outcome.result);
+      setSuccess(`Agent "${outcome.result.username}" created. Copy the TAS code below.`);
       setForm({ fullName: '', username: '', password: '', phone: '', adminCommissionRate: '20', initialBalance: '0' });
       load();
     } else {
-      setError(result.error ?? 'Failed to create agent');
+      setError(outcome.error);
     }
   };
 
@@ -74,11 +81,12 @@ export default function AgentsPage() {
           {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
           {success && <p className="mb-3 text-sm text-green-600">{success}</p>}
           {lastSetup && (
-            <div className="mb-4 rounded-lg border border-emerald-200 bg-white p-3">
-              <p className="text-xs font-semibold text-emerald-800">TAS setup code for {lastSetup.username}:</p>
-              <p className="mt-1 break-all font-mono text-[10px]">{lastSetup.setupCode}</p>
-              <button type="button" onClick={() => navigator.clipboard.writeText(lastSetup.setupCode)}
-                className="mt-2 text-xs text-indigo-600 underline">Copy code</button>
+            <div className="mb-4">
+              <TasSetupPanel
+                username={lastSetup.username}
+                password={lastSetup.password}
+                setupCode={lastSetup.setupCode}
+              />
             </div>
           )}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -87,23 +95,26 @@ export default function AgentsPage() {
                 <label className="mb-1 block text-xs font-medium capitalize">{f.replace(/([A-Z])/g, ' $1')}</label>
                 <input type={f === 'password' ? 'password' : 'text'} required={f !== 'phone'} value={form[f]}
                   onChange={(e) => setForm({ ...form, [f]: e.target.value })}
+                  placeholder={f === 'username' ? 'e.g. abebe (lowercase)' : undefined}
                   className="w-full rounded-lg border px-3 py-2 text-sm" />
               </div>
             ))}
             <div>
               <label className="mb-1 block text-xs font-medium">Admin share from agent %</label>
-              <input type="number" value={form.adminCommissionRate} onChange={(e) => setForm({ ...form, adminCommissionRate: e.target.value })}
-                className="w-full rounded-lg border px-3 py-2 text-sm" placeholder="20" />
+              <input type="number" min={0} max={100} step={1} value={form.adminCommissionRate}
+                onChange={(e) => setForm({ ...form, adminCommissionRate: e.target.value })}
+                className="w-full rounded-lg border px-3 py-2 text-sm" />
               <p className="mt-1 text-xs text-gray-500">Taken from agent commission earnings</p>
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium">Starting Wallet (ETB)</label>
-              <input type="number" value={form.initialBalance} onChange={(e) => setForm({ ...form, initialBalance: e.target.value })}
+              <input type="number" min={0} step={1} value={form.initialBalance}
+                onChange={(e) => setForm({ ...form, initialBalance: e.target.value })}
                 className="w-full rounded-lg border px-3 py-2 text-sm" />
             </div>
           </div>
           <button type="submit" className="mt-4 rounded-lg bg-indigo-600 px-6 py-2 text-sm font-semibold text-white hover:bg-indigo-700">
-            Create Agent
+            Create Agent &amp; Get TAS Code
           </button>
         </form>
       )}
@@ -138,7 +149,7 @@ export default function AgentsPage() {
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex gap-2">
-                    <Link href={`/admin/agents/detail?id=${a.id}`} className="text-blue-600 hover:underline text-xs">Deposit</Link>
+                    <Link href={`/admin/agents/detail?id=${a.id}`} className="text-blue-600 hover:underline text-xs">Manage</Link>
                     {a.status === 'ACTIVE'
                       ? <button onClick={() => handleSuspend(a.id)} className="text-red-500 text-xs hover:underline">Suspend</button>
                       : <button onClick={() => handleActivate(a.id)} className="text-green-600 text-xs hover:underline">Activate</button>}
