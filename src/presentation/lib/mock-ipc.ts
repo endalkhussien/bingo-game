@@ -604,8 +604,8 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
 
   'tts:speak': async (_n: unknown, _v: unknown, _l: unknown, _m: unknown) => ({ success: true, engine: 'browser-mock' }),
   'tts:speak-ball-call': async (number: unknown, language: unknown, voiceType: unknown) => {
-    const { speakBall } = await import('@/presentation/lib/tts');
-    speakBall(Number(number), String(voiceType ?? 'AMHARIC_MALE'), String(language ?? 'am'));
+    const { speakBallCall } = await import('@/presentation/lib/tts');
+    await speakBallCall(Number(number), String(voiceType ?? 'AMHARIC_MALE'), String(language ?? 'am'));
     return { success: true, engine: 'browser-tts' };
   },
   'tts:test': async (_v: unknown, _l: unknown, _s: unknown) => ({ success: true, engine: 'browser-mock', text: 'N ሰላሳ አራት' }),

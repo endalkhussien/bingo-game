@@ -59,12 +59,14 @@ async function playAudioFile(audioPath: string): Promise<boolean> {
     const ps = `
 Add-Type -AssemblyName presentationCore
 $media = New-Object System.Windows.Media.MediaPlayer
+$media.Volume = 1.0
 $media.Open([uri]::new('file:///${uri}'))
 $media.Play()
-$deadline = (Get-Date).AddSeconds(8)
+$deadline = (Get-Date).AddSeconds(12)
 while (-not $media.NaturalDuration.HasTimeSpan -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 40 }
 if ($media.NaturalDuration.HasTimeSpan) {
-  Start-Sleep -Milliseconds ([int]$media.NaturalDuration.TimeSpan.TotalMilliseconds + 150)
+  $ms = [int]$media.NaturalDuration.TimeSpan.TotalMilliseconds + 200
+  Start-Sleep -Milliseconds $ms
 } else { Start-Sleep -Seconds 2 }
 $media.Stop()
 $media.Close()

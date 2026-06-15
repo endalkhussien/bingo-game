@@ -93,6 +93,9 @@ export default function GameBoardPage() {
   const isPausedRef = useRef(false);
   const activeGameRef = useRef<ActiveGame | null>(null);
   const callingLoopIdRef = useRef(0);
+  const intervalRef = useRef(interval);
+  const voiceRef = useRef(voice);
+  const languageRef = useRef(language);
 
   const playerCount = activeGame?.playerCount ?? activeGame?.selectedNumbers?.length ?? selected.length;
   const totalPot = activeGame?.totalPot ?? calculateTotalPot(parseFloat(betAmount || '0') || 0, playerCount);
@@ -121,7 +124,9 @@ export default function GameBoardPage() {
       setCommissionPercent(String(agent.commissionRate));
     }
   }, [agent?.commissionRate, activeGame]);
-  useEffect(() => { syncManagerRef.current.setCooldownMs(interval); }, [interval]);
+  useEffect(() => { syncManagerRef.current.setCooldownMs(interval); intervalRef.current = interval; }, [interval]);
+  useEffect(() => { voiceRef.current = voice; }, [voice]);
+  useEffect(() => { languageRef.current = language; }, [language]);
   useEffect(() => { autoDrawRef.current = autoDraw; }, [autoDraw]);
   useEffect(() => { isPausedRef.current = isPaused; }, [isPaused]);
   useEffect(() => { activeGameRef.current = activeGame; }, [activeGame]);
@@ -158,12 +163,17 @@ export default function GameBoardPage() {
         if (game.language) setLanguage(game.language);
         if (game.drawSpeedMs != null) setInterval_(game.drawSpeedMs);
         setGameWinners(game.winners ?? []);
-        if (!paused) {
+        const drawnCount = game.drawnNumbers?.length ?? 0;
+        const max = game.maxBalls ?? DRAW_BALL_COUNT;
+        if (!paused && drawnCount < max) {
           autoDrawRef.current = true;
           setAutoDraw(true);
         } else {
           autoDrawRef.current = false;
           setAutoDraw(false);
+          if (drawnCount >= max) {
+            setDrawError('All numbers drawn');
+          }
         }
       }
     });
@@ -240,7 +250,13 @@ export default function GameBoardPage() {
     }>('games:draw', game.id);
 
     if (!result.success || !result.data) {
-      if (result.error) setDrawError(result.error);
+      if (result.error) {
+        setDrawError(result.error);
+        if (result.error.includes('All numbers drawn')) {
+          autoDrawRef.current = false;
+          setAutoDraw(false);
+        }
+      }
       return null;
     }
     setDrawError('');
@@ -321,15 +337,16 @@ export default function GameBoardPage() {
   }, [activeGame, isPaused, drawFromServer, applyDrawResult, voice, language, interval]);
 
   useEffect(() => {
-    if (!autoDraw || !activeGame || isPaused || bingoClaimActive) return;
+    if (!autoDraw || !activeGame?.id || isPaused || bingoClaimActive) return;
 
     const loopId = ++callingLoopIdRef.current;
     let cancelled = false;
+    const manager = syncManagerRef.current;
 
-    void runAutoCallLoop(syncManagerRef.current, {
-      cooldownMs: interval,
-      voiceType: voice,
-      language,
+    void runAutoCallLoop(manager, {
+      cooldownMs: intervalRef.current,
+      voiceType: voiceRef.current,
+      language: languageRef.current,
       isPaused: () => isPausedRef.current || bingoClaimActive,
       shouldContinue: () =>
         !cancelled
@@ -350,10 +367,11 @@ export default function GameBoardPage() {
 
     return () => {
       cancelled = true;
-      syncManagerRef.current.abort();
+      callingLoopIdRef.current += 1;
+      manager.abort();
       stopCurrentAudio();
     };
-  }, [autoDraw, activeGame, isPaused, bingoClaimActive, interval, voice, language, drawFromServer, applyDrawResult]);
+  }, [autoDraw, activeGame?.id, isPaused, bingoClaimActive, drawFromServer, applyDrawResult]);
 
   const handleBingoClaim = async () => {
     if (!activeGame) return;
@@ -446,8 +464,8 @@ export default function GameBoardPage() {
               {isPaused
                 ? (bingoClaimActive ? 'BINGO CLAIM — PAUSED' : 'PAUSED')
                 : autoDraw
-                  ? (callerLocked ? 'CALLING…' : 'LIVE')
-                  : 'READY — press Start'}
+                  ? (callerLocked ? 'CALLING…' : drawCount >= maxBalls ? 'ALL BALLS CALLED' : 'LIVE')
+                  : drawCount >= maxBalls ? 'FINISHED — press End Game' : 'READY — press Start'}
             </p>
             <p className="text-4xl font-black tracking-tight">{drawCount}/{maxBalls}</p>
             <p className="text-sm opacity-80">{remainingCount} balls remaining</p>
@@ -642,6 +660,9 @@ export default function GameBoardPage() {
       {drawError && (
         <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
           {drawError}
+          {drawError.includes('All numbers drawn') && (
+            <p className="mt-1 text-xs">All 75 balls were called. Press <strong>BINGO!</strong> to check a winner, or <strong>End Game</strong>.</p>
+          )}
         </div>
       )}
 

@@ -42,7 +42,19 @@ function playUrl(url: string): Promise<boolean> {
   if (typeof window === 'undefined') return Promise.resolve(false);
 
   return new Promise((resolve) => {
-    const timeout = window.setTimeout(() => resolve(false), 1200);
+    let settled = false;
+    let audio: HTMLAudioElement | null = null;
+
+    const settle = (ok: boolean) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(safetyTimer);
+      if (audio && currentAudio === audio) currentAudio = null;
+      resolve(ok);
+    };
+
+    const safetyTimer = window.setTimeout(() => settle(false), 15000);
+
     try {
       if (currentAudio) {
         currentAudio.pause();
@@ -50,27 +62,19 @@ function playUrl(url: string): Promise<boolean> {
         currentAudio = null;
       }
 
-      const audio = getCachedAudio(url);
+      audio = getCachedAudio(url);
       audio.currentTime = 0;
       currentAudio = audio;
 
-      const finish = (ok: boolean) => {
-        window.clearTimeout(timeout);
-        if (currentAudio === audio) currentAudio = null;
-        resolve(ok);
-      };
-
-      audio.onended = () => finish(true);
-      audio.onerror = () => finish(false);
+      audio.onended = () => settle(true);
+      audio.onerror = () => settle(false);
 
       const started = audio.play();
       if (started) {
-        started.catch(() => finish(false));
+        started.catch(() => settle(false));
       }
     } catch {
-      window.clearTimeout(timeout);
-      currentAudio = null;
-      resolve(false);
+      settle(false);
     }
   });
 }
