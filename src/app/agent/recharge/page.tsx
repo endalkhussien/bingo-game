@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { ipc } from '@/presentation/lib/ipc';
 import { useAuth } from '@/presentation/providers/auth-provider';
 import { PageHeader } from '@/presentation/components/shared/page-header';
+import { TextInput } from '@/presentation/components/shared/text-input';
 import { formatDate } from '@/presentation/lib/utils';
 import Link from 'next/link';
 
@@ -50,8 +51,8 @@ export default function RechargePage() {
     <div>
       <PageHeader title="Recharge Balance" />
       <div className="mb-4 flex gap-2">
-        <button onClick={() => setTab('voucher')} className={`rounded-lg px-4 py-1.5 text-sm font-medium ${tab === 'voucher' ? 'bg-blue-600 text-white' : 'bg-white border'}`}>Recharge Code</button>
-        <button onClick={() => setTab('request')} className={`rounded-lg px-4 py-1.5 text-sm font-medium ${tab === 'request' ? 'bg-blue-600 text-white' : 'bg-white border'}`}>Request (same PC only)</button>
+        <button type="button" onClick={() => setTab('voucher')} className={`rounded-lg px-4 py-1.5 text-sm font-medium ${tab === 'voucher' ? 'bg-blue-600 text-white' : 'bg-white border'}`}>Recharge Code</button>
+        <button type="button" onClick={() => setTab('request')} className={`rounded-lg px-4 py-1.5 text-sm font-medium ${tab === 'request' ? 'bg-blue-600 text-white' : 'bg-white border'}`}>Request (same PC only)</button>
       </div>
       {tab === 'voucher' ? (
         <div className="max-w-lg">
@@ -74,9 +75,13 @@ export default function RechargePage() {
               </ol>
             </div>
           )}
-          <input type="text" value={code} onChange={(e) => { setCode(e.target.value); setError(''); }}
-            placeholder="Paste TBG- code from admin" className="mb-4 w-full rounded-lg border px-4 py-3 text-sm font-mono" />
-          <button onClick={handleVoucher} disabled={loading} className="rounded-lg bg-blue-600 px-8 py-2.5 text-sm font-semibold text-white disabled:opacity-50">
+          <TextInput
+            value={code}
+            onChange={(e) => { setCode(e.target.value); setError(''); }}
+            placeholder="Paste TBG- code from admin"
+            className="mb-4 font-mono"
+          />
+          <button type="button" onClick={handleVoucher} disabled={loading} className="rounded-lg bg-blue-600 px-8 py-2.5 text-sm font-semibold text-white disabled:opacity-50">
             {loading ? 'Processing...' : 'Recharge'}
           </button>
           <div className="mt-6 rounded-lg bg-gray-100 p-4 text-xs text-gray-500">
@@ -90,12 +95,12 @@ export default function RechargePage() {
             Recharge requests only work when admin uses the <strong>same computer</strong> as you.
             On a separate agent PC, use <strong>Recharge Code</strong> instead.
           </div>
-          <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Amount (ETB)" className="w-full rounded-lg border px-4 py-3 text-sm" />
-          <select value={method} onChange={(e) => setMethod(e.target.value)} className="w-full rounded-lg border px-4 py-3 text-sm">
+          <TextInput type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Amount (ETB)" />
+          <select value={method} onChange={(e) => setMethod(e.target.value)} className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm">
             <option>Bank Transfer</option><option>Mobile Money</option><option>Cash</option>
           </select>
-          <input value={ref} onChange={(e) => setRef(e.target.value)} placeholder="Reference number" className="w-full rounded-lg border px-4 py-3 text-sm" />
-          <button onClick={handleRequest} disabled={loading} className="rounded-lg bg-blue-600 px-8 py-2.5 text-sm font-semibold text-white">Submit Request</button>
+          <TextInput value={ref} onChange={(e) => setRef(e.target.value)} placeholder="Reference number" />
+          <button type="button" onClick={handleRequest} disabled={loading} className="rounded-lg bg-blue-600 px-8 py-2.5 text-sm font-semibold text-white disabled:opacity-50">Submit Request</button>
           {requests.length > 0 && (
             <div className="mt-4 rounded-xl border overflow-hidden">
               <table className="w-full text-sm">

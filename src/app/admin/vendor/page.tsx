@@ -7,6 +7,7 @@ import { PageHeader } from '@/presentation/components/shared/page-header';
 import { useAuth } from '@/presentation/providers/auth-provider';
 import { isVendorRole } from '@/shared/roles';
 import { CopyButton } from '@/presentation/components/shared/copy-button';
+import { TextInput } from '@/presentation/components/shared/text-input';
 import { formatDate } from '@/presentation/lib/utils';
 
 export default function VendorPortalPage() {
@@ -76,17 +77,21 @@ export default function VendorPortalPage() {
       )}
 
       <div className="rounded-xl border bg-white p-6 shadow-sm space-y-4">
-        <div>
-          <label className="mb-1 block text-sm font-medium">Shop name</label>
-          <input value={shopName} onChange={(e) => setShopName(e.target.value)} placeholder="e.g. Bole Hall"
-            className="w-full rounded-lg border px-3 py-2 text-sm" />
-        </div>
-        <div>
-          <label className="mb-1 block text-sm font-medium">Your commission % (from agent earnings)</label>
-          <input type="number" min={0} max={100} step={1} value={commissionRate}
-            onChange={(e) => setCommissionRate(e.target.value)}
-            className="w-full rounded-lg border px-3 py-2 text-sm" />
-        </div>
+        <TextInput
+          label="Shop name"
+          value={shopName}
+          onChange={(e) => setShopName(e.target.value)}
+          placeholder="e.g. Bole Hall"
+        />
+        <TextInput
+          label="Your commission % (from agent earnings)"
+          type="number"
+          min={0}
+          max={100}
+          step={1}
+          value={commissionRate}
+          onChange={(e) => setCommissionRate(e.target.value)}
+        />
         <div className="flex flex-wrap gap-3">
           <button type="button" onClick={() => generate(7)}
             className="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white">

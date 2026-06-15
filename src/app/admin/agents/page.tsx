@@ -7,6 +7,7 @@ import { PageHeader } from '@/presentation/components/shared/page-header';
 import { UserPlus, Users } from 'lucide-react';
 import { createAgentWithSetup } from '@/presentation/lib/create-agent-with-setup';
 import { TasSetupPanel } from '@/presentation/components/admin/tas-setup-panel';
+import { TextInput } from '@/presentation/components/shared/text-input';
 
 interface AgentRow {
   id: string; fullName: string; username: string; phone: string | null;
@@ -64,7 +65,7 @@ export default function AgentsPage() {
     <div>
       <PageHeader title="Manage Agents" action={
         <div className="flex gap-2">
-          <button onClick={() => setShowQuickCreate(!showQuickCreate)}
+          <button type="button" onClick={() => setShowQuickCreate(!showQuickCreate)}
             className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">
             <UserPlus className="h-4 w-4" /> Quick Create
           </button>
@@ -90,28 +91,49 @@ export default function AgentsPage() {
             </div>
           )}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {(['fullName', 'username', 'password', 'phone'] as const).map((f) => (
-              <div key={f}>
-                <label className="mb-1 block text-xs font-medium capitalize">{f.replace(/([A-Z])/g, ' $1')}</label>
-                <input type={f === 'password' ? 'password' : 'text'} required={f !== 'phone'} value={form[f]}
-                  onChange={(e) => setForm({ ...form, [f]: e.target.value })}
-                  placeholder={f === 'username' ? 'e.g. abebe (lowercase)' : undefined}
-                  className="w-full rounded-lg border px-3 py-2 text-sm" />
-              </div>
-            ))}
-            <div>
-              <label className="mb-1 block text-xs font-medium">Admin share from agent %</label>
-              <input type="number" min={0} max={100} step={1} value={form.adminCommissionRate}
-                onChange={(e) => setForm({ ...form, adminCommissionRate: e.target.value })}
-                className="w-full rounded-lg border px-3 py-2 text-sm" />
-              <p className="mt-1 text-xs text-gray-500">Taken from agent commission earnings</p>
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium">Starting Wallet (ETB)</label>
-              <input type="number" min={0} step={1} value={form.initialBalance}
-                onChange={(e) => setForm({ ...form, initialBalance: e.target.value })}
-                className="w-full rounded-lg border px-3 py-2 text-sm" />
-            </div>
+            <TextInput
+              label="Full name"
+              required
+              value={form.fullName}
+              onChange={(e) => setForm({ ...form, fullName: e.target.value })}
+            />
+            <TextInput
+              label="Username"
+              required
+              value={form.username}
+              onChange={(e) => setForm({ ...form, username: e.target.value })}
+              placeholder="e.g. abebe (lowercase)"
+            />
+            <TextInput
+              label="Password"
+              type="password"
+              required
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+            />
+            <TextInput
+              label="Phone"
+              value={form.phone}
+              onChange={(e) => setForm({ ...form, phone: e.target.value })}
+            />
+            <TextInput
+              label="Admin share from agent %"
+              type="number"
+              min={0}
+              max={100}
+              step={1}
+              value={form.adminCommissionRate}
+              onChange={(e) => setForm({ ...form, adminCommissionRate: e.target.value })}
+              hint="Taken from agent commission earnings"
+            />
+            <TextInput
+              label="Starting wallet (ETB)"
+              type="number"
+              min={0}
+              step={1}
+              value={form.initialBalance}
+              onChange={(e) => setForm({ ...form, initialBalance: e.target.value })}
+            />
           </div>
           <button type="submit" className="mt-4 rounded-lg bg-indigo-600 px-6 py-2 text-sm font-semibold text-white hover:bg-indigo-700">
             Create Agent &amp; Get TAS Code
@@ -120,7 +142,7 @@ export default function AgentsPage() {
       )}
 
       <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search agents..."
-        className="mb-4 w-full max-w-sm rounded-lg border border-gray-300 px-4 py-2 text-sm" />
+        className="mb-4 w-full max-w-sm rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20" />
       <div className="overflow-hidden rounded-xl bg-white shadow-sm border border-gray-100">
         <table className="w-full text-sm">
           <thead><tr className="bg-gray-50 text-left">

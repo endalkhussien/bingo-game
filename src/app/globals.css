@@ -4,6 +4,15 @@
 
 @layer base {
   body { @apply bg-gray-50 text-gray-900 antialiased; }
+
+  /* Keep form fields interactive in Electron (avoid “dead” inputs). */
+  input:not(:disabled),
+  textarea:not(:disabled),
+  select:not(:disabled) {
+    pointer-events: auto;
+    -webkit-user-select: text;
+    user-select: text;
+  }
 }
 
 /* Scrollbar styling for number grid */

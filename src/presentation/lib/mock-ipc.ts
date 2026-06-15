@@ -159,14 +159,14 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
   'agents:regenerate-setup': async (agentId: unknown, password: unknown) => {
     const a = mockAgents.find((x) => x.id === agentId);
     if (!a) return { success: false, error: 'Agent not found' };
-    const pw = String(password ?? '');
-    if (pw.length < 4) return { success: false, error: 'Enter the agent password (at least 4 characters)' };
+    const pw = String(password ?? '').trim() || `bingo${Math.floor(1000 + Math.random() * 9000)}`;
     const payload = btoa(JSON.stringify({ u: a.username, p: pw, n: a.fullName, c: a.adminCommissionRate }));
     const body = payload.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     return {
       success: true,
       data: {
         username: a.username,
+        password: pw,
         setupCode: `TAS-${body}-mockmockmockmockmockmockmockmock`,
         message: 'Send this TAS code to the hall PC.',
       },

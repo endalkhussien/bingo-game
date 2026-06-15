@@ -5,6 +5,7 @@ import { Ticket, Shield, Trash2 } from 'lucide-react';
 import { ipc } from '@/presentation/lib/ipc';
 import { PageHeader } from '@/presentation/components/shared/page-header';
 import { CopyButton } from '@/presentation/components/shared/copy-button';
+import { TextInput } from '@/presentation/components/shared/text-input';
 import { formatDate } from '@/presentation/lib/utils';
 import { copyToClipboard } from '@/presentation/lib/copy-to-clipboard';
 
@@ -112,11 +113,14 @@ export default function AdminVouchersPage() {
 
       <div className="mb-8 max-w-xl rounded-xl border bg-white p-6 shadow-sm space-y-4">
         <h3 className="flex items-center gap-2 font-semibold"><Ticket className="h-5 w-5" /> Generate unique code</h3>
-        <div>
-          <label className="mb-1 block text-sm font-medium">Amount (ETB)</label>
-          <input type="number" min={1} step={1} value={amount} onChange={(e) => setAmount(e.target.value)}
-            className="w-full rounded-lg border px-3 py-2 text-sm" />
-        </div>
+        <TextInput
+          label="Amount (ETB)"
+          type="number"
+          min={1}
+          step={1}
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+        />
         <div>
           <label className="mb-1 block text-sm font-medium">Agent (required)</label>
           <select value={forUsername} onChange={(e) => setForUsername(e.target.value)}
