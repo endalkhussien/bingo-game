@@ -356,10 +356,18 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
   'cards:generate': async (count: unknown) => { const r = []; for (let i = 0; i < Number(count); i++) r.push(await mockHandlers['cards:create']()); return r; },
 
   'games:create': async (config: unknown) => {
+    requireSession();
     const c = config as { betAmount: number; selectedNumbers: number[]; voiceType?: string; language?: string; drawSpeedMs?: number; commissionRate?: number };
     const playerCount = c.selectedNumbers?.length ?? 0;
+    if (playerCount === 0) return { success: false, error: 'Select at least one cartella.' };
     const pot = c.betAmount * playerCount;
     const rate = c.commissionRate ?? currentSession?.agent?.commissionRate ?? 20;
+    const commission = pot * (rate / 100);
+    const prize = pot - commission;
+    if (mockBalance <= 0) return { success: false, error: 'Wallet balance is empty. Recharge with a TBG code.' };
+    if (mockBalance < prize) {
+      return { success: false, error: `Insufficient balance. Need at least ${prize.toFixed(0)} ETB to cover winner prize.` };
+    }
     const game = {
       id: `game-${mockGames.length + 1}`, gameCode: `TBG-${1000 + mockGames.length}`, status: 'RUNNING',
       betAmount: c.betAmount, playerCount,
@@ -367,7 +375,7 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
       language: c.language ?? 'am', totalPot: pot, maxBalls: 75, drawSpeedMs: c.drawSpeedMs ?? DEFAULT_CALL_COOLDOWN_MS, commissionRate: rate,
     };
     mockGames.push(game);
-    mockBalance -= pot;
+    mockBalance += pot;
     if (currentSession?.agent) currentSession.agent.walletBalance = mockBalance;
     return { success: true, data: game };
   },
@@ -414,6 +422,8 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
     const playerCount = g.selectedNumbers?.length ?? 1;
     const betAmount = g.betAmount ?? 10;
     const { totalPot, prize } = calculateWinnerPrize(betAmount, playerCount, rate);
+    mockBalance -= prize;
+    if (currentSession?.agent) currentSession.agent.walletBalance = mockBalance;
     return {
       success: true, valid: true,
       message: `Cartella #${num} wins ${prize.toFixed(0)} ETB!`,

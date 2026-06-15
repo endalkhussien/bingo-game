@@ -9,7 +9,7 @@ import { normalizeWinningPattern } from '../../src/domain/services/winner-verifi
 import { MIN_BET, CARTELLA_MAX } from '../../src/shared/constants';
 import { DRAW_BALL_COUNT } from '../../src/shared/brand';
 import { calculateTotalPot, calculateWinnerPrize, calculateGameEconomics } from '../../src/shared/prize';
-import { deductGameCost } from './wallet-service';
+import { deductPrizePayout, creditGameStakes, deductAdminCommission, reverseGameStakes } from './wallet-service';
 import { ensureFullDeck } from './card-service';
 import { parseCardData } from '../../src/domain/services/card-generator';
 import { verifyTicketForGame } from './winner-service';
@@ -44,14 +44,24 @@ export async function createGame(agentId: string, config: {
   if (!agent) return { success: false, error: 'Agent not found' };
 
   const playerCount = config.selectedNumbers.length;
-  const gameCost = config.betAmount * playerCount;
-  if (playerCount > 0 && agent.walletBalance < gameCost) {
-    return { success: false, error: `Insufficient wallet balance. Need ${gameCost} ETB.` };
+  if (playerCount === 0) {
+    return { success: false, error: 'Select at least one cartella.' };
   }
 
   const commissionRate = config.commissionRate ?? agent.commissionRate ?? 20;
   if (commissionRate < 0 || commissionRate > 100) {
     return { success: false, error: 'Commission must be between 0% and 100%.' };
+  }
+
+  const { totalPot, prize } = calculateWinnerPrize(config.betAmount, playerCount, commissionRate);
+  if (agent.walletBalance <= 0) {
+    return { success: false, error: 'Wallet balance is empty. Recharge with a TBG code before running a game.' };
+  }
+  if (agent.walletBalance < prize) {
+    return {
+      success: false,
+      error: `Insufficient balance. Need at least ${prize.toFixed(0)} ETB to cover the winner prize (${playerCount} × ${config.betAmount} ETB pot, ${commissionRate}% commission).`,
+    };
   }
 
   const id = uuid();
@@ -78,10 +88,6 @@ export async function createGame(agentId: string, config: {
     updatedAt: now,
   });
 
-  if (gameCost > 0) {
-    await deductGameCost(agentId, gameCost, gameCode);
-  }
-
   await ensureFullDeck(agentId);
   const allCards = await db.select().from(bingoCards).where(eq(bingoCards.agentId, agentId)).all();
   const cardByNumber = new Map(allCards.map((c) => [c.cardNumber, c]));
@@ -101,7 +107,7 @@ export async function createGame(agentId: string, config: {
     await db.insert(gameCards).values(gameCardInserts);
   }
 
-  const totalPot = calculateTotalPot(config.betAmount, playerCount);
+  await creditGameStakes(agentId, totalPot, gameCode);
 
   return {
     success: true,
@@ -316,6 +322,11 @@ export async function validateWinner(gameId: string, agentId: string, cardNumber
     verificationResult: 'VALID',
   });
 
+  const payout = await deductPrizePayout(agentId, prize, game.gameCode);
+  if (!payout.success) {
+    return { success: false, valid: false, error: payout.error ?? 'Insufficient balance to pay winner prize' };
+  }
+
   await db.update(games).set({ status: 'PAUSED', updatedAt: now }).where(eq(games.id, gameId));
 
   return {
@@ -372,10 +383,10 @@ export async function endGame(gameId: string, agentId: string) {
     calculatedAt: now,
   });
 
-  if (agent) {
-    const newBalance = agent.walletBalance + Math.max(0, economics.agentNetCommission);
-    await db.update(agents).set({ walletBalance: newBalance, updatedAt: now })
-      .where(eq(agents.id, agentId));
+  if (totalPayouts > 0 && economics.adminCut > 0) {
+    await deductAdminCommission(agentId, economics.adminCut, game.gameCode);
+  } else if (totalPayouts === 0) {
+    await reverseGameStakes(agentId, totalBets, game.gameCode);
   }
 
   return {

@@ -4,8 +4,23 @@ import { formatAmharicBallCall } from './amharic-ball-call';
 const AMHARIC_ONES = ['', 'አንድ', 'ሁለት', 'ሶስት', 'አራት', 'አምስት', 'ስድስት', 'ሰባት', 'ስምንት', 'ዘጠኝ'];
 const AMHARIC_TENS = ['', 'አስር', 'ሀያ', 'ሰላሳ', 'አርባ', 'ሀምሳ', 'ስልሳ', 'ሰባ', 'ሰማንያ', 'ዘጠኝ'];
 
+/** Teens 10–19 use አስራ + ones (not አስር + ones). */
+const AMHARIC_TEENS: Record<number, string> = {
+  10: 'አስር',
+  11: 'አስራ አንድ',
+  12: 'አስራ ሁለት',
+  13: 'አስራ ሶስት',
+  14: 'አስራ አራት',
+  15: 'አስራ አምስት',
+  16: 'አስራ ስድስት',
+  17: 'አስራ ሰባት',
+  18: 'አስራ ስምንት',
+  19: 'አስራ ዘጠኝ',
+};
+
 function toAmharicNumber(n: number): string {
   if (n <= 0) return String(n);
+  if (n >= 10 && n <= 19) return AMHARIC_TEENS[n];
   if (n < 10) return AMHARIC_ONES[n];
   if (n < 100) {
     const tens = Math.floor(n / 10);

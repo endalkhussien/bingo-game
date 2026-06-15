@@ -45,7 +45,9 @@ export function NumberGrid({ selectedSet, onToggle, onClear, disabled }: NumberG
         </div>
       </div>
       <p className="mt-2 text-sm text-gray-500">
-        Blue = cartella in this game · voice plays when you select
+        {disabled
+          ? 'Recharge wallet to select cartellas · voice plays when you select'
+          : 'Blue = cartella in this game · voice plays when you select'}
       </p>
     </div>
   );

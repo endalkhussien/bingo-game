@@ -319,6 +319,39 @@ export async function adminAdjust(agentId: string, amount: number, description: 
   return { success: true, data: { newBalance: balance } };
 }
 
+export async function creditGameStakes(agentId: string, amount: number, gameCode: string) {
+  const balance = await adjustWallet(agentId, amount, 'GAME_STAKES', `Player stakes collected: ${gameCode}`);
+  return { success: true, data: { newBalance: balance } };
+}
+
+export async function deductPrizePayout(agentId: string, amount: number, gameCode: string) {
+  try {
+    const balance = await adjustWallet(agentId, -amount, 'PRIZE_PAYOUT', `Winner prize paid: ${gameCode}`);
+    return { success: true, data: { newBalance: balance } };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Insufficient balance for prize' };
+  }
+}
+
+export async function deductAdminCommission(agentId: string, amount: number, gameCode: string) {
+  if (amount <= 0) return { success: true, data: { newBalance: await getBalance(agentId) } };
+  try {
+    const balance = await adjustWallet(agentId, -amount, 'ADMIN_COMMISSION', `Admin share from commission: ${gameCode}`);
+    return { success: true, data: { newBalance: balance } };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Insufficient balance' };
+  }
+}
+
+export async function reverseGameStakes(agentId: string, amount: number, gameCode: string) {
+  try {
+    const balance = await adjustWallet(agentId, -amount, 'GAME_CANCEL', `Game ended without winner: ${gameCode}`);
+    return { success: true, data: { newBalance: balance } };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Could not reverse stakes' };
+  }
+}
+
 export async function deductGameCost(agentId: string, amount: number, gameCode: string) {
   const balance = await adjustWallet(agentId, -amount, 'GAME_BET', `Game stake: ${gameCode}`);
   return { success: true, data: { newBalance: balance } };
