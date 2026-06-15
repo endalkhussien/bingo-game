@@ -141,7 +141,8 @@ export function registerIpcHandlers() {
       await requireVendorOrShopAdmin(event);
       return await operatorLicense.getVendorCommissionReport(periodDays ?? 7);
     } catch (err) {
-      if (err instanceof Error && (err.message === 'OPERATOR_LICENSE_EXPIRED' || err.code === 'OPERATOR_LICENSE_EXPIRED')) {
+      const licenseErr = err as Error & { code?: string };
+      if (err instanceof Error && (err.message === 'OPERATOR_LICENSE_EXPIRED' || licenseErr.code === 'OPERATOR_LICENSE_EXPIRED')) {
         return {
           periodDays: periodDays ?? 7,
           gameCount: 0,
