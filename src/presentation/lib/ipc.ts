@@ -20,6 +20,9 @@ export async function ipc<T = any>(channel: string, ...args: unknown[]): Promise
   return mockIpc(channel, ...args) as Promise<T>;
 }
 
+/** Alias used by admin pages. */
+export const invokeIpc = ipc;
+
 async function mockIpc(channel: string, ...args: unknown[]): Promise<unknown> {
   const { mockHandlers } = await import('./mock-ipc');
   const handler = mockHandlers[channel];
