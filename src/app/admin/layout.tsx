@@ -7,23 +7,29 @@ import { AdminSidebar } from '@/presentation/components/layout/admin-sidebar';
 import { AdminHeader } from '@/presentation/components/layout/admin-header';
 import { ipc } from '@/presentation/lib/ipc';
 import { isShopAdminRole, isVendorRole } from '@/shared/roles';
-import { SHOP_ADMIN_LICENSE, VENDOR_HOME } from '@/shared/admin-routes';
+import { isAdminLicensePath, VENDOR_HOME } from '@/shared/admin-routes';
 
 /** Shop admin only — vendor uses /vendor, agents use /agent. */
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const onLicensePage = isAdminLicensePath(pathname);
   const [licenseOk, setLicenseOk] = useState<boolean | null>(null);
   const [licenseReady, setLicenseReady] = useState(false);
+  const [licenseChecking, setLicenseChecking] = useState(false);
 
   const checkLicense = useCallback((showSpinner = false) => {
     if (!user || !isShopAdminRole(user.role)) return;
     if (showSpinner) setLicenseReady(false);
+    setLicenseChecking(true);
     ipc<{ active: boolean }>('license:status')
       .then((s) => setLicenseOk(s.active))
       .catch(() => setLicenseOk(false))
-      .finally(() => setLicenseReady(true));
+      .finally(() => {
+        setLicenseReady(true);
+        setLicenseChecking(false);
+      });
   }, [user]);
 
   useEffect(() => {
@@ -38,15 +44,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     if (!user || !isShopAdminRole(user.role)) return;
-    if (pathname === SHOP_ADMIN_LICENSE) return;
     checkLicense(false);
   }, [pathname, user, checkLicense]);
 
   useEffect(() => {
-    if (licenseOk === false && isShopAdminRole(user?.role ?? '') && pathname !== SHOP_ADMIN_LICENSE) {
-      router.replace(SHOP_ADMIN_LICENSE);
+    if (licenseChecking || !licenseReady) return;
+    if (licenseOk === false && isShopAdminRole(user?.role ?? '') && !onLicensePage) {
+      router.replace('/admin/license');
     }
-  }, [licenseOk, pathname, router, user]);
+  }, [licenseOk, licenseReady, licenseChecking, onLicensePage, router, user]);
 
   if (isLoading || (isShopAdminRole(user?.role ?? '') && !licenseReady)) {
     return <div className="flex h-screen items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" /></div>;
@@ -56,7 +62,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return null;
   }
 
-  if (pathname === SHOP_ADMIN_LICENSE) {
+  if (onLicensePage) {
     return <main className="min-h-screen bg-gray-50 p-6">{children}</main>;
   }
 
