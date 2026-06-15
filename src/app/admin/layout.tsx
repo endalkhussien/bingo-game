@@ -10,14 +10,14 @@ import { AdminHeader } from '@/presentation/components/layout/admin-header';
 import { ipc } from '@/presentation/lib/ipc';
 import { APP_NAME } from '@/shared/brand';
 import { isShopAdminRole, isVendorRole } from '@/shared/roles';
-import { isAdminLicensePath, SHOP_ADMIN_HOME, VENDOR_HOME } from '@/shared/admin-routes';
+import { isAdminSetupPath, SHOP_ADMIN_HOME, VENDOR_HOME } from '@/shared/admin-routes';
 
 /** Shop admin only — vendor uses /vendor, agents use /agent. */
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { user, isLoading, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
-  const onLicensePage = isAdminLicensePath(pathname);
+  const onSetupPage = isAdminSetupPath(pathname);
   const [licenseOk, setLicenseOk] = useState<boolean | null>(null);
   const [licenseReady, setLicenseReady] = useState(false);
   const [licenseChecking, setLicenseChecking] = useState(false);
@@ -52,10 +52,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     if (licenseChecking || !licenseReady) return;
-    if (licenseOk === false && isShopAdminRole(user?.role ?? '') && !onLicensePage) {
-      router.replace('/admin/license');
+    if (licenseOk === false && isShopAdminRole(user?.role ?? '') && !onSetupPage) {
+      router.replace('/admin/license/');
     }
-  }, [licenseOk, licenseReady, licenseChecking, onLicensePage, router, user]);
+  }, [licenseOk, licenseReady, licenseChecking, onSetupPage, router, user]);
 
   if (isLoading || (isShopAdminRole(user?.role ?? '') && !licenseReady)) {
     return <div className="flex h-screen items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" /></div>;
@@ -65,7 +65,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return null;
   }
 
-  if (onLicensePage) {
+  if (onSetupPage) {
     return (
       <div className="min-h-screen bg-gray-50">
         <header className="border-b border-gray-200 bg-white px-6 py-4 shadow-sm">
@@ -75,7 +75,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <p className="text-xs text-gray-500">Shop admin setup</p>
             </div>
             <div className="flex flex-wrap items-center gap-3 text-sm">
-              <Link href="/admin/license" className="font-medium text-indigo-700 hover:underline">TOL License</Link>
+              <Link href="/admin/license/" className="font-medium text-indigo-700 hover:underline">TOL License</Link>
+              <Link href="/admin/settings/backup/" className="font-medium text-gray-700 hover:underline">Backup & Data</Link>
               {licenseOk && (
                 <Link href={SHOP_ADMIN_HOME} className="font-medium text-gray-700 hover:underline">Dashboard</Link>
               )}

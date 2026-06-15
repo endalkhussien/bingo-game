@@ -76,7 +76,7 @@ export default function GameBoardPage() {
 
   const adminCommissionRate = agent?.adminCommissionRate ?? 20;
   const walletBalance = agent?.walletBalance ?? 0;
-  const canSelectCartellas = !activeGame && walletBalance > 0;
+  const [drawError, setDrawError] = useState('');
 
   const syncManagerRef = useRef(new AudioSyncManager({
     cooldownMs: DEFAULT_CALL_COOLDOWN_MS,
@@ -115,6 +115,7 @@ export default function GameBoardPage() {
   const selectedSet = useMemo(() => new Set(selected), [selected]);
 
   useEffect(() => { loadVoices(); preloadBallCallClips(); }, []);
+  useEffect(() => { void refreshBalance(); }, [refreshBalance]);
   useEffect(() => {
     if (agent?.commissionRate != null && !activeGame) {
       setCommissionPercent(String(agent.commissionRate));
@@ -157,7 +158,10 @@ export default function GameBoardPage() {
         if (game.language) setLanguage(game.language);
         if (game.drawSpeedMs != null) setInterval_(game.drawSpeedMs);
         setGameWinners(game.winners ?? []);
-        if (paused) {
+        if (!paused) {
+          autoDrawRef.current = true;
+          setAutoDraw(true);
+        } else {
           autoDrawRef.current = false;
           setAutoDraw(false);
         }
@@ -166,7 +170,7 @@ export default function GameBoardPage() {
   }, []);
 
   const toggleNumber = (num: number) => {
-    if (activeGame || !canSelectCartellas) return;
+    if (activeGame) return;
     setSelected((prev) => {
       if (prev.includes(num)) {
         return prev.filter((n) => n !== num);
@@ -235,7 +239,11 @@ export default function GameBoardPage() {
       error?: string;
     }>('games:draw', game.id);
 
-    if (!result.success || !result.data) return null;
+    if (!result.success || !result.data) {
+      if (result.error) setDrawError(result.error);
+      return null;
+    }
+    setDrawError('');
     return result.data;
   }, []);
 
@@ -255,6 +263,7 @@ export default function GameBoardPage() {
       return;
     }
     setBetError('');
+    setDrawError('');
     setCreating(true);
 
     const result = await ipc<{
@@ -290,9 +299,8 @@ export default function GameBoardPage() {
       setLastDrawn(null);
       setIsPaused(false);
       isPausedRef.current = false;
-      autoDrawRef.current = false;
-      setAutoDraw(false);
       await refreshBalance();
+      await startCalling(false);
     } else {
       setBetError(result.error ?? 'Failed to create game');
     }
@@ -551,7 +559,7 @@ export default function GameBoardPage() {
           </>
         )}
         {!activeGame ? (
-          <button onClick={handleCreateGame} disabled={creating || selected.length === 0 || walletBalance <= 0}
+          <button onClick={handleCreateGame} disabled={creating || selected.length === 0}
             className="rounded-lg bg-green-600 px-6 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-50">
             {creating ? 'Starting...' : `Start Game (${selected.length} cards)`}
           </button>
@@ -569,7 +577,7 @@ export default function GameBoardPage() {
               className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">
               <ListOrdered className="h-4 w-4" /> All called ({drawCount})
             </button>
-            <button onClick={handleDraw} disabled={isPaused || callerLocked || !autoDraw}
+            <button onClick={handleDraw} disabled={isPaused || callerLocked}
               className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 disabled:opacity-50">Draw once</button>
             {autoDraw && !isPaused ? (
               <button onClick={() => stopCalling(true)} disabled={callerLocked}
@@ -625,14 +633,20 @@ export default function GameBoardPage() {
       </div>
 
       {!activeGame && walletBalance <= 0 && (
-        <div className="mb-4 rounded-xl border-2 border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-          <p className="font-semibold">Wallet empty — cartella selection disabled</p>
-          <p className="mt-1">Ask shop admin for a <strong>TBG</strong> recharge code, then redeem it on the Recharge page.</p>
+        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+          <p className="font-medium">Wallet balance: 0 ETB</p>
+          <p className="mt-1">You can still run a game — player stakes are added when the game starts. Use a <strong>TBG</strong> code on Recharge if you need extra float.</p>
+        </div>
+      )}
+
+      {drawError && (
+        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          {drawError}
         </div>
       )}
 
       <NumberGrid selectedSet={selectedSet} onToggle={toggleNumber}
-        onClear={() => setSelected([])} disabled={!!activeGame || !canSelectCartellas} />
+        onClear={() => setSelected([])} disabled={!!activeGame} />
 
       <CalledNumbersModal
         open={calledModalOpen && !!activeGame}
