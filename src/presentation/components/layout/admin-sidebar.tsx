@@ -4,32 +4,42 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, Users, Wallet, DollarSign, Percent,
-  Gamepad2, BarChart3, Settings, FileText, Bell, LogOut, Ticket,
+  Gamepad2, BarChart3, Settings, FileText, Bell, LogOut, Ticket, KeyRound, Shield,
 } from 'lucide-react';
 import { cn } from '@/presentation/lib/utils';
 import { useAuth } from '@/presentation/providers/auth-provider';
 import { useEffect, useState } from 'react';
 import { APP_NAME } from '@/shared/brand';
 import { ipc } from '@/presentation/lib/ipc';
+import { isVendorRole } from '@/shared/roles';
 
-const navItems = [
+const operatorNav = [
   { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/admin/agents', label: 'Agents', icon: Users },
   { href: '/admin/vouchers', label: 'Recharge Codes', icon: Ticket },
   { href: '/admin/recharge', label: 'Recharge Requests', icon: Wallet, badge: true },
-  { href: '/admin/pricing', label: 'Pricing Plans', icon: DollarSign },
-  { href: '/admin/commissions', label: 'Commissions', icon: Percent },
   { href: '/admin/games', label: 'Games', icon: Gamepad2 },
   { href: '/admin/reports', label: 'Reports', icon: BarChart3 },
+  { href: '/admin/license', label: 'Shop License', icon: KeyRound },
   { href: '/admin/settings', label: 'Settings', icon: Settings },
+];
+
+const vendorNav = [
+  ...operatorNav.filter((i) => i.href !== '/admin/license'),
+  { href: '/admin/vendor', label: 'Vendor Portal', icon: Shield },
+  { href: '/admin/pricing', label: 'Pricing Plans', icon: DollarSign },
+  { href: '/admin/commissions', label: 'Commissions', icon: Percent },
   { href: '/admin/audit-logs', label: 'Audit Logs', icon: FileText },
 ];
 
 export function AdminSidebar() {
   const pathname = usePathname();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const [pending, setPending] = useState(0);
   const [unread, setUnread] = useState(0);
+
+  const navItems = user && isVendorRole(user.role) ? vendorNav : operatorNav;
+  const roleLabel = user && isVendorRole(user.role) ? 'Vendor Super Admin' : 'Shop Operator';
 
   useEffect(() => {
     ipc<number>('recharge:pending-count').then(setPending).catch(() => {});
@@ -42,7 +52,7 @@ export function AdminSidebar() {
         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500 text-lg font-bold">T</div>
         <div>
           <div className="text-sm font-bold">{APP_NAME}</div>
-          <div className="text-[10px] text-gray-400">Super Admin</div>
+          <div className="text-[10px] text-gray-400">{roleLabel}</div>
         </div>
       </div>
       <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-4">

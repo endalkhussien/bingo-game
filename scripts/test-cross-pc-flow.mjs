@@ -64,4 +64,10 @@ const legacyKey = 'a'.repeat(64);
 const isLegacy = /^[a-f0-9]{64}$/.test(legacyKey) && legacyKey !== DEFAULT_OPERATOR_ORG_KEY;
 assert('Legacy random org key pattern detected', isLegacy);
 
+const { generateOperatorLicenseCode, parseOperatorLicenseCode } = distModule('src/shared/voucher/operator-license-code.js');
+const tol = generateOperatorLicenseCode('Bole Hall', 7, 20);
+assert('TOL code generated', tol.code.startsWith('TOL-'));
+const tolParsed = parseOperatorLicenseCode(tol.code);
+assert('TOL code parses', tolParsed.valid && tolParsed.payload?.shopName === 'Bole Hall');
+
 console.log('\nALL CROSS-PC CHECKS PASSED\n');

@@ -11,7 +11,7 @@ export default function Home() {
   useEffect(() => {
     if (isLoading) return;
     if (!user) { router.replace('/login'); return; }
-    if (user.role === 'SUPER_ADMIN') router.replace('/admin/dashboard');
+    if (user.role === 'SUPER_ADMIN' || user.role === 'OPERATOR') router.replace('/admin/dashboard');
     else router.replace('/agent/dashboard');
   }, [user, isLoading, router]);
 

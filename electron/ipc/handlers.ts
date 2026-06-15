@@ -14,6 +14,8 @@ import * as backup from '../services/backup-service';
 import * as notifications from '../services/notification-service';
 import * as audit from '../services/audit-service';
 import * as agentSelf from '../services/agent-self-service';
+import * as operatorLicense from '../services/operator-license-service';
+import { isAdminRole, isVendorRole } from '../../src/shared/roles';
 import { speakNumber, speakBallCall, listInstalledVoices } from '../tts/tts-engine';
 
 const sessions = new Map<number, string>();
@@ -32,7 +34,23 @@ async function requireAuth(event: Electron.IpcMainInvokeEvent) {
 
 async function requireAdmin(event: Electron.IpcMainInvokeEvent) {
   const session = await requireAuth(event);
-  if (session.user.role !== 'SUPER_ADMIN') throw new Error('Admin access required');
+  if (isVendorRole(session.user.role)) return session;
+  if (session.user.role === 'OPERATOR') {
+    const licensed = await operatorLicense.isOperatorLicensed();
+    if (!licensed) {
+      const err = new Error('OPERATOR_LICENSE_EXPIRED') as Error & { code?: string };
+      err.code = 'OPERATOR_LICENSE_EXPIRED';
+      throw err;
+    }
+    return session;
+  }
+  if (isAdminRole(session.user.role)) return session;
+  throw new Error('Admin access required');
+}
+
+async function requireVendor(event: Electron.IpcMainInvokeEvent) {
+  const session = await requireAuth(event);
+  if (!isVendorRole(session.user.role)) throw new Error('Vendor super-admin access required');
   return session;
 }
 
@@ -65,6 +83,24 @@ export function registerIpcHandlers() {
   ipcMain.handle('auth:change-password', async (event, oldPw: string, newPw: string) => {
     const session = await requireAuth(event);
     return auth.changePassword(session.user.id, oldPw, newPw);
+  });
+
+  // ── Operator license (TOL weekly/monthly) ──
+  ipcMain.handle('license:status', async () => operatorLicense.getOperatorLicenseStatus());
+  ipcMain.handle('license:activate', async (event, code: string) => {
+    const session = await requireAuth(event);
+    if (!isAdminRole(session.user.role)) throw new Error('Shop admin access required');
+    return operatorLicense.activateOperatorLicense(code);
+  });
+  ipcMain.handle('license:commission-report', async (event, periodDays?: number) => {
+    const session = await requireAuth(event);
+    if (!isAdminRole(session.user.role)) throw new Error('Admin access required');
+    return operatorLicense.getVendorCommissionReport(periodDays ?? 7);
+  });
+  ipcMain.handle('license:generate', async (event, shopName: string, validDays: number, commissionRate: number) => {
+    await requireVendor(event);
+    const days = validDays === 30 ? 30 : 7;
+    return operatorLicense.generateVendorLicenseCode(shopName, days as 7 | 30, commissionRate);
   });
 
   // ── Dashboard ──

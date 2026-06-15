@@ -13,17 +13,39 @@ export async function seedDatabase(db: BetterSQLite3Database<typeof schema>) {
   const existing = await db.select().from(schema.users).where(eq(schema.users.username, 'admin')).get();
   if (existing) return;
 
+  const vendorId = uuid();
   const adminId = uuid();
+  const operatorUserId = uuid();
   const agentUserId = uuid();
   const agentId = uuid();
 
   await db.insert(schema.users).values([
     {
+      id: vendorId,
+      fullName: 'TEBIB Vendor',
+      username: 'vendor',
+      passwordHash: await bcrypt.hash('vendor2024', 12),
+      role: 'SUPER_ADMIN',
+      status: 'ACTIVE',
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
       id: adminId,
-      fullName: 'System Administrator',
+      fullName: 'Shop Operator',
       username: 'admin',
       passwordHash: await bcrypt.hash('admin123', 12),
-      role: 'SUPER_ADMIN',
+      role: 'OPERATOR',
+      status: 'ACTIVE',
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      id: operatorUserId,
+      fullName: 'Shop Operator',
+      username: 'operator',
+      passwordHash: await bcrypt.hash('operator123', 12),
+      role: 'OPERATOR',
       status: 'ACTIVE',
       createdAt: now,
       updatedAt: now,
@@ -112,6 +134,24 @@ export async function seedDatabase(db: BetterSQLite3Database<typeof schema>) {
       cardLimit: p.cardLimit ?? null, duration: p.duration ?? null,
       durationDays: p.durationDays ?? null, isActive: true, isPromotional: false,
       createdAt: now, updatedAt: now,
+    });
+  }
+}
+
+/** Add vendor super-admin on existing installs (safe to run every startup). */
+export async function ensureVendorUser(db: BetterSQLite3Database<typeof schema>) {
+  const now = Math.floor(Date.now() / 1000);
+  const vendor = await db.select().from(schema.users).where(eq(schema.users.username, 'vendor')).get();
+  if (!vendor) {
+    await db.insert(schema.users).values({
+      id: uuid(),
+      fullName: 'TEBIB Vendor',
+      username: 'vendor',
+      passwordHash: await bcrypt.hash('vendor2024', 12),
+      role: 'SUPER_ADMIN',
+      status: 'ACTIVE',
+      createdAt: now,
+      updatedAt: now,
     });
   }
 }
