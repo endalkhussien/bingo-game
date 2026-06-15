@@ -81,9 +81,9 @@ export default function AdminVouchersPage() {
         <p className="flex items-center gap-2 font-semibold"><Shield className="h-4 w-4" /> Unique &amp; secure offline codes</p>
         <ul className="mt-2 list-disc space-y-1 pl-5">
           <li>Each code is <strong>cryptographically signed</strong> with your organization key</li>
-          <li>Bound to <strong>one agent</strong> — no one else can use it</li>
-          <li><strong>One-time use</strong> — cannot be redeemed twice</li>
-          <li>Give agents the <strong>organization key</strong> once when you install their PC</li>
+          <li>Bound to <strong>one agent username</strong> — must match exactly on agent PC</li>
+          <li><strong>One-time use</strong> per agent PC</li>
+          <li>Fresh installs share the <strong>default org key</strong> — recharge works without extra setup</li>
         </ul>
       </div>
 

@@ -1,41 +1,42 @@
 ================================================================================
-  TEBIB-BINGO v1.0.0 — Agent Quick Guide
+  TEBIB-BINGO v1.0.0 — Agent Quick Guide (REAL SHOPS)
 ================================================================================
 
-INSTALL
--------
+INSTALL (once per PC)
+---------------------
 1. Run TEBIB-Bingo-Setup-1.0.0.exe
-2. If Windows asks about publisher: More info -> Run anyway
-3. Install -> open TEBIB-Bingo from Desktop
+2. Install -> open TEBIB-Bingo from Desktop
 
-LOGIN
------
-  Username: agent
-  Password: agent123
-  (Change password in Settings after first login)
+YOUR LOGIN (from your admin — NOT demo)
+---------------------------------------
+  Your admin gives you:
+    Username: (e.g. abebe)
+    Password: (your password)
 
-SET YOUR COMMISSION
--------------------
-  Settings -> "Commission from pot %" -> Save
-  (This is your cut from the prize pool before the winner is paid.)
+  First time on this PC only:
+    Admin may login as admin/admin123 and create your account here
+    with the SAME username and password.
+
+  Demo (testing only): agent / agent123
+
+RECHARGE WALLET (after you pay admin)
+-------------------------------------
+  1. Pay admin cash or Telebirr
+  2. Admin sends you a TBG-... code by SMS
+  3. Recharge menu -> paste code -> Recharge
+  4. Code works once, for your username only
+
+  If error "wrong organization key":
+    Settings -> paste organization key from admin -> Save
 
 RUN A GAME
 ----------
   1. Game Board
-  2. Set bet amount (ETB)
-  3. Language: Amharic (for voice)
-  4. Click cartella numbers players bought (blue = in game)
-  5. Set your commission % for this game
-  6. Start Game
-  7. Draw or Auto Call (calls numbers 1-75 with voice)
-
-WHEN PLAYER SAYS BINGO
-----------------------
-  1. Click BINGO! (calling stops)
-  2. Enter player's cartella number
-  3. Verify -> shows if winner + prize amount
-  4. If not winner: Resume calling
-  5. If winner: End Game when finished
+  2. Set bet, Language Amharic, select cartella numbers (blue)
+  3. Start Game
+  4. Press green START button -> numbers 1-75 call with voice
+  5. STOP to pause, RESUME to continue
+  6. BINGO! -> verify cartella -> End Game
 
 REQUIREMENTS
 ------------
@@ -44,6 +45,6 @@ REQUIREMENTS
 
 HELP
 ----
-  Contact your admin for wallet recharge and password reset.
+  Contact your admin for login, recharge codes, and password reset.
 
 ================================================================================

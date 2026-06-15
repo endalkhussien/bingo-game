@@ -3,6 +3,7 @@ import path from 'path';
 import Database from 'better-sqlite3';
 import { drizzle, BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import * as schema from './schema';
+import { DEFAULT_OPERATOR_ORG_KEY } from '../../shared/voucher/default-org-key';
 
 let db: BetterSQLite3Database<typeof schema> | null = null;
 
@@ -183,10 +184,6 @@ export function runMigrations(database: BetterSQLite3Database<typeof schema>) {
   }
 
   client.exec(`
-    CREATE TABLE IF NOT EXISTS used_offline_vouchers (
-      id TEXT PRIMARY KEY, nonce TEXT NOT NULL UNIQUE, code_hash TEXT NOT NULL UNIQUE,
-      amount REAL NOT NULL, agent_id TEXT NOT NULL REFERENCES agents(id), redeemed_at INTEGER NOT NULL
-    );
     CREATE TABLE IF NOT EXISTS issued_offline_vouchers (
       id TEXT PRIMARY KEY, code TEXT NOT NULL, code_hash TEXT NOT NULL UNIQUE,
       amount REAL NOT NULL, for_username TEXT NOT NULL, nonce TEXT NOT NULL UNIQUE,
@@ -195,4 +192,11 @@ export function runMigrations(database: BetterSQLite3Database<typeof schema>) {
       redeemed_at INTEGER
     );
   `);
+
+  const orgKeyRow = client.prepare(`SELECT value FROM system_settings WHERE key = 'offline_voucher_org_key'`).get() as { value: string } | undefined;
+  if (!orgKeyRow?.value || orgKeyRow.value.length < 32) {
+    const now = Math.floor(Date.now() / 1000);
+    client.prepare(`INSERT OR REPLACE INTO system_settings (key, value, updated_at) VALUES ('offline_voucher_org_key', ?, ?)`)
+      .run(DEFAULT_OPERATOR_ORG_KEY, now);
+  }
 }

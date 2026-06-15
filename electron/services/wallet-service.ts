@@ -10,7 +10,7 @@ import {
   verifyOfflineVoucher,
   offlineVoucherNonceKey,
 } from '../../src/shared/voucher/offline-voucher';
-import { getOrganizationVoucherSecret } from './voucher-secret-service';
+import { getConfiguredOrganizationKey, getOrganizationVoucherSecret } from './voucher-secret-service';
 
 export async function getBalance(agentId: string) {
   const db = getDb();
@@ -91,7 +91,13 @@ export async function redeemVoucher(agentId: string, code: string) {
   }
 
   // 2) Signed offline code — unique per agent, verified with organization key
-  const orgSecret = await getOrganizationVoucherSecret();
+  const orgSecret = await getConfiguredOrganizationKey();
+  if (!orgSecret) {
+    return {
+      success: false,
+      error: 'Organization key not set on this PC. Open Settings → paste the key from Admin → Recharge Codes, then try again.',
+    };
+  }
   const verification = verifyOfflineVoucher(code, orgSecret, agentUsername);
   if (!verification.valid || !verification.payload || !verification.codeHash) {
     return { success: false, error: verification.error ?? 'Invalid or already used recharge code' };

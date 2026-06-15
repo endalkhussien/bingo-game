@@ -5,6 +5,7 @@ import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import * as schema from './schema';
 import { generateBingoCard, serializeCardData } from '../../domain/services/card-generator';
 import { CARTELLA_MAX } from '../../shared/constants';
+import { DEFAULT_OPERATOR_ORG_KEY } from '../../shared/voucher/default-org-key';
 
 export async function seedDatabase(db: BetterSQLite3Database<typeof schema>) {
   const now = Math.floor(Date.now() / 1000);
@@ -86,6 +87,7 @@ export async function seedDatabase(db: BetterSQLite3Database<typeof schema>) {
     { key: 'maximum_bet', value: '1000' },
     { key: 'currency', value: 'ETB' },
     { key: 'number_range_max', value: '75' },
+    { key: 'offline_voucher_org_key', value: DEFAULT_OPERATOR_ORG_KEY },
   ];
 
   for (const s of settings) {

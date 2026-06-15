@@ -75,6 +75,7 @@ npm run electron:only
 
 | Document | Purpose |
 |----------|---------|
+| **[docs/BUSINESS-WORKFLOW.md](./docs/BUSINESS-WORKFLOW.md)** | **Real admin + agent workflow (multi-PC)** |
 | **[docs/AGENT-DISTRIBUTION.md](./docs/AGENT-DISTRIBUTION.md)** | **Hand installer to agents** |
 | **[docs/RELEASE-CHECKLIST.md](./docs/RELEASE-CHECKLIST.md)** | **Build & smoke-test before release** |
 | **[docs/QUICK-START.md](./docs/QUICK-START.md)** | Dev install & run |

@@ -190,6 +190,11 @@ export function registerIpcHandlers() {
 
   // ── Settings ──
   ipcMain.handle('settings:get', async (event) => { await requireAuth(event); return settings.getSettings(); });
+  ipcMain.handle('settings:has-org-key', async (event) => {
+    await requireAuth(event);
+    const { hasOrganizationKey } = await import('../services/voucher-secret-service');
+    return hasOrganizationKey();
+  });
   ipcMain.handle('settings:update', async (event, data) => { await requireAdmin(event); return settings.updateSettings(data); });
 
   // ── Backup ──

@@ -6,6 +6,7 @@ import { ipc } from '@/presentation/lib/ipc';
 import { useAuth } from '@/presentation/providers/auth-provider';
 import { NumberGrid } from '@/presentation/components/bingo/number-grid';
 import { CalledNumbersModal } from '@/presentation/components/bingo/called-numbers-modal';
+import { CalledNumbersStrip } from '@/presentation/components/bingo/called-numbers-strip';
 import { CheckCardModal } from '@/presentation/components/bingo/check-card-modal';
 import { WINNING_PATTERNS, DRAW_INTERVALS, VOICE_TYPES, MIN_BET, DEFAULT_JACKPOT_MAX_CALLS, DEFAULT_CALL_COOLDOWN_MS } from '@/shared/constants';
 import { DRAW_BALL_COUNT } from '@/shared/brand';
@@ -154,9 +155,9 @@ export default function GameBoardPage() {
         if (game.language) setLanguage(game.language);
         if (game.drawSpeedMs != null) setInterval_(game.drawSpeedMs);
         setGameWinners(game.winners ?? []);
-        if (!paused) {
-          autoDrawRef.current = true;
-          setAutoDraw(true);
+        if (paused) {
+          autoDrawRef.current = false;
+          setAutoDraw(false);
         }
       }
     });
@@ -287,8 +288,9 @@ export default function GameBoardPage() {
       setLastDrawn(null);
       setIsPaused(false);
       isPausedRef.current = false;
+      autoDrawRef.current = false;
+      setAutoDraw(false);
       await refreshBalance();
-      await startCalling(false);
     } else {
       setBetError(result.error ?? 'Failed to create game');
     }
@@ -430,7 +432,12 @@ export default function GameBoardPage() {
         <div className="mb-4 flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-gradient-to-r from-indigo-600 to-blue-700 p-5 text-white shadow-lg">
           <div>
             <p className="text-sm opacity-80">
-              {activeGame.gameCode} · {isPaused ? (bingoClaimActive ? 'BINGO CLAIM — PAUSED' : 'PAUSED') : callerLocked ? 'CALLING…' : 'LIVE'}
+              {activeGame.gameCode} ·{' '}
+              {isPaused
+                ? (bingoClaimActive ? 'BINGO CLAIM — PAUSED' : 'PAUSED')
+                : autoDraw
+                  ? (callerLocked ? 'CALLING…' : 'LIVE')
+                  : 'READY — press Start'}
             </p>
             <p className="text-4xl font-black tracking-tight">{drawCount}/{maxBalls}</p>
             <p className="text-sm opacity-80">{remainingCount} balls remaining</p>
@@ -449,6 +456,15 @@ export default function GameBoardPage() {
             <p className="text-xs opacity-75">{playerCount} × {activeGame.betAmount} ETB</p>
           </div>
         </div>
+      )}
+
+      {activeGame && (
+        <CalledNumbersStrip
+          called={called}
+          lastDrawn={lastDrawn}
+          maxBalls={maxBalls}
+          language={language}
+        />
       )}
 
       <div className="mb-4 flex flex-wrap items-end gap-4 rounded-xl bg-white p-4 shadow-sm">
@@ -534,27 +550,35 @@ export default function GameBoardPage() {
         {!activeGame ? (
           <button onClick={handleCreateGame} disabled={creating || selected.length === 0}
             className="rounded-lg bg-green-600 px-6 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-50">
-            {creating ? 'Starting...' : `Start Game & Call (${selected.length} cards)`}
+            {creating ? 'Starting...' : `Start Game (${selected.length} cards)`}
           </button>
         ) : (
-          <div className="flex flex-wrap gap-2">
-            <button onClick={() => setCalledModalOpen(true)}
-              className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">
-              <ListOrdered className="h-4 w-4" /> Called ({drawCount}/{maxBalls})
-            </button>
-            <button onClick={handleDraw} disabled={isPaused || callerLocked}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">Draw once</button>
-            {!isPaused ? (
-              <button onClick={() => stopCalling(true)} disabled={callerLocked}
-                className="inline-flex items-center gap-1 rounded-lg bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600 disabled:opacity-50">
-                <Pause className="h-4 w-4" /> Stop calling
-              </button>
-            ) : !bingoClaimActive && gameWinners.length === 0 && (
-              <button onClick={handleResume}
-                className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">
-                <Play className="h-4 w-4" /> Resume calling
+          <div className="flex flex-wrap items-center gap-2">
+            {!isPaused && !autoDraw && (
+              <button
+                onClick={() => startCalling(false)}
+                className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-6 py-2.5 text-sm font-bold text-white shadow-md hover:bg-green-700"
+              >
+                <Play className="h-5 w-5" /> Start
               </button>
             )}
+            <button onClick={() => setCalledModalOpen(true)}
+              className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">
+              <ListOrdered className="h-4 w-4" /> All called ({drawCount})
+            </button>
+            <button onClick={handleDraw} disabled={isPaused || callerLocked || !autoDraw}
+              className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 disabled:opacity-50">Draw once</button>
+            {autoDraw && !isPaused ? (
+              <button onClick={() => stopCalling(true)} disabled={callerLocked}
+                className="inline-flex items-center gap-1 rounded-lg bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600 disabled:opacity-50">
+                <Pause className="h-4 w-4" /> Stop
+              </button>
+            ) : isPaused && !bingoClaimActive && gameWinners.length === 0 ? (
+              <button onClick={handleResume}
+                className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">
+                <Play className="h-4 w-4" /> Resume
+              </button>
+            ) : null}
             <button onClick={handleBingoClaim}
               className="inline-flex items-center gap-1 rounded-lg bg-yellow-500 px-4 py-2 text-sm font-bold text-white hover:bg-yellow-600">
               <Megaphone className="h-4 w-4" /> BINGO!
