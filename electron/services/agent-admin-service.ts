@@ -44,7 +44,7 @@ export async function listAgents() {
 
 export async function createAgent(adminId: string, data: {
   fullName: string; username: string; password: string;
-  phone?: string; commissionRate?: number; adminCommissionRate: number; initialBalance?: number;
+  phone?: string; commissionRate?: number; adminCommissionRate: number;
 }) {
   const db = getDb();
   const now = Math.floor(Date.now() / 1000);
@@ -70,7 +70,7 @@ export async function createAgent(adminId: string, data: {
     id: agentId, userId, phone: data.phone ?? null,
     commissionRate: data.commissionRate ?? 20,
     adminCommissionRate: Number.isFinite(data.adminCommissionRate) ? data.adminCommissionRate : 20,
-    walletBalance: Number.isFinite(data.initialBalance) ? data.initialBalance! : 0,
+    walletBalance: 0,
     status: 'ACTIVE', createdAt: now, updatedAt: now,
   });
 

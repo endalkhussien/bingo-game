@@ -21,12 +21,12 @@ function loadSession(): Session | null {
 }
 
 let currentSession: Session | null = loadSession();
-let mockBalance = 500;
+let mockBalance = 0;
 let cardCounter = 0;
 const mockCards: Array<{ id: string; cardNumber: string; grid: number[][]; cardData: string; agentId: string; createdAt: number; updatedAt: number }> = [];
 const mockGames: Array<Record<string, unknown>> = [];
 const mockAgents = [
-  { id: 'agent-1', userId: 'u1', fullName: 'Demo Agent', username: 'agent', phone: '+251900000000', commissionRate: 20, adminCommissionRate: 20, walletBalance: 500, status: 'ACTIVE', userStatus: 'ACTIVE', totalGames: 0, totalProfit: 0, createdAt: Date.now() / 1000 },
+  { id: 'agent-1', userId: 'u1', fullName: 'Demo Agent', username: 'agent', phone: '+251900000000', commissionRate: 20, adminCommissionRate: 20, walletBalance: 0, status: 'ACTIVE', userStatus: 'ACTIVE', totalGames: 0, totalProfit: 0, createdAt: Date.now() / 1000 },
 ];
 type Session = { user: { id: string; fullName: string; username: string; role: string }; agent: { id: string; walletBalance: number; commissionRate: number; adminCommissionRate: number } | null };
 
@@ -165,14 +165,14 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
   'agents:list': async () => { requireShopAdminSession(); return mockAgents.map(a => ({ ...a, walletBalance: mockBalance })); },
   'agents:create': async (data: unknown) => {
     requireShopAdminSession();
-    const d = data as { fullName: string; username: string; password: string; phone?: string; adminCommissionRate?: number; initialBalance?: number };
+    const d = data as { fullName: string; username: string; password: string; phone?: string; adminCommissionRate?: number };
     const username = d.username.trim().toLowerCase();
     const id = `agent-${mockAgents.length + 1}`;
     mockAgents.push({
       id, userId: `u${mockAgents.length + 1}`,
       fullName: d.fullName, username, phone: d.phone ?? '',
       commissionRate: 20, adminCommissionRate: d.adminCommissionRate ?? 20,
-      walletBalance: parseFloat(String(d.initialBalance ?? 0)),
+      walletBalance: 0,
       status: 'ACTIVE', userStatus: 'ACTIVE', totalGames: 0, totalProfit: 0, createdAt: Math.floor(Date.now() / 1000),
     });
     const payload = btoa(JSON.stringify({ u: username, p: d.password, n: d.fullName, c: d.adminCommissionRate ?? 20 }));
@@ -298,7 +298,10 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
     if (String(key).length < 32) return { success: false, error: 'Key too short' };
     return { success: true };
   },
-  'wallet:deposit': async (_id: unknown, amount: unknown) => { mockBalance += Number(amount); return { success: true, data: { newBalance: mockBalance } }; },
+  'wallet:deposit': async () => ({
+    success: false,
+    error: 'Direct deposits are disabled. Generate a TBG recharge code for this agent.',
+  }),
   'wallet:withdraw': async () => ({ success: true }),
 
   'recharge:submit': async (data: unknown) => {
@@ -569,6 +572,25 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
       else if (row.expiresAt >= now) pendingCount += 1;
     }
     return { totalIssued, codeCount: mockVendorTopups.length, pendingCount, redeemedCount, recent: mockVendorTopups.slice(0, 10) };
+  },
+
+  'database:factory-reset': async () => {
+    requireShopAdminRoleOnly();
+    mockAgents.length = 0;
+    mockGames.length = 0;
+    mockIssuedCodes.length = 0;
+    mockRechargeRequests.length = 0;
+    mockAuditLogs.length = 0;
+    mockOperatorWalletBalance = 0;
+    mockOperatorWalletTxs.length = 0;
+    mockUsedTopupHashes.clear();
+    mockVendorTopups.length = 0;
+    mockLicenseUntil = 0;
+    mockBalance = 0;
+    return {
+      success: true,
+      message: 'All data cleared. Paste TOL and TVP from vendor to start fresh.',
+    };
   },
 
   'tts:speak': async (_n: unknown, _v: unknown, _l: unknown, _m: unknown) => ({ success: true, engine: 'browser-mock' }),

@@ -63,7 +63,7 @@ export default function AdminWalletPage() {
 
   return (
     <div>
-      <PageHeader title="Shop Admin Balance" />
+      <PageHeader title="Shop Admin Balance" backHref="/admin/dashboard" backLabel="Back to Dashboard" />
       <div className="mb-6 rounded-xl border-2 border-indigo-200 bg-indigo-50 p-5">
         <p className="flex items-center gap-2 text-sm font-semibold text-indigo-900">
           <Wallet className="h-5 w-5" /> Prepaid balance

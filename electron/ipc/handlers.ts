@@ -17,6 +17,7 @@ import * as agentSelf from '../services/agent-self-service';
 import * as operatorLicense from '../services/operator-license-service';
 import * as operatorWallet from '../services/operator-wallet-service';
 import * as vendorTopup from '../services/vendor-topup-service';
+import * as factoryReset from '../services/factory-reset-service';
 import { isAdminRole, isVendorRole } from '../../src/shared/roles';
 import { speakNumber, speakBallCall, listInstalledVoices } from '../tts/tts-engine';
 
@@ -346,6 +347,13 @@ export function registerIpcHandlers() {
   ipcMain.handle('backup:create', async (event) => { await requireShopAdmin(event); return backup.createBackup(); });
   ipcMain.handle('backup:list', async (event) => { await requireShopAdmin(event); return backup.listBackups(); });
   ipcMain.handle('backup:restore', async (event, filename: string) => { await requireShopAdmin(event); return backup.restoreBackup(filename); });
+  ipcMain.handle('database:factory-reset', async (event) => {
+    const session = await requireAuth(event);
+    if (session.user.role !== 'OPERATOR') {
+      return { success: false, error: 'Shop admin only' };
+    }
+    return factoryReset.factoryReset(session.user.id);
+  });
 
   // ── Notifications ──
   ipcMain.handle('notifications:list', async (event) => requireAuth(event).then((s) => notifications.listNotifications(s.user.id)));

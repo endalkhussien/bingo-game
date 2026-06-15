@@ -302,9 +302,11 @@ async function adjustWallet(agentId: string, amount: number, type: string, descr
   return newBalance;
 }
 
-export async function adminDeposit(agentId: string, amount: number, description: string) {
-  const balance = await adjustWallet(agentId, amount, 'DEPOSIT', description || 'Admin deposit');
-  return { success: true, data: { newBalance: balance } };
+export async function adminDeposit(_agentId: string, _amount: number, _description: string) {
+  return {
+    success: false,
+    error: 'Direct deposits are disabled. Generate a TBG recharge code for this agent (uses your shop balance).',
+  };
 }
 
 export async function adminWithdraw(agentId: string, amount: number, description: string) {

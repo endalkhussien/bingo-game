@@ -21,7 +21,7 @@ export default function GeneralSettingsPage() {
 
   return (
     <div className="max-w-lg">
-      <PageHeader title="General Settings" />
+      <PageHeader title="General Settings" backHref="/admin/settings" backLabel="Back to Settings" />
       <div className="rounded-xl bg-white p-6 shadow-sm border space-y-4">
         {['currency', 'timezone', 'minimum_bet', 'maximum_bet', 'number_range_max'].map((key) => (
           <div key={key}>

@@ -10,7 +10,7 @@ export default function RechargeReportPage() {
   useEffect(() => { ipc('reports:recharge').then(setRows); }, []);
   return (
     <div>
-      <PageHeader title="Recharge Report" />
+      <PageHeader title="Recharge Report" backHref="/admin/reports" backLabel="Back to Reports" />
       <div className="overflow-hidden rounded-xl bg-white shadow-sm border">
         <table className="w-full text-sm">
           <thead><tr className="bg-gray-50 text-left">

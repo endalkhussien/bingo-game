@@ -10,7 +10,7 @@ export default function RevenueReportPage() {
   useEffect(() => { ipc('reports:revenue').then(setRows); }, []);
   return (
     <div>
-      <PageHeader title="Revenue Report" />
+      <PageHeader title="Revenue Report" backHref="/admin/reports" backLabel="Back to Reports" />
       <div className="overflow-hidden rounded-xl bg-white shadow-sm border">
         <table className="w-full text-sm">
           <thead><tr className="bg-gray-50 text-left">
