@@ -1,5 +1,7 @@
 // In-memory mock store for browser development without Electron
 
+import { DEFAULT_CALL_COOLDOWN_MS } from '@/shared/constants';
+
 const SESSION_KEY = 'bingo_mock_session';
 
 function saveSession(session: Session | null) {
@@ -314,7 +316,7 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
       id: `game-${mockGames.length + 1}`, gameCode: `TBG-${1000 + mockGames.length}`, status: 'RUNNING',
       betAmount: c.betAmount, playerCount,
       selectedNumbers: c.selectedNumbers, drawnNumbers: [], voiceType: c.voiceType ?? 'AMHARIC_MALE',
-      language: c.language ?? 'am', totalPot: pot, maxBalls: 75, drawSpeedMs: c.drawSpeedMs ?? 500, commissionRate: rate,
+      language: c.language ?? 'am', totalPot: pot, maxBalls: 75, drawSpeedMs: c.drawSpeedMs ?? DEFAULT_CALL_COOLDOWN_MS, commissionRate: rate,
     };
     mockGames.push(game);
     mockBalance -= pot;

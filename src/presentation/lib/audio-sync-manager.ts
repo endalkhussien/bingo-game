@@ -1,4 +1,5 @@
 import { stopCurrentAudio } from './amharic-audio';
+import { DEFAULT_CALL_COOLDOWN_MS } from '@/shared/constants';
 
 export type AudioSyncEvent = 'lock' | 'unlock' | 'audio-start' | 'audio-end' | 'cooldown-start' | 'cooldown-end' | 'abort';
 
@@ -29,7 +30,7 @@ export class AudioSyncManager {
   private readonly onEvent?: (event: AudioSyncEvent) => void;
 
   constructor(options: AudioSyncManagerOptions = {}) {
-    this.cooldownMs = options.cooldownMs ?? 300;
+    this.cooldownMs = options.cooldownMs ?? DEFAULT_CALL_COOLDOWN_MS;
     this.onEvent = options.onEvent;
   }
 
