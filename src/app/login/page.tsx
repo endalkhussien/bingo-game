@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/presentation/providers/auth-provider';
 import { APP_NAME, APP_TAGLINE } from '@/shared/brand';
 import { ipc } from '@/presentation/lib/ipc';
+import { getPostLoginPath } from '@/shared/roles';
 import { TextInput } from '@/presentation/components/shared/text-input';
 import { TextArea } from '@/presentation/components/shared/text-area';
 
@@ -35,8 +36,10 @@ export default function LoginPage() {
     setSuccess('');
     const result = await login(username, password, rememberMe);
     setLoading(false);
-    if (result.success) {
-      router.push(username === 'vendor' || username === 'admin' || username === 'operator' ? '/admin/dashboard' : '/agent/dashboard');
+    if (result.success && result.user) {
+      router.push(getPostLoginPath(result.user.role));
+    } else if (result.success) {
+      router.push('/login');
     } else {
       setError(result.error ?? 'Login failed');
     }
@@ -65,9 +68,17 @@ export default function LoginPage() {
     }
   };
 
-  const fillDemo = (role: 'agent' | 'admin') => {
-    setUsername(role);
-    setPassword(role === 'admin' ? 'admin123' : 'agent123');
+  const fillDemo = (role: 'vendor' | 'admin' | 'agent') => {
+    if (role === 'vendor') {
+      setUsername('vendor');
+      setPassword('vendor2024');
+    } else if (role === 'admin') {
+      setUsername('admin');
+      setPassword('admin123');
+    } else {
+      setUsername('agent');
+      setPassword('agent123');
+    }
     setError('');
     setSuccess('');
     setMode('login');
@@ -92,7 +103,9 @@ export default function LoginPage() {
             <h1 className="text-4xl font-black tracking-tight text-white lg:text-5xl">{APP_NAME}</h1>
             <p className="mt-3 text-lg text-slate-300">{APP_TAGLINE}</p>
             <p className="mt-2 max-w-md text-sm text-slate-400">
-              Each hall PC needs a one-time <strong className="text-white">TAS setup code</strong> from admin before login works.
+              <strong className="text-white">Vendor</strong> → TOL for shop admin ·
+              <strong className="text-white"> Shop admin</strong> → TAS for agents ·
+              <strong className="text-white"> Agent</strong> → Activate PC once
             </p>
           </div>
         </div>
@@ -118,9 +131,9 @@ export default function LoginPage() {
 
             {mode === 'activate' ? (
               <div>
-                <h2 className="text-xl font-bold text-gray-900">First time on this PC?</h2>
+                <h2 className="text-xl font-bold text-gray-900">Agent hall PC — first time?</h2>
                 <p className="mt-1 text-sm text-gray-500">
-                  Admin creates your account and sends a <strong>TAS-…</strong> setup code. Paste it here once.
+                  Shop admin creates your account and sends a <strong>TAS-…</strong> code (not TOL). Paste it here once.
                 </p>
                 <TextArea
                   value={setupCode}
@@ -142,7 +155,7 @@ export default function LoginPage() {
               <form onSubmit={handleSubmit} className="space-y-5">
                 <div>
                   <h2 className="text-xl font-bold text-gray-900">Welcome back</h2>
-                  <p className="text-sm text-gray-500">Use the username and password from your admin</p>
+                  <p className="text-sm text-gray-500">Vendor · Shop admin · or Agent username</p>
                 </div>
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-gray-700">Username</label>
@@ -177,9 +190,10 @@ export default function LoginPage() {
             {error && <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
             {success && <p className="mt-4 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{success}</p>}
 
-            <div className="mt-6 flex gap-2">
-              <button type="button" onClick={() => fillDemo('agent')} className="flex-1 rounded-lg border py-2 text-xs font-medium text-gray-600 hover:bg-gray-50">Demo agent</button>
-              <button type="button" onClick={() => fillDemo('admin')} className="flex-1 rounded-lg border py-2 text-xs font-medium text-gray-600 hover:bg-gray-50">Demo admin</button>
+            <div className="mt-6 grid grid-cols-3 gap-2">
+              <button type="button" onClick={() => fillDemo('vendor')} className="rounded-lg border py-2 text-xs font-medium text-gray-600 hover:bg-gray-50">Demo vendor</button>
+              <button type="button" onClick={() => fillDemo('admin')} className="rounded-lg border py-2 text-xs font-medium text-gray-600 hover:bg-gray-50">Demo shop admin</button>
+              <button type="button" onClick={() => fillDemo('agent')} className="rounded-lg border py-2 text-xs font-medium text-gray-600 hover:bg-gray-50">Demo agent</button>
             </div>
           </div>
         </div>

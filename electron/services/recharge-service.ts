@@ -16,7 +16,7 @@ export async function submitRechargeRequest(agentId: string, data: {
     referenceNumber: data.referenceNumber ?? null, status: 'PENDING', requestedAt: now,
   });
 
-  const admins = await db.select().from(users).where(eq(users.role, 'SUPER_ADMIN')).all();
+  const admins = await db.select().from(users).where(eq(users.role, 'OPERATOR')).all();
   for (const admin of admins) {
     await createNotification({
       userId: admin.id, type: 'RECHARGE_PENDING',

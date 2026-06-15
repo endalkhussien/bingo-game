@@ -85,9 +85,26 @@ function ensureMockDeck() {
   mockCards.sort((a, b) => Number(a.cardNumber) - Number(b.cardNumber));
 }
 
+function requireShopAdminSession() {
+  const session = requireSession();
+  if (session.user.role === 'SUPER_ADMIN') {
+    throw new Error('Shop admin only. Vendor uses the Vendor Board.');
+  }
+  if (session.user.role !== 'OPERATOR') throw new Error('Shop admin access required');
+  const now = Math.floor(Date.now() / 1000);
+  if (mockLicenseUntil <= now) throw new Error('OPERATOR_LICENSE_EXPIRED');
+  return session;
+}
+
 function requireSession() {
   if (!currentSession) throw new Error('Not authenticated');
   return currentSession;
+}
+
+function requireVendorSession() {
+  const session = requireSession();
+  if (session.user.role !== 'SUPER_ADMIN') throw new Error('Vendor access required');
+  return session;
 }
 
 export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
@@ -102,9 +119,8 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
       saveSession(currentSession);
       return { success: true, data: { token: 'mock', user: currentSession.user, agent: null } };
     }
-    if ((username === 'admin' || username === 'operator') && (password === 'admin123' || password === 'operator123')) {
-      const u = String(username);
-      currentSession = { user: { id: 'op1', fullName: 'Shop Operator', username: u, role: 'OPERATOR' }, agent: null };
+    if (username === 'admin' && password === 'admin123') {
+      currentSession = { user: { id: 'op1', fullName: 'Shop Admin', username: 'admin', role: 'OPERATOR' }, agent: null };
       saveSession(currentSession);
       return { success: true, data: { token: 'mock', user: currentSession.user, agent: null } };
     }
@@ -114,13 +130,16 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
   'auth:logout': async () => { currentSession = null; saveSession(null); return { success: true }; },
   'auth:change-password': async () => ({ success: true }),
 
-  'dashboard:admin': async () => ({
+  'dashboard:admin': async () => {
+    requireShopAdminSession();
+    return {
     totalAgents: mockAgents.length, activeAgents: mockAgents.filter(a => a.status === 'ACTIVE').length,
     totalWalletBalance: mockBalance, totalRevenue: 5000, totalProfit: 1000,
     runningGames: mockGames.filter(g => g.status === 'RUNNING').length,
     pendingRecharges: mockRechargeRequests.filter(r => r.status === 'PENDING').length,
     revenueTrend: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(d => ({ date: d, revenue: Math.random() * 1000 })),
-  }),
+    };
+  },
   'dashboard:agent': async () => {
     requireSession();
     return { walletBalance: mockBalance, activeGames: mockGames.filter(g => g.status === 'RUNNING').length, totalGames: mockGames.length, totalRevenue: 2000, totalProfit: 800, commissionRate: 20, adminCommissionRate: 20 };
@@ -139,8 +158,9 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
     return { success: true, data: { commissionRate: r } };
   },
 
-  'agents:list': async () => mockAgents.map(a => ({ ...a, walletBalance: mockBalance })),
+  'agents:list': async () => { requireShopAdminSession(); return mockAgents.map(a => ({ ...a, walletBalance: mockBalance })); },
   'agents:create': async (data: unknown) => {
+    requireShopAdminSession();
     const d = data as { fullName: string; username: string; password: string; phone?: string; adminCommissionRate?: number; initialBalance?: number };
     const username = d.username.trim().toLowerCase();
     const id = `agent-${mockAgents.length + 1}`;
@@ -157,6 +177,7 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
     return { success: true, data: { id, username, setupCode } };
   },
   'agents:regenerate-setup': async (agentId: unknown, password: unknown) => {
+    requireShopAdminSession();
     const a = mockAgents.find((x) => x.id === agentId);
     if (!a) return { success: false, error: 'Agent not found' };
     const pw = String(password ?? '').trim() || `bingo${Math.floor(1000 + Math.random() * 9000)}`;
@@ -215,7 +236,7 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
     return { success: false, error: 'Invalid voucher' };
   },
   'vouchers:generate': async (amount: unknown, forUsername: unknown) => {
-    requireSession();
+    requireShopAdminSession();
     if (!forUsername) return { success: false, error: 'Select an agent' };
     const amt = Number(amount);
     const user = String(forUsername);
@@ -233,7 +254,7 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
     mockIssuedCodes.unshift(row);
     return { success: true, data: { code, amount: amt, expiresAt: row.expiresAt, forUsername: user } };
   },
-  'vouchers:list-issued': async () => mockIssuedCodes,
+  'vouchers:list-issued': async () => { requireShopAdminSession(); return mockIssuedCodes; },
   'vouchers:org-key': async () => 'mock-org-key-for-browser-preview-only-32chars',
   'vouchers:revoke': async (id: unknown) => {
     const r = mockIssuedCodes.find((x) => x.id === id);
@@ -269,7 +290,7 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
   },
   'recharge:approve': async (id: unknown) => { const r = mockRechargeRequests.find(x => x.id === id); if (r) { r.status = 'APPROVED'; mockBalance += Number(r.amount); } return { success: true }; },
   'recharge:reject': async (id: unknown) => { const r = mockRechargeRequests.find(x => x.id === id); if (r) r.status = 'REJECTED'; return { success: true }; },
-  'recharge:pending-count': async () => mockRechargeRequests.filter(r => r.status === 'PENDING').length,
+  'recharge:pending-count': async () => { requireShopAdminSession(); return mockRechargeRequests.filter(r => r.status === 'PENDING').length; },
 
   'pricing:list': async () => mockPricingPlans,
   'pricing:create': async (data: unknown) => { mockPricingPlans.push({ id: `p${mockPricingPlans.length}`, ...(data as object), isActive: true } as typeof mockPricingPlans[0]); return { success: true }; },
@@ -425,6 +446,7 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
     licenseActive: mockLicenseUntil > Math.floor(Date.now() / 1000),
   }),
   'license:generate': async (shopName: unknown, validDays: unknown, rate: unknown) => {
+    requireVendorSession();
     const days = Number(validDays) === 30 ? 30 : 7;
     const until = Math.floor(Date.now() / 1000) + days * 86400;
     return {

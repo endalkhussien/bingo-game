@@ -21,7 +21,7 @@ interface AuthContextType {
   user: User | null;
   agent: Agent | null;
   isLoading: boolean;
-  login: (username: string, password: string, rememberMe?: boolean) => Promise<{ success: boolean; error?: string }>;
+  login: (username: string, password: string, rememberMe?: boolean) => Promise<{ success: boolean; error?: string; user?: User }>;
   logout: () => Promise<void>;
   refreshBalance: () => Promise<void>;
   refreshAgent: () => Promise<void>;
@@ -59,7 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem('bingo_token', result.data.token);
       setUser(result.data.user);
       setAgent(result.data.agent);
-      return { success: true };
+      return { success: true, user: result.data.user };
     }
     return { success: false, error: result.error ?? 'Login failed' };
   }, []);

@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/presentation/providers/auth-provider';
+import { getPostLoginPath } from '@/shared/roles';
 
 export default function Home() {
   const { user, isLoading } = useAuth();
@@ -11,8 +12,7 @@ export default function Home() {
   useEffect(() => {
     if (isLoading) return;
     if (!user) { router.replace('/login'); return; }
-    if (user.role === 'SUPER_ADMIN' || user.role === 'OPERATOR') router.replace('/admin/dashboard');
-    else router.replace('/agent/dashboard');
+    router.replace(getPostLoginPath(user.role));
   }, [user, isLoading, router]);
 
   return (

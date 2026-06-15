@@ -15,7 +15,6 @@ export async function seedDatabase(db: BetterSQLite3Database<typeof schema>) {
 
   const vendorId = uuid();
   const adminId = uuid();
-  const operatorUserId = uuid();
   const agentUserId = uuid();
   const agentId = uuid();
 
@@ -32,19 +31,9 @@ export async function seedDatabase(db: BetterSQLite3Database<typeof schema>) {
     },
     {
       id: adminId,
-      fullName: 'Shop Operator',
+      fullName: 'Shop Admin',
       username: 'admin',
       passwordHash: await bcrypt.hash('admin123', 12),
-      role: 'OPERATOR',
-      status: 'ACTIVE',
-      createdAt: now,
-      updatedAt: now,
-    },
-    {
-      id: operatorUserId,
-      fullName: 'Shop Operator',
-      username: 'operator',
-      passwordHash: await bcrypt.hash('operator123', 12),
       role: 'OPERATOR',
       status: 'ACTIVE',
       createdAt: now,

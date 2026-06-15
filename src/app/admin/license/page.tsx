@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ipc } from '@/presentation/lib/ipc';
 import { PageHeader } from '@/presentation/components/shared/page-header';
 import { useAuth } from '@/presentation/providers/auth-provider';
+import { isVendorRole } from '@/shared/roles';
 import { TextArea } from '@/presentation/components/shared/text-area';
 import { formatDate } from '@/presentation/lib/utils';
 
@@ -34,6 +35,10 @@ export default function OperatorLicensePage() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const { user } = useAuth();
+
+  useEffect(() => {
+    if (user && isVendorRole(user.role)) router.replace('/admin/vendor');
+  }, [user, router]);
 
   const load = () => {
     ipc<LicenseStatus>('license:status').then(setStatus).catch(() => {});
@@ -67,12 +72,12 @@ export default function OperatorLicensePage() {
 
   return (
     <div className="mx-auto max-w-xl">
-      <PageHeader title="Shop License" />
+      <PageHeader title="Activate Shop Admin (TOL)" />
       <div className="mb-6 rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-sm text-indigo-900">
-        <p className="font-semibold">Weekly / monthly license from your vendor</p>
+        <p className="font-semibold">Step 1 for shop admin — paste TOL from vendor</p>
         <p className="mt-1">
-          Logged in as <strong>{user?.username}</strong>. Paste the <strong>TOL-</strong> code your vendor sends
-          after you pay the weekly commission.
+          Logged in as shop admin <strong>{user?.username}</strong>. Your vendor sends a <strong>TOL-</strong> code
+          (weekly or monthly). After activation you can create agents and issue <strong>TAS</strong> codes to them.
         </p>
       </div>
 
@@ -99,7 +104,7 @@ export default function OperatorLicensePage() {
 
       <div className="rounded-xl border bg-white p-6 shadow-sm space-y-4">
         <TextArea
-          label="TOL license code"
+          label="TOL code from vendor"
           value={code}
           onChange={(e) => { setCode(e.target.value); setError(''); }}
           placeholder="Paste TOL- code from vendor"
@@ -112,7 +117,7 @@ export default function OperatorLicensePage() {
           disabled={loading}
           className="w-full rounded-lg bg-emerald-600 py-3 text-sm font-semibold text-white disabled:opacity-50"
         >
-          {loading ? 'Activating…' : 'Activate license'}
+          {loading ? 'Activating…' : 'Activate shop admin license'}
         </button>
         {error && <p className="text-sm text-red-600">{error}</p>}
         {success && <p className="text-sm text-emerald-700">{success}</p>}
