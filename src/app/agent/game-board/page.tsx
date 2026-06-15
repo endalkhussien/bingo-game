@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { Eye, EyeOff, Play, Megaphone, ListOrdered } from 'lucide-react';
+import { Eye, EyeOff, Play, Pause, Megaphone, ListOrdered } from 'lucide-react';
 import { ipc } from '@/presentation/lib/ipc';
 import { useAuth } from '@/presentation/providers/auth-provider';
 import { NumberGrid } from '@/presentation/components/bingo/number-grid';
@@ -10,7 +10,7 @@ import { CheckCardModal } from '@/presentation/components/bingo/check-card-modal
 import { WINNING_PATTERNS, DRAW_INTERVALS, VOICE_TYPES, MIN_BET, DEFAULT_JACKPOT_MAX_CALLS, DEFAULT_CALL_COOLDOWN_MS } from '@/shared/constants';
 import { DRAW_BALL_COUNT } from '@/shared/brand';
 import { speakBallCall, speakCartella, loadVoices } from '@/presentation/lib/tts';
-import { stopCurrentAudio } from '@/presentation/lib/amharic-audio';
+import { stopCurrentAudio, preloadBallCallClips } from '@/presentation/lib/amharic-audio';
 import { AudioSyncManager, runAutoCallLoop } from '@/presentation/lib/audio-sync-manager';
 import { CallingEngine } from '@/domain/services/calling-engine';
 import { getBallLabel } from '@/domain/services/bingo-engine';
@@ -89,6 +89,7 @@ export default function GameBoardPage() {
   const autoDrawRef = useRef(false);
   const isPausedRef = useRef(false);
   const activeGameRef = useRef<ActiveGame | null>(null);
+  const callingLoopIdRef = useRef(0);
 
   const playerCount = activeGame?.playerCount ?? activeGame?.selectedNumbers?.length ?? selected.length;
   const totalPot = activeGame?.totalPot ?? calculateTotalPot(parseFloat(betAmount || '0') || 0, playerCount);
@@ -110,7 +111,7 @@ export default function GameBoardPage() {
   const remainingCount = callerEngine.remainingNumbers.length;
   const selectedSet = useMemo(() => new Set(selected), [selected]);
 
-  useEffect(() => { loadVoices(); }, []);
+  useEffect(() => { loadVoices(); preloadBallCallClips(); }, []);
   useEffect(() => {
     if (agent?.commissionRate != null && !activeGame) {
       setCommissionPercent(String(agent.commissionRate));
@@ -140,16 +141,23 @@ export default function GameBoardPage() {
     ipc<ActiveGame | null>('games:active').then((game) => {
       if (game) {
         setActiveGame(game);
+        activeGameRef.current = game;
         setCalled(game.drawnNumbers ?? []);
         setCallHistory(game.callHistory ?? []);
         setLastDrawn(game.drawnNumbers?.length ? game.drawnNumbers[game.drawnNumbers.length - 1] : null);
         setSelected(game.selectedNumbers ?? []);
         setBetAmount(String(game.betAmount));
-        setIsPaused(game.status === 'PAUSED');
+        const paused = game.status === 'PAUSED';
+        setIsPaused(paused);
+        isPausedRef.current = paused;
         if (game.voiceType) setVoice(game.voiceType);
         if (game.language) setLanguage(game.language);
         if (game.drawSpeedMs != null) setInterval_(game.drawSpeedMs);
         setGameWinners(game.winners ?? []);
+        if (!paused) {
+          autoDrawRef.current = true;
+          setAutoDraw(true);
+        }
       }
     });
   }, []);
@@ -178,6 +186,35 @@ export default function GameBoardPage() {
     }]);
     setLastDrawn(data.number);
   }, []);
+
+  const stopCalling = useCallback(async (pauseOnServer = true) => {
+    autoDrawRef.current = false;
+    setAutoDraw(false);
+    callingLoopIdRef.current += 1;
+    syncManagerRef.current.abort();
+    stopCurrentAudio();
+
+    if (!pauseOnServer || !activeGameRef.current) return;
+
+    isPausedRef.current = true;
+    setIsPaused(true);
+    await ipc('games:pause', activeGameRef.current.id);
+    setActiveGame((g) => g ? { ...g, status: 'PAUSED' } : g);
+  }, []);
+
+  const startCalling = useCallback(async (resumeOnServer = false) => {
+    if (!activeGameRef.current || bingoClaimActive) return;
+
+    if (resumeOnServer) {
+      await ipc('games:resume', activeGameRef.current.id);
+      setActiveGame((g) => g ? { ...g, status: 'RUNNING' } : g);
+    }
+
+    isPausedRef.current = false;
+    setIsPaused(false);
+    autoDrawRef.current = true;
+    setAutoDraw(true);
+  }, [bingoClaimActive]);
 
   const drawFromServer = useCallback(async () => {
     const game = activeGameRef.current;
@@ -234,7 +271,7 @@ export default function GameBoardPage() {
 
     setCreating(false);
     if (result.success && result.data) {
-      setActiveGame({
+      const game: ActiveGame = {
         ...result.data,
         selectedNumbers: selected,
         drawnNumbers: [],
@@ -242,12 +279,16 @@ export default function GameBoardPage() {
         status: 'RUNNING',
         playerCount: selected.length,
         totalPot: calculateTotalPot(bet, selected.length),
-      });
+      };
+      setActiveGame(game);
+      activeGameRef.current = game;
       setCalled([]);
       setCallHistory([]);
       setLastDrawn(null);
       setIsPaused(false);
+      isPausedRef.current = false;
       await refreshBalance();
+      await startCalling(false);
     } else {
       setBetError(result.error ?? 'Failed to create game');
     }
@@ -268,16 +309,22 @@ export default function GameBoardPage() {
   }, [activeGame, isPaused, drawFromServer, applyDrawResult, voice, language, interval]);
 
   useEffect(() => {
-    if (!autoDraw || !activeGame || isPaused) return;
+    if (!autoDraw || !activeGame || isPaused || bingoClaimActive) return;
 
+    const loopId = ++callingLoopIdRef.current;
     let cancelled = false;
 
     void runAutoCallLoop(syncManagerRef.current, {
       cooldownMs: interval,
       voiceType: voice,
       language,
-      isPaused: () => isPausedRef.current,
-      shouldContinue: () => !cancelled && autoDrawRef.current && !!activeGameRef.current,
+      isPaused: () => isPausedRef.current || bingoClaimActive,
+      shouldContinue: () =>
+        !cancelled
+        && callingLoopIdRef.current === loopId
+        && autoDrawRef.current
+        && !!activeGameRef.current
+        && !isPausedRef.current,
       drawNumber: drawFromServer,
       onDraw: (data) => {
         applyDrawResult({
@@ -289,23 +336,18 @@ export default function GameBoardPage() {
       playAudio: (n, v, l) => speakBallCall(n, v, l),
     });
 
-    return () => { cancelled = true; };
-  }, [autoDraw, activeGame, isPaused, interval, voice, language, drawFromServer, applyDrawResult]);
+    return () => {
+      cancelled = true;
+      syncManagerRef.current.abort();
+      stopCurrentAudio();
+    };
+  }, [autoDraw, activeGame, isPaused, bingoClaimActive, interval, voice, language, drawFromServer, applyDrawResult]);
 
   const handleBingoClaim = async () => {
     if (!activeGame) return;
 
-    // Stop calling immediately before server round-trip
-    setAutoDraw(false);
-    autoDrawRef.current = false;
-    isPausedRef.current = true;
-    setIsPaused(true);
-    syncManagerRef.current.abort();
-    stopCurrentAudio();
+    await stopCalling(true);
     setBingoClaimActive(true);
-
-    await ipc('games:pause', activeGame.id);
-    setActiveGame((g) => g ? { ...g, status: 'PAUSED' } : g);
     setCheckModalOpen(true);
   };
 
@@ -361,14 +403,13 @@ export default function GameBoardPage() {
 
   const handleResume = async () => {
     if (!activeGame || bingoClaimActive) return;
-    await ipc('games:resume', activeGame.id);
-    setIsPaused(false);
     setCheckModalOpen(false);
+    await startCalling(true);
   };
 
   const handleEndGame = async () => {
     if (!activeGame) return;
-    setAutoDraw(false);
+    await stopCalling(false);
     const result = await ipc<{ success: boolean; data?: { agentRevenue: number } }>('games:end', activeGame.id);
     if (result.success && result.data) {
       setProfit(result.data.agentRevenue);
@@ -493,7 +534,7 @@ export default function GameBoardPage() {
         {!activeGame ? (
           <button onClick={handleCreateGame} disabled={creating || selected.length === 0}
             className="rounded-lg bg-green-600 px-6 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-50">
-            {creating ? 'Starting...' : `Start Game (${selected.length} cards)`}
+            {creating ? 'Starting...' : `Start Game & Call (${selected.length} cards)`}
           </button>
         ) : (
           <div className="flex flex-wrap gap-2">
@@ -502,21 +543,22 @@ export default function GameBoardPage() {
               <ListOrdered className="h-4 w-4" /> Called ({drawCount}/{maxBalls})
             </button>
             <button onClick={handleDraw} disabled={isPaused || callerLocked}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">Draw</button>
-            <button onClick={() => setAutoDraw(!autoDraw)} disabled={isPaused}
-              className={`rounded-lg px-4 py-2 text-sm font-semibold text-white ${autoDraw ? 'bg-orange-500' : 'bg-gray-500'} disabled:opacity-50`}>
-              {autoDraw ? 'Stop Auto' : 'Auto Call'}
-            </button>
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">Draw once</button>
+            {!isPaused ? (
+              <button onClick={() => stopCalling(true)} disabled={callerLocked}
+                className="inline-flex items-center gap-1 rounded-lg bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600 disabled:opacity-50">
+                <Pause className="h-4 w-4" /> Stop calling
+              </button>
+            ) : !bingoClaimActive && gameWinners.length === 0 && (
+              <button onClick={handleResume}
+                className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">
+                <Play className="h-4 w-4" /> Resume calling
+              </button>
+            )}
             <button onClick={handleBingoClaim}
               className="inline-flex items-center gap-1 rounded-lg bg-yellow-500 px-4 py-2 text-sm font-bold text-white hover:bg-yellow-600">
               <Megaphone className="h-4 w-4" /> BINGO!
             </button>
-            {isPaused && !bingoClaimActive && gameWinners.length === 0 && (
-              <button onClick={handleResume}
-                className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white">
-                <Play className="h-4 w-4" /> Resume calling
-              </button>
-            )}
             <button onClick={handleEndGame}
               className="rounded-lg bg-red-500 px-4 py-2 text-sm font-semibold text-white">End Game</button>
           </div>

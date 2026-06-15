@@ -40,10 +40,6 @@ function pickVoice(voices: SpeechSynthesisVoice[], lang: string, preferFemale: b
   return langVoices.find((v) => /male|man/i.test(v.name)) ?? langVoices[0];
 }
 
-function delay(ms: number): Promise<void> {
-  return new Promise((r) => setTimeout(r, ms));
-}
-
 async function speakBrowser(text: string, lang: string, preferFemale: boolean): Promise<void> {
   if (typeof window === 'undefined' || !window.speechSynthesis) return;
 
@@ -60,10 +56,12 @@ async function speakBrowser(text: string, lang: string, preferFemale: boolean): 
   });
 }
 
-/** Play ball call audio and resolve when playback finishes. */
+/** Play ball call — MP3 first (sharp sync), then Electron TTS, then browser speech. */
 export async function speakBallCall(number: number, voiceType: string, language: string): Promise<void> {
   const preferFemale = voiceType.includes('FEMALE');
-  const { letter, numberText, numberLang } = getBallCallSpeechParts(number, language);
+  const { letter, numberText } = getBallCallSpeechParts(number, language);
+
+  if (await playBallCallAudio(number, language)) return;
 
   if (isElectron()) {
     const result = await ipc<{ success: boolean }>('tts:speak-ball-call', number, language, voiceType);
@@ -71,14 +69,11 @@ export async function speakBallCall(number: number, voiceType: string, language:
   }
 
   if (language === 'am') {
-    if (await playBallCallAudio(number, language)) return;
     await speakBrowser(formatAmharicBallCall(number), 'am-ET', preferFemale);
     return;
   }
 
   if (letter) {
-    const letterFromMp3 = await playBallCallAudio(number, language);
-    if (letterFromMp3) return;
     await speakBrowser(`${letter} ${numberText}`, 'en-US', preferFemale);
     return;
   }
