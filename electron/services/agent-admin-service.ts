@@ -1,8 +1,8 @@
 import bcrypt from 'bcryptjs';
 import { v4 as uuid } from 'uuid';
-import { eq, desc, sql } from 'drizzle-orm';
+import { eq, desc, sql, and, inArray } from 'drizzle-orm';
 import { getDb } from './database-service';
-import { users, agents, games, gameRevenue } from '../../src/infrastructure/database/schema';
+import { users, agents, games, gameRevenue, bingoCards, drawnNumbers, winners, gameCards, walletTransactions, rechargeRequests, usedOfflineVouchers, sessions, notifications, rechargeVouchers } from '../../src/infrastructure/database/schema';
 import { logAudit } from './audit-service';
 import { createNotification } from './notification-service';
 import { generateAgentSetupCode, parseAgentSetupCode } from '../../src/shared/voucher/agent-setup-code';
@@ -281,6 +281,55 @@ export async function resetAgentPassword(adminId: string, agentId: string, newPa
     .where(eq(users.id, agent.userId));
   await logAudit({ userId: adminId, action: 'RESET_PASSWORD', entityType: 'agent', entityId: agentId });
   return { success: true };
+}
+
+export async function deleteAgent(adminId: string, agentId: string) {
+  const db = getDb();
+  const agent = await db.select().from(agents).where(eq(agents.id, agentId)).get();
+  if (!agent) return { success: false, error: 'Agent not found' };
+
+  const user = await db.select().from(users).where(eq(users.id, agent.userId)).get();
+
+  const activeGames = await db.select().from(games).where(
+    and(eq(games.agentId, agentId), inArray(games.status, ['RUNNING', 'PAUSED'])),
+  ).all();
+  if (activeGames.length > 0) {
+    return { success: false, error: 'This agent has an active game. End the game first, then delete.' };
+  }
+
+  const agentGames = await db.select().from(games).where(eq(games.agentId, agentId)).all();
+  for (const game of agentGames) {
+    await db.delete(drawnNumbers).where(eq(drawnNumbers.gameId, game.id));
+    await db.delete(winners).where(eq(winners.gameId, game.id));
+    await db.delete(gameCards).where(eq(gameCards.gameId, game.id));
+    await db.delete(gameRevenue).where(eq(gameRevenue.gameId, game.id));
+    await db.delete(games).where(eq(games.id, game.id));
+  }
+
+  await db.delete(bingoCards).where(eq(bingoCards.agentId, agentId));
+  await db.delete(walletTransactions).where(eq(walletTransactions.agentId, agentId));
+  await db.delete(rechargeRequests).where(eq(rechargeRequests.agentId, agentId));
+  await db.delete(usedOfflineVouchers).where(eq(usedOfflineVouchers.agentId, agentId));
+
+  if (user) {
+    await db.delete(sessions).where(eq(sessions.userId, user.id));
+    await db.delete(notifications).where(eq(notifications.userId, user.id));
+  }
+
+  await db.update(rechargeVouchers).set({ usedByAgentId: null }).where(eq(rechargeVouchers.usedByAgentId, agentId));
+
+  await db.delete(agents).where(eq(agents.id, agentId));
+  if (user) await db.delete(users).where(eq(users.id, user.id));
+
+  await logAudit({
+    userId: adminId,
+    action: 'DELETE',
+    entityType: 'agent',
+    entityId: agentId,
+    oldValue: { username: user?.username, fullName: user?.fullName },
+  });
+
+  return { success: true, data: { username: user?.username ?? '' } };
 }
 
 export async function getAgentDetail(agentId: string) {

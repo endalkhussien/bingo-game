@@ -209,8 +209,15 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
     if (a && patch.adminCommissionRate != null) a.adminCommissionRate = patch.adminCommissionRate;
     return { success: true };
   },
-  'agents:suspend': async (id: unknown) => { const a = mockAgents.find(x => x.id === id); if (a) a.status = 'SUSPENDED'; return { success: true }; },
-  'agents:activate': async (id: unknown) => { const a = mockAgents.find(x => x.id === id); if (a) a.status = 'ACTIVE'; return { success: true }; },
+  'agents:suspend': async (id: unknown) => { requireShopAdminSession(); const a = mockAgents.find(x => x.id === id); if (a) a.status = 'SUSPENDED'; return { success: true }; },
+  'agents:activate': async (id: unknown) => { requireShopAdminSession(); const a = mockAgents.find(x => x.id === id); if (a) a.status = 'ACTIVE'; return { success: true }; },
+  'agents:delete': async (id: unknown) => {
+    requireShopAdminSession();
+    const idx = mockAgents.findIndex((x) => x.id === id);
+    if (idx < 0) return { success: false, error: 'Agent not found' };
+    mockAgents.splice(idx, 1);
+    return { success: true, data: { username: '' } };
+  },
   'agents:reset-password': async () => ({ success: true }),
   'agents:detail': async (id: unknown) => mockAgents.find(a => a.id === id) ?? null,
 

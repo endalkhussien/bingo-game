@@ -195,6 +195,10 @@ export function registerIpcHandlers() {
     const s = await requireShopAdmin(event);
     return agentAdmin.setAgentStatus(s.user.id, id, 'ACTIVE');
   });
+  ipcMain.handle('agents:delete', async (event, id: string) => {
+    const s = await requireShopAdmin(event);
+    return agentAdmin.deleteAgent(s.user.id, id);
+  });
   ipcMain.handle('agents:reset-password', async (event, id: string, pw: string) => {
     const s = await requireShopAdmin(event);
     return agentAdmin.resetAgentPassword(s.user.id, id, pw);

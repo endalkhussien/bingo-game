@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ipc } from '@/presentation/lib/ipc';
 import { PageHeader } from '@/presentation/components/shared/page-header';
-import { UserPlus, Users } from 'lucide-react';
+import { UserPlus, Users, Trash2 } from 'lucide-react';
 import { createAgentWithSetup } from '@/presentation/lib/create-agent-with-setup';
 import { TasSetupPanel } from '@/presentation/components/admin/tas-setup-panel';
 import { TextInput } from '@/presentation/components/shared/text-input';
@@ -23,6 +23,8 @@ export default function AgentsPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
+  const [actionError, setActionError] = useState('');
+
   const load = () => ipc<AgentRow[]>('agents:list').then(setAgents);
   useEffect(() => { load(); }, []);
 
@@ -31,8 +33,29 @@ export default function AgentsPage() {
     a.username.toLowerCase().includes(search.toLowerCase())
   );
 
-  const handleSuspend = async (id: string) => { await ipc('agents:suspend', id); load(); };
-  const handleActivate = async (id: string) => { await ipc('agents:activate', id); load(); };
+  const handleSuspend = async (id: string) => {
+    setActionError('');
+    await ipc('agents:suspend', id);
+    load();
+  };
+  const handleActivate = async (id: string) => {
+    setActionError('');
+    await ipc('agents:activate', id);
+    load();
+  };
+  const handleDelete = async (agent: AgentRow) => {
+    const msg = agent.totalGames > 0
+      ? `Delete agent "${agent.fullName}" (${agent.username})? Their ${agent.totalGames} past game(s) on this PC will be removed.`
+      : `Delete agent "${agent.fullName}" (${agent.username})? They will not be able to log in on any PC with this account.`;
+    if (!window.confirm(msg)) return;
+    setActionError('');
+    const result = await ipc<{ success: boolean; error?: string }>('agents:delete', agent.id);
+    if (result?.success) {
+      load();
+    } else {
+      setActionError(result?.error ?? 'Delete failed');
+    }
+  };
 
   const [lastSetup, setLastSetup] = useState<{ username: string; password: string; setupCode: string } | null>(null);
 
@@ -143,6 +166,9 @@ export default function AgentsPage() {
 
       <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search agents..."
         className="mb-4 w-full max-w-sm rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20" />
+      {actionError && (
+        <p className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{actionError}</p>
+      )}
       <div className="overflow-hidden rounded-xl bg-white shadow-sm border border-gray-100">
         <table className="w-full text-sm">
           <thead><tr className="bg-gray-50 text-left">
@@ -170,11 +196,18 @@ export default function AgentsPage() {
                   <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${a.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{a.status}</span>
                 </td>
                 <td className="px-4 py-3">
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <Link href={`/admin/agents/detail?id=${a.id}`} className="text-blue-600 hover:underline text-xs">Manage</Link>
                     {a.status === 'ACTIVE'
-                      ? <button onClick={() => handleSuspend(a.id)} className="text-red-500 text-xs hover:underline">Suspend</button>
-                      : <button onClick={() => handleActivate(a.id)} className="text-green-600 text-xs hover:underline">Activate</button>}
+                      ? <button type="button" onClick={() => handleSuspend(a.id)} className="text-orange-600 text-xs hover:underline">Deactivate</button>
+                      : <button type="button" onClick={() => handleActivate(a.id)} className="text-green-600 text-xs hover:underline">Activate</button>}
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(a)}
+                      className="inline-flex items-center gap-0.5 text-red-600 text-xs hover:underline"
+                    >
+                      <Trash2 className="h-3 w-3" /> Delete
+                    </button>
                   </div>
                 </td>
               </tr>
