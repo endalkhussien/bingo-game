@@ -60,8 +60,9 @@ try {
 try {
   execSync('npm run test:cross-pc', { cwd: root, stdio: 'pipe' });
   check('Cross-PC login/recharge tests', true);
-} catch {
-  check('Cross-PC login/recharge tests', false);
+} catch (e) {
+  const detail = e.stderr?.toString?.().trim().split('\n').pop() ?? e.message ?? '';
+  check('Cross-PC login/recharge tests', false, detail);
 }
 
 console.log('');

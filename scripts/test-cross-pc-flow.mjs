@@ -1,14 +1,22 @@
 /**
- * Cross-PC flow test — agent setup (TAS) + recharge (TBG) without Electron/SQLite.
+ * Cross-PC flow test — agent setup (TAS) + recharge (TBG).
+ * Uses compiled dist-electron JS (no tsx) so it runs reliably on Windows.
  * Usage: npm run test:cross-pc
  */
-import { fileURLToPath } from 'url';
+import { createRequire } from 'module';
+import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
+const require = createRequire(import.meta.url);
 
-async function loadTsModule(relativePath) {
-  return import(path.join(root, relativePath));
+function distModule(...parts) {
+  const file = path.join(root, 'dist-electron', ...parts);
+  if (!fs.existsSync(file)) {
+    throw new Error(`Missing ${file} — run: npm run build:electron`);
+  }
+  return require(file);
 }
 
 function assert(name, condition) {
@@ -16,10 +24,10 @@ function assert(name, condition) {
   console.log(`  ✓ ${name}`);
 }
 
-const { generateAgentSetupCode, parseAgentSetupCode } = await loadTsModule('src/shared/voucher/agent-setup-code.ts');
-const { generateOfflineVoucher, verifyOfflineVoucher } = await loadTsModule('src/shared/voucher/offline-voucher.ts');
-const { DEFAULT_OPERATOR_ORG_KEY } = await loadTsModule('src/shared/voucher/default-org-key.ts');
-const { normalizeUsername, isValidAgentUsername } = await loadTsModule('src/shared/auth/normalize-username.ts');
+const { generateAgentSetupCode, parseAgentSetupCode } = distModule('src/shared/voucher/agent-setup-code.js');
+const { generateOfflineVoucher, verifyOfflineVoucher } = distModule('src/shared/voucher/offline-voucher.js');
+const { DEFAULT_OPERATOR_ORG_KEY } = distModule('src/shared/voucher/default-org-key.js');
+const { normalizeUsername, isValidAgentUsername } = distModule('src/shared/auth/normalize-username.js');
 
 console.log('\nCross-PC flow test\n');
 
