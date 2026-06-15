@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation';
 import { LogOut } from 'lucide-react';
 import { useAuth } from '@/presentation/providers/auth-provider';
 import { APP_NAME } from '@/shared/brand';
-import { isVendorRole } from '@/shared/roles';
-import { SHOP_ADMIN_HOME } from '@/shared/admin-routes';
+import { isVendorRole, getShopAdminEntryPath } from '@/shared/roles';
+import { ipc } from '@/presentation/lib/ipc';
+import { VendorSidebar } from '@/presentation/components/layout/vendor-sidebar';
 
 export default function VendorLayout({ children }: { children: React.ReactNode }) {
   const { user, isLoading, logout } = useAuth();
@@ -15,7 +16,13 @@ export default function VendorLayout({ children }: { children: React.ReactNode }
   useEffect(() => {
     if (!isLoading && !user) router.replace('/login');
     if (!isLoading && user && !isVendorRole(user.role)) {
-      router.replace(user.role === 'OPERATOR' ? SHOP_ADMIN_HOME : '/agent/dashboard');
+      if (user.role === 'OPERATOR') {
+        ipc<{ active: boolean }>('license:status')
+          .then((s) => router.replace(getShopAdminEntryPath(!!s?.active)))
+          .catch(() => router.replace(getShopAdminEntryPath(false)));
+      } else {
+        router.replace('/agent/dashboard');
+      }
     }
   }, [user, isLoading, router]);
 
@@ -28,26 +35,26 @@ export default function VendorLayout({ children }: { children: React.ReactNode }
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-violet-950 via-slate-900 to-slate-950 text-white">
-      <header className="border-b border-white/10 bg-violet-950/80 px-6 py-4">
-        <div className="mx-auto flex max-w-4xl items-center justify-between">
-          <div>
-            <p className="text-lg font-bold">{APP_NAME}</p>
-            <p className="text-xs text-violet-300">Vendor — generate TOL for shop admin only</p>
+    <div className="flex min-h-screen bg-gradient-to-b from-violet-950 via-slate-900 to-slate-950 text-white">
+      <VendorSidebar />
+      <div className="flex min-h-screen flex-1 flex-col">
+        <header className="border-b border-white/10 bg-violet-950/80 px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-lg font-bold">{APP_NAME}</p>
+              <p className="text-xs text-violet-300">Vendor portal — TOL licenses & TVP top-ups</p>
+            </div>
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-violet-200">{user.fullName}</span>
+              <button type="button" onClick={() => logout()}
+                className="inline-flex items-center gap-2 rounded-lg border border-violet-500/40 px-3 py-1.5 text-sm hover:bg-violet-900">
+                <LogOut className="h-4 w-4" /> Logout
+              </button>
+            </div>
           </div>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-violet-200">{user.fullName}</span>
-            <button
-              type="button"
-              onClick={() => logout()}
-              className="inline-flex items-center gap-2 rounded-lg border border-violet-500/40 px-3 py-1.5 text-sm hover:bg-violet-900"
-            >
-              <LogOut className="h-4 w-4" /> Logout
-            </button>
-          </div>
-        </div>
-      </header>
-      <main className="mx-auto max-w-4xl px-6 py-8">{children}</main>
+        </header>
+        <main className="flex-1 px-6 py-8">{children}</main>
+      </div>
     </div>
   );
 }

@@ -15,6 +15,7 @@ import { DEFAULT_OPERATOR_ORG_KEY } from '../../src/shared/voucher/default-org-k
 import { getConfiguredOrganizationKey, getOrganizationVoucherSecret } from './voucher-secret-service';
 import { normalizeUsername } from '../../src/shared/auth/normalize-username';
 import { sql } from 'drizzle-orm';
+import { debitOperatorWallet } from './operator-wallet-service';
 
 export async function getBalance(agentId: string) {
   const db = getDb();
@@ -200,6 +201,17 @@ export async function createOfflineRechargeCode(
     .get();
   if (!target || target.role !== 'AGENT') {
     return { success: false, error: `Agent username "${forUsername}" not found` };
+  }
+
+  const roundedAmount = Math.round(amount);
+  const debit = await debitOperatorWallet(
+    roundedAmount,
+    `TBG code for ${username}`,
+    'tbg_issue',
+    username,
+  );
+  if (!debit.success) {
+    return { success: false, error: debit.error ?? 'Insufficient shop admin balance. Redeem a TVP code from vendor first.' };
   }
 
   const orgSecret = await getOrganizationVoucherSecret();

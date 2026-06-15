@@ -92,11 +92,10 @@ export default function OperatorLicensePage() {
     <div className="mx-auto max-w-xl">
       <PageHeader title="Activate Shop Admin (TOL)" />
       <div className="mb-6 rounded-xl border-2 border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
-        <p className="font-bold">Shop admin must paste TOL here before anything else works</p>
+        <p className="font-bold">Shop admin setup — two codes from vendor</p>
         <p className="mt-2">
-          Logged in as <strong>{user?.username ?? '…'}</strong>.
-          Your vendor sends a <strong>TOL-</strong> code (weekly or monthly).
-          After this works you can create agents and send them <strong>TAS</strong> codes.
+          <strong>1. TOL</strong> — unlocks shop admin (paste below).{' '}
+          <strong>2. TVP</strong> — prepaid balance for issuing TBG to agents (redeem on Shop Balance page).
         </p>
         {user && !isShopAdminRole(user.role) && (
           <p className="mt-2 font-semibold text-red-700">

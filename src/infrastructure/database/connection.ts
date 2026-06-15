@@ -191,6 +191,22 @@ export function runMigrations(database: BetterSQLite3Database<typeof schema>) {
       issued_by TEXT NOT NULL REFERENCES users(id), issued_at INTEGER NOT NULL,
       redeemed_at INTEGER
     );
+    CREATE TABLE IF NOT EXISTS operator_wallet_transactions (
+      id TEXT PRIMARY KEY, amount REAL NOT NULL, transaction_type TEXT NOT NULL,
+      reference_type TEXT, reference_id TEXT, description TEXT NOT NULL,
+      balance_after REAL NOT NULL, created_at INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS issued_vendor_topups (
+      id TEXT PRIMARY KEY, code TEXT NOT NULL, code_hash TEXT NOT NULL UNIQUE,
+      amount REAL NOT NULL, shop_name TEXT NOT NULL, nonce TEXT NOT NULL UNIQUE,
+      expires_at INTEGER NOT NULL, status TEXT NOT NULL DEFAULT 'ISSUED',
+      issued_by TEXT NOT NULL REFERENCES users(id), issued_at INTEGER NOT NULL,
+      redeemed_at INTEGER
+    );
+    CREATE TABLE IF NOT EXISTS used_vendor_topups (
+      id TEXT PRIMARY KEY, code_hash TEXT NOT NULL UNIQUE, nonce TEXT NOT NULL UNIQUE,
+      amount REAL NOT NULL, shop_name TEXT NOT NULL, redeemed_at INTEGER NOT NULL
+    );
   `);
 
   const orgKeyRow = client.prepare(`SELECT value FROM system_settings WHERE key = 'offline_voucher_org_key'`).get() as { value: string } | undefined;

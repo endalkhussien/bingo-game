@@ -14,7 +14,10 @@ export function formatBirr(amount: number): string {
 }
 
 export function formatDate(timestamp: number): string {
-  return new Date(timestamp * 1000).toLocaleDateString('en-US', {
+  if (!Number.isFinite(timestamp) || timestamp <= 0) return '—';
+  const date = new Date(timestamp * 1000);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleDateString('en-US', {
     year: 'numeric', month: '2-digit', day: '2-digit',
   });
 }

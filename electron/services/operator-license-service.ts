@@ -47,7 +47,10 @@ export async function activateOperatorLicense(code: string) {
   }
 
   const currentUntil = parseInt((await getSetting(KEY_UNTIL)) ?? '0', 10);
-  const newUntil = Math.max(currentUntil, parsed.payload.validUntil);
+  const newUntil = Math.max(Number.isFinite(currentUntil) ? currentUntil : 0, parsed.payload.validUntil);
+  if (!Number.isFinite(newUntil) || newUntil <= 0) {
+    return { success: false, error: 'License expiry date is invalid' };
+  }
 
   await updateSettings({
     [KEY_UNTIL]: String(newUntil),
@@ -100,6 +103,7 @@ export async function getVendorCommissionReport(periodDays = 7) {
     .where(and(gte(gameRevenue.calculatedAt, start), lte(gameRevenue.calculatedAt, now)))
     .all();
 
+  const license = await getOperatorLicenseStatus();
   let vendorCommissionDue = 0;
   let totalBets = 0;
   let gameCount = 0;
@@ -107,12 +111,11 @@ export async function getVendorCommissionReport(periodDays = 7) {
   for (const rev of revenues) {
     const game = await db.select().from(games).where(eq(games.id, rev.gameId)).get();
     if (!game || game.status !== 'COMPLETED') continue;
-    vendorCommissionDue += rev.platformRevenue;
+    const rate = license.vendorCommissionRate / 100;
+    vendorCommissionDue += rev.platformRevenue * rate;
     totalBets += rev.totalBets;
     gameCount += 1;
   }
-
-  const license = await getOperatorLicenseStatus();
 
   return {
     periodDays,

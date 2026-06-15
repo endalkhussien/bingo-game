@@ -1,147 +1,67 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { ipc } from '@/presentation/lib/ipc';
 import { useAuth } from '@/presentation/providers/auth-provider';
-import { CopyButton } from '@/presentation/components/shared/copy-button';
-import { TextInput } from '@/presentation/components/shared/text-input';
-import { formatDate } from '@/presentation/lib/utils';
-import { BarChart3, KeyRound, Send } from 'lucide-react';
+import { KeyRound, Send, Wallet } from 'lucide-react';
+import { VENDOR_TOL, VENDOR_TOPUP } from '@/shared/vendor-routes';
 
-export default function VendorBoardPage() {
+interface TopupSummary {
+  totalIssued: number;
+  codeCount: number;
+  pendingCount: number;
+  redeemedCount: number;
+}
+
+export default function VendorDashboardPage() {
   const { user } = useAuth();
-  const [shopName, setShopName] = useState('');
-  const [commissionRate, setCommissionRate] = useState('20');
-  const [generated, setGenerated] = useState<{
-    code: string;
-    validUntil: number;
-    period: string;
-    validDays: number;
-  } | null>(null);
-  const [report, setReport] = useState<{
-    gameCount: number;
-    totalBets: number;
-    vendorCommissionDue: number;
-    shopName: string;
-  } | null>(null);
-  const [error, setError] = useState('');
-  const [generating, setGenerating] = useState(false);
+  const [summary, setSummary] = useState<TopupSummary | null>(null);
 
   useEffect(() => {
-    ipc('license:commission-report', 7).then(setReport).catch(() => {});
+    ipc<TopupSummary>('vendor-topup:summary').then(setSummary).catch(() => {});
   }, []);
-
-  const generate = async (days: 7 | 30) => {
-    if (!shopName.trim()) {
-      setError('Enter the shop name for this admin license');
-      return;
-    }
-    setError('');
-    setGenerated(null);
-    setGenerating(true);
-    try {
-      const result = await ipc<{
-        success: boolean;
-        data?: { code: string; validUntil: number; period: string; validDays: number };
-        error?: string;
-      }>('license:generate', shopName.trim(), days, parseFloat(commissionRate) || 20);
-      if (result?.success && result.data) {
-        setGenerated(result.data);
-      } else {
-        setError(result?.error ?? 'Failed to generate TOL code');
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to generate TOL code');
-    } finally {
-      setGenerating(false);
-    }
-  };
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-white">Vendor Board</h1>
-        <p className="mt-1 text-sm text-violet-300">Logged in as {user?.username} — generate TOL only, not TAS</p>
+        <h1 className="text-3xl font-bold text-white">Vendor Dashboard</h1>
+        <p className="mt-1 text-sm text-violet-300">Logged in as {user?.username} — manage shop licenses and prepaid balance</p>
       </div>
 
       <div className="rounded-xl border border-violet-500/30 bg-violet-900/40 p-5 text-sm text-violet-100">
-        <p className="text-base font-bold text-white">Your job as vendor</p>
+        <p className="text-base font-bold text-white">Three-party flow</p>
         <ol className="mt-3 list-decimal space-y-2 pl-5">
-          <li>Send shop the <strong>.exe</strong> installer</li>
-          <li>Generate <strong>TOL</strong> below (weekly or monthly)</li>
-          <li>Shop admin logs in as <strong>admin</strong> and pastes TOL on their PC</li>
-          <li>Shop admin creates agents and sends them <strong>TAS</strong> (you do not)</li>
+          <li><strong>You (vendor)</strong> → send <strong>TOL</strong> (license) + <strong>TVP</strong> (prepaid balance) to shop admin</li>
+          <li><strong>Shop admin</strong> → pastes TOL, redeems TVP, creates agents with <strong>TAS</strong>, issues <strong>TBG</strong> to agents</li>
+          <li><strong>Agent</strong> → activates PC with TAS, recharges wallet with TBG, runs games</li>
         </ol>
       </div>
 
-      {report && (
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Link href={VENDOR_TOL} className="rounded-xl border border-white/10 bg-white/5 p-5 transition hover:bg-white/10">
+          <p className="flex items-center gap-2 font-semibold text-white"><KeyRound className="h-5 w-5 text-violet-300" /> TOL Licenses</p>
+          <p className="mt-2 text-sm text-violet-200">Generate weekly or monthly shop admin license codes</p>
+        </Link>
+        <Link href={VENDOR_TOPUP} className="rounded-xl border border-white/10 bg-white/5 p-5 transition hover:bg-white/10">
+          <p className="flex items-center gap-2 font-semibold text-white"><Wallet className="h-5 w-5 text-emerald-300" /> Shop Top-up (TVP)</p>
+          <p className="mt-2 text-sm text-violet-200">Generate prepaid balance codes for shop admin to issue TBG to agents</p>
+        </Link>
+      </div>
+
+      {summary && (
         <div className="rounded-xl border border-white/10 bg-white/5 p-5">
-          <p className="flex items-center gap-2 font-semibold text-white">
-            <BarChart3 className="h-4 w-4 text-violet-300" /> Activity report (this PC, last 7 days)
-          </p>
-          <p className="mt-2 text-3xl font-bold text-violet-200">{report.vendorCommissionDue.toFixed(0)} ETB</p>
+          <p className="font-semibold text-white">TVP codes issued (this PC)</p>
+          <p className="mt-2 text-3xl font-bold text-emerald-300">{summary.totalIssued.toFixed(0)} ETB</p>
           <p className="mt-1 text-sm text-violet-300">
-            {report.gameCount} games · {report.totalBets.toFixed(0)} ETB bets
-            {report.shopName ? ` · ${report.shopName}` : ''}
+            {summary.codeCount} codes · {summary.pendingCount} pending · {summary.redeemedCount} redeemed
           </p>
         </div>
       )}
 
-      <div className="rounded-xl border border-white/10 bg-white p-6 text-gray-900 shadow-xl space-y-4">
-        <p className="flex items-center gap-2 font-semibold">
-          <KeyRound className="h-5 w-5 text-indigo-600" /> Generate TOL for shop admin
-        </p>
-        <p className="text-sm text-gray-600">
-          Shop admin pastes this code on <strong>Activate Shop Admin (TOL)</strong>. Do not confuse with agent TAS.
-        </p>
-        <TextInput
-          label="Shop name"
-          value={shopName}
-          onChange={(e) => setShopName(e.target.value)}
-          placeholder="e.g. Bole Hall"
-        />
-        <TextInput
-          label="Commission % (from agent earnings)"
-          type="number"
-          min={0}
-          max={100}
-          step={1}
-          value={commissionRate}
-          onChange={(e) => setCommissionRate(e.target.value)}
-        />
-        <div className="flex flex-wrap gap-3">
-          <button
-            type="button"
-            onClick={() => generate(7)}
-            disabled={generating}
-            className="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
-          >
-            {generating ? 'Generating…' : 'Weekly TOL (7 days)'}
-          </button>
-          <button
-            type="button"
-            onClick={() => generate(30)}
-            disabled={generating}
-            className="rounded-lg bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-60"
-          >
-            Monthly TOL (30 days)
-          </button>
-        </div>
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        {generated && (
-          <div className="rounded-lg border-2 border-emerald-400 bg-emerald-50 p-4">
-            <p className="flex items-center gap-2 text-sm font-semibold text-emerald-900">
-              <Send className="h-4 w-4" /> Copy and send to shop admin
-            </p>
-            <p className="mt-1 text-xs text-emerald-800">
-              {generated.validDays}-day {generated.period} · expires {formatDate(generated.validUntil)}
-            </p>
-            <p className="mt-3 break-all rounded-lg border border-emerald-200 bg-white p-3 font-mono text-xs select-all">
-              {generated.code}
-            </p>
-            <CopyButton text={generated.code} label="Copy TOL code" variant="primary" className="mt-3" />
-          </div>
-        )}
+      <div className="rounded-xl border border-amber-400/40 bg-amber-500/10 p-4 text-sm text-amber-100">
+        <p className="flex items-center gap-2 font-semibold"><Send className="h-4 w-4" /> Send to each new shop</p>
+        <p className="mt-2">Installer <strong>.exe</strong> + shop admin login + <strong>TOL</strong> + first <strong>TVP</strong> top-up code</p>
       </div>
     </div>
   );

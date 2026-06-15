@@ -20,6 +20,7 @@ const shopAdminNav: Array<{
   badge?: boolean;
 }> = [
   { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/admin/wallet', label: 'Shop Balance (TVP)', icon: Wallet },
   { href: '/admin/agents', label: 'Agents (TAS)', icon: Users },
   { href: '/admin/vouchers', label: 'Recharge (TBG)', icon: Ticket },
   { href: '/admin/recharge', label: 'Recharge Requests', icon: Wallet, badge: true },

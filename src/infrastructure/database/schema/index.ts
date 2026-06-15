@@ -213,6 +213,43 @@ export const systemSettings = sqliteTable('system_settings', {
   updatedAt: integer('updated_at').notNull(),
 });
 
+/** Shop admin prepaid balance — funded by vendor TVP codes */
+export const operatorWalletTransactions = sqliteTable('operator_wallet_transactions', {
+  id: text('id').primaryKey(),
+  amount: real('amount').notNull(),
+  transactionType: text('transaction_type').notNull(),
+  referenceType: text('reference_type'),
+  referenceId: text('reference_id'),
+  description: text('description').notNull(),
+  balanceAfter: real('balance_after').notNull(),
+  createdAt: integer('created_at').notNull(),
+}, (t) => [index('idx_operator_wallet_tx').on(t.createdAt)]);
+
+/** Vendor PC ledger of TVP codes issued to shops */
+export const issuedVendorTopups = sqliteTable('issued_vendor_topups', {
+  id: text('id').primaryKey(),
+  code: text('code').notNull(),
+  codeHash: text('code_hash').notNull().unique(),
+  amount: real('amount').notNull(),
+  shopName: text('shop_name').notNull(),
+  nonce: text('nonce').notNull().unique(),
+  expiresAt: integer('expires_at').notNull(),
+  status: text('status').notNull().default('ISSUED'),
+  issuedBy: text('issued_by').notNull().references(() => users.id),
+  issuedAt: integer('issued_at').notNull(),
+  redeemedAt: integer('redeemed_at'),
+});
+
+/** Shop admin PC — redeemed vendor TVP codes (one-time) */
+export const usedVendorTopups = sqliteTable('used_vendor_topups', {
+  id: text('id').primaryKey(),
+  codeHash: text('code_hash').notNull().unique(),
+  nonce: text('nonce').notNull().unique(),
+  amount: real('amount').notNull(),
+  shopName: text('shop_name').notNull(),
+  redeemedAt: integer('redeemed_at').notNull(),
+});
+
 export type User = typeof users.$inferSelect;
 export type Agent = typeof agents.$inferSelect;
 export type BingoCard = typeof bingoCards.$inferSelect;

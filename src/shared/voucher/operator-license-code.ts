@@ -37,11 +37,13 @@ function decodePayload(encoded: string): OperatorLicensePayload | null {
       s?: string; e?: number; p?: LicensePeriod; c?: number;
     };
     if (!raw.s || !raw.e || !raw.p) return null;
+    const validUntil = Number(raw.e);
+    if (!Number.isFinite(validUntil) || validUntil <= 0) return null;
     return {
       shopName: raw.s,
-      validUntil: raw.e,
+      validUntil,
       period: raw.p,
-      vendorCommissionRate: typeof raw.c === 'number' ? raw.c : 20,
+      vendorCommissionRate: typeof raw.c === 'number' ? raw.c : Number(raw.c) || 20,
     };
   } catch {
     return null;
@@ -98,6 +100,11 @@ export function parseOperatorLicenseCode(code: string): {
 
   const payload = decodePayload(body);
   if (!payload) return { valid: false, error: 'License code could not be read' };
+
+  const now = Math.floor(Date.now() / 1000);
+  if (payload.validUntil < now) {
+    return { valid: false, error: 'This license code has already expired' };
+  }
 
   return { valid: true, payload };
 }

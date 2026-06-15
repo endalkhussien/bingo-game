@@ -15,6 +15,8 @@ import * as notifications from '../services/notification-service';
 import * as audit from '../services/audit-service';
 import * as agentSelf from '../services/agent-self-service';
 import * as operatorLicense from '../services/operator-license-service';
+import * as operatorWallet from '../services/operator-wallet-service';
+import * as vendorTopup from '../services/vendor-topup-service';
 import { isAdminRole, isVendorRole } from '../../src/shared/roles';
 import { speakNumber, speakBallCall, listInstalledVoices } from '../tts/tts-engine';
 
@@ -160,6 +162,34 @@ export function registerIpcHandlers() {
     await requireVendor(event);
     const days = validDays === 30 ? 30 : 7;
     return operatorLicense.generateVendorLicenseCode(shopName, days as 7 | 30, commissionRate);
+  });
+
+  // ── Shop admin wallet (TVP from vendor) ──
+  ipcMain.handle('operator-wallet:balance', async (event) => {
+    await requireShopAdmin(event);
+    return operatorWallet.getOperatorWalletBalance();
+  });
+  ipcMain.handle('operator-wallet:transactions', async (event) => {
+    await requireShopAdmin(event);
+    return operatorWallet.getOperatorWalletTransactions();
+  });
+  ipcMain.handle('operator-wallet:redeem', async (event, code: string) => {
+    await requireShopAdmin(event);
+    return operatorWallet.redeemVendorTopupCode(code.trim());
+  });
+
+  // ── Vendor top-up codes (TVP) for shop admin balance ──
+  ipcMain.handle('vendor-topup:generate', async (event, shopName: string, amount: number) => {
+    const s = await requireVendor(event);
+    return vendorTopup.generateVendorTopup(s.user.id, shopName, amount);
+  });
+  ipcMain.handle('vendor-topup:list', async (event) => {
+    await requireVendor(event);
+    return vendorTopup.listVendorTopups();
+  });
+  ipcMain.handle('vendor-topup:summary', async (event) => {
+    await requireVendor(event);
+    return vendorTopup.getVendorTopupSummary();
   });
 
   // ── Dashboard ──
