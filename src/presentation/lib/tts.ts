@@ -2,7 +2,8 @@ import { formatAmharicBallCall } from '@/shared/tts/amharic-ball-call';
 import { getBallCallSpeechParts } from '@/shared/tts/ball-call';
 import { buildCartellaAnnouncement } from '@/shared/tts/voice-map';
 import { playAmharicBall, playBallCallAudio } from './amharic-audio';
-import { ipc, isElectron } from './ipc';
+import { ipc } from './ipc';
+import { isElectron } from '@/shared/runtime';
 
 let queue: Promise<void> = Promise.resolve();
 
@@ -56,17 +57,17 @@ async function speakBrowser(text: string, lang: string, preferFemale: boolean): 
   });
 }
 
-/** Play ball call — Electron main-process audio first, then MP3, then browser speech. */
+/** Play ball call — MP3 first (sharp sync), then Electron TTS, then browser speech. */
 export async function speakBallCall(number: number, voiceType: string, language: string): Promise<void> {
   const preferFemale = voiceType.includes('FEMALE');
   const { letter, numberText } = getBallCallSpeechParts(number, language);
+
+  if (await playBallCallAudio(number, language)) return;
 
   if (isElectron()) {
     const result = await ipc<{ success: boolean }>('tts:speak-ball-call', number, language, voiceType);
     if (result?.success) return;
   }
-
-  if (await playBallCallAudio(number, language)) return;
 
   if (language === 'am') {
     await speakBrowser(formatAmharicBallCall(number), 'am-ET', preferFemale);
@@ -89,13 +90,13 @@ export function speakCartella(number: number, voiceType: string, language: strin
   queue = queue.then(async () => {
     const payload = buildCartellaAnnouncement(number, voiceType, language);
 
+    if (payload.isAmharic && await playAmharicBall(number)) {
+      return;
+    }
+
     if (isElectron()) {
       const result = await ipc<{ success: boolean }>('tts:speak', number, voiceType, language, 'cartella');
       if (result?.success) return;
-    }
-
-    if (payload.isAmharic && await playAmharicBall(number)) {
-      return;
     }
 
     await speakBrowser(payload.text, payload.lang, payload.preferFemale);

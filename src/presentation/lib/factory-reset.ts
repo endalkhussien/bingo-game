@@ -1,4 +1,5 @@
-import { ipc, isElectron } from '@/presentation/lib/ipc';
+import { ipc } from '@/presentation/lib/ipc';
+import { isElectron } from '@/shared/runtime';
 
 export type FactoryResetResult =
   | { ok: true; message: string }

@@ -19,7 +19,7 @@ export const WINNING_PATTERNS = [
 
 export const DEFAULT_JACKPOT_MAX_CALLS = 45;
 
-/** Pause after each ball call audio finishes — typical hall pace is 3–5 seconds. */
+/** Target time between ball calls (voice + gap) — 4 sec is standard hall pace. */
 export const DEFAULT_CALL_COOLDOWN_MS = 4000;
 
 export const DRAW_INTERVALS = [
