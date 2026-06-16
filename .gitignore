@@ -13,6 +13,7 @@ data/
 .env
 .env.local
 .dev-port
+recording-checklist.txt
 .DS_Store
 *.log
 test-results/

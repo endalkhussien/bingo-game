@@ -25,6 +25,8 @@
     "test": "playwright test",
     "test:smoke": "node scripts/smoke-test.mjs",
     "generate:amharic-audio": "node scripts/generate-amharic-audio.mjs",
+    "recording:script": "node scripts/print-recording-script.mjs",
+    "validate:audio": "node scripts/validate-custom-audio.mjs",
     "validate:release": "node scripts/validate-release.mjs",
     "test:cross-pc": "node scripts/test-cross-pc-flow.mjs",
     "test:calling-engine": "npx tsx scripts/test-calling-engine.mjs",
