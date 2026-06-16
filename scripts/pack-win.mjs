@@ -17,6 +17,11 @@ const root = path.join(__dirname, '..');
 const soundsDir = path.join(root, 'public', 'sounds', 'am');
 const ballCallDir = path.join(root, 'public', 'audio');
 
+function loadBrand() {
+  const configPath = path.join(root, 'brand.config.json');
+  return JSON.parse(fs.readFileSync(configPath, 'utf8'));
+}
+
 function run(cmd, env = {}) {
   execSync(cmd, { cwd: root, stdio: 'inherit', env: { ...process.env, ...env } });
 }
@@ -36,8 +41,10 @@ function ensureAmharicAudio() {
   }
 }
 
+const brand = loadBrand();
+
 console.log('========================================');
-console.log('  TEBIB-Bingo — Windows installer build');
+console.log(`  ${brand.appName} — Windows installer build`);
 console.log('========================================\n');
 
 ensureAmharicAudio();
@@ -52,7 +59,11 @@ console.log('\n→ Running release validation...\n');
 run('node scripts/validate-release.mjs');
 
 console.log('\n→ Creating Windows installer + portable...\n');
-run('npx electron-builder --win --config electron-builder.yml', { NODE_ENV: 'production' });
+const productName = brand.appName.replace(/"/g, '\\"');
+run(
+  `npx electron-builder --win --config electron-builder.yml --config.productName="${productName}" --config.nsis.shortcutName="${productName}" --config.nsis.uninstallDisplayName="${productName}"`,
+  { NODE_ENV: 'production' },
+);
 
 const releaseDir = path.join(root, 'release');
 const exes = fs.existsSync(releaseDir)

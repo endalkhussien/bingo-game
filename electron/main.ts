@@ -3,6 +3,7 @@ import path from 'path';
 import { initDatabase } from './services/database-service';
 import { registerIpcHandlers } from './ipc/handlers';
 import { startStaticServer } from './utils/static-server';
+import { APP_NAME } from '../src/shared/brand';
 
 let mainWindow: BrowserWindow | null = null;
 let closeStaticServer: (() => void) | null = null;
@@ -39,7 +40,7 @@ async function createWindow() {
     height: 900,
     minWidth: 1024,
     minHeight: 700,
-    title: 'TEBIB-Bingo',
+    title: APP_NAME,
     show: true,
     backgroundColor: '#f9fafb',
     webPreferences: {
@@ -54,7 +55,7 @@ async function createWindow() {
     { label: 'File', submenu: [{ role: 'reload' }, { type: 'separator' }, { role: 'quit' }] },
     { label: 'Edit', submenu: [{ role: 'undo' }, { role: 'redo' }, { type: 'separator' }, { role: 'cut' }, { role: 'copy' }, { role: 'paste' }] },
     { label: 'View', submenu: [{ role: 'toggleDevTools' }, { type: 'separator' }, { role: 'resetZoom' }, { role: 'zoomIn' }, { role: 'zoomOut' }] },
-    { label: 'Help', submenu: [{ label: 'TEBIB-Bingo v1.0' }] },
+    { label: 'Help', submenu: [{ label: `${APP_NAME} v1.0` }] },
   ]));
 
   const uiReady = loadUi(mainWindow).catch((err) => {

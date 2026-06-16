@@ -15,6 +15,6 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["electron/**/*", "src/infrastructure/**/*", "src/domain/**/*", "src/shared/**/*"],
+  "include": ["electron/**/*", "src/infrastructure/**/*", "src/domain/**/*", "src/shared/**/*", "brand.config.json"],
   "exclude": ["node_modules", "src/presentation/**/*"]
 }

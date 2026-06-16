@@ -9,6 +9,7 @@ import { AdminSidebar } from '@/presentation/components/layout/admin-sidebar';
 import { AdminHeader } from '@/presentation/components/layout/admin-header';
 import { ipc } from '@/presentation/lib/ipc';
 import { APP_NAME } from '@/shared/brand';
+import { AppLogo } from '@/presentation/components/shared/app-logo';
 import { isShopAdminRole, isVendorRole } from '@/shared/roles';
 import { isAdminSetupPath, SHOP_ADMIN_HOME, VENDOR_HOME } from '@/shared/admin-routes';
 
@@ -70,9 +71,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <div className="min-h-screen bg-gray-50">
         <header className="border-b border-gray-200 bg-white px-6 py-4 shadow-sm">
           <div className="mx-auto flex max-w-3xl items-center justify-between gap-4">
-            <div>
-              <p className="font-bold text-gray-900">{APP_NAME}</p>
-              <p className="text-xs text-gray-500">Shop admin setup</p>
+            <div className="flex items-center gap-3">
+              <AppLogo size={36} />
+              <div>
+                <p className="font-bold text-gray-900">{APP_NAME}</p>
+                <p className="text-xs text-gray-500">Shop admin setup</p>
+              </div>
             </div>
             <div className="flex flex-wrap items-center gap-3 text-sm">
               <Link href="/admin/license/" className="font-medium text-indigo-700 hover:underline">TOL License</Link>

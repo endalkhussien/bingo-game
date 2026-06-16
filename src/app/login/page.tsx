@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/presentation/providers/auth-provider';
 import { APP_NAME, APP_TAGLINE } from '@/shared/brand';
+import { AppLogo } from '@/presentation/components/shared/app-logo';
 import { ipc } from '@/presentation/lib/ipc';
 import { getPostLoginPath, getShopAdminEntryPath, isShopAdminRole, ROLE_OPERATOR } from '@/shared/roles';
 import { TextInput } from '@/presentation/components/shared/text-input';
@@ -102,12 +103,15 @@ export default function LoginPage() {
       <div className="relative z-10 flex w-full flex-col lg:flex-row">
         <div className="flex flex-1 flex-col justify-between px-8 py-10 lg:px-14 lg:py-12">
           <div>
-            <div className="mb-8 flex gap-2">
-              {BINGO_LETTERS.map(({ letter, color }) => (
-                <div key={letter} className={`flex h-12 w-12 items-center justify-center rounded-xl ${color} text-xl font-black text-white shadow-lg`}>
-                  {letter}
-                </div>
-              ))}
+            <div className="mb-6 flex items-center gap-4">
+              <AppLogo size={72} className="rounded-2xl shadow-lg ring-2 ring-white/20" />
+              <div className="flex gap-2">
+                {BINGO_LETTERS.map(({ letter, color }) => (
+                  <div key={letter} className={`flex h-10 w-10 items-center justify-center rounded-lg ${color} text-lg font-black text-white shadow`}>
+                    {letter}
+                  </div>
+                ))}
+              </div>
             </div>
             <h1 className="text-4xl font-black tracking-tight text-white lg:text-5xl">{APP_NAME}</h1>
             <p className="mt-3 text-lg text-slate-300">{APP_TAGLINE}</p>
