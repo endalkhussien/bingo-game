@@ -509,6 +509,9 @@ export default function GameBoardPage() {
             className="rounded-lg border px-3 py-2 text-sm disabled:bg-gray-100">
             {DRAW_INTERVALS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
           </select>
+          {!activeGame && (
+            <p className="mt-1 text-xs text-gray-500">Time per ball (voice + gap). Default 4 sec standard.</p>
+          )}
         </div>
         <div>
           <label className="mb-1 block text-sm font-medium text-gray-700">Pattern</label>

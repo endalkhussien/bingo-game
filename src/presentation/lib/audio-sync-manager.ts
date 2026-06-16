@@ -77,14 +77,17 @@ export class AudioSyncManager {
       if (this.aborted) return;
 
       this.emit('audio-start');
+      const paceMs = cooldownMs ?? this.cooldownMs;
+      const cycleStart = Date.now();
       await playAudio(number);
       if (this.aborted) return;
       this.emit('audio-end');
 
-      const waitMs = cooldownMs ?? this.cooldownMs;
-      if (waitMs > 0 && !this.aborted) {
+      // Pace = total time per ball (voice + gap). e.g. 4 sec standard ≈ 1.5s voice + 2.5s gap.
+      const remaining = Math.max(0, paceMs - (Date.now() - cycleStart));
+      if (remaining > 0 && !this.aborted) {
         this.emit('cooldown-start');
-        await abortableDelay(waitMs, () => this.aborted);
+        await abortableDelay(remaining, () => this.aborted);
         if (!this.aborted) this.emit('cooldown-end');
       }
     } finally {
