@@ -16,5 +16,5 @@
     }
   },
   "include": ["electron/**/*", "src/infrastructure/**/*", "src/domain/**/*", "src/shared/**/*"],
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules", "src/presentation/**/*"]
 }

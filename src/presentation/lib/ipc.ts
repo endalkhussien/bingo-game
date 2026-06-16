@@ -1,3 +1,5 @@
+import { isElectron as detectElectron } from '@/shared/runtime';
+
 declare global {
   interface Window {
     electronAPI?: {
@@ -7,9 +9,7 @@ declare global {
   }
 }
 
-export function isElectron(): boolean {
-  return typeof window !== 'undefined' && !!window.electronAPI;
-}
+export const isElectron = detectElectron;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function ipc<T = any>(channel: string, ...args: unknown[]): Promise<T> {
