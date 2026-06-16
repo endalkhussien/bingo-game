@@ -134,7 +134,9 @@ export function registerIpcHandlers() {
             : 'Only shop admin can activate TOL. Login as admin.',
         };
       }
-      return await operatorLicense.activateOperatorLicense(code.trim());
+      return await operatorLicense.activateOperatorLicense(
+        String(code ?? '').replace(/\s+/g, ''),
+      );
     } catch (err) {
       return { success: false, error: err instanceof Error ? err.message : 'Activation failed' };
     }

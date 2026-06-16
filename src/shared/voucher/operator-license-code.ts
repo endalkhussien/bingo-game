@@ -73,12 +73,17 @@ export function generateOperatorLicenseCode(
   };
 }
 
+/** Strip spaces/newlines from pasted codes (Telegram, email wraps, etc.). */
+export function normalizeOperatorLicenseCodeInput(code: string): string {
+  return code.replace(/\s+/g, '');
+}
+
 export function parseOperatorLicenseCode(code: string): {
   valid: boolean;
   error?: string;
   payload?: OperatorLicensePayload;
 } {
-  const normalized = code.trim();
+  const normalized = normalizeOperatorLicenseCodeInput(code);
   if (!normalized.startsWith('TOL-')) {
     return { valid: false, error: 'Invalid license code. Ask your vendor for a TOL- code.' };
   }
