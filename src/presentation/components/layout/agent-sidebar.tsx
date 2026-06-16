@@ -7,6 +7,7 @@ import { cn } from '@/presentation/lib/utils';
 import { useAuth } from '@/presentation/providers/auth-provider';
 import { useEffect, useState } from 'react';
 import { APP_NAME, APP_TAGLINE } from '@/shared/brand';
+import { AppLogo } from '@/presentation/components/shared/app-logo';
 import { ipc } from '@/presentation/lib/ipc';
 
 const navItems = [
@@ -32,7 +33,7 @@ export function AgentSidebar() {
   return (
     <aside className="flex w-56 flex-col bg-sidebar text-white">
       <div className="flex items-center gap-2 border-b border-white/10 px-4 py-5">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500 text-lg font-bold">T</div>
+        <AppLogo size={40} />
         <div>
           <div className="text-sm font-bold leading-tight">{APP_NAME}</div>
           <div className="text-[10px] text-gray-400">{APP_TAGLINE}</div>

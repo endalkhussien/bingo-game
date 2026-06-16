@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { LogOut } from 'lucide-react';
 import { useAuth } from '@/presentation/providers/auth-provider';
 import { APP_NAME } from '@/shared/brand';
+import { AppLogo } from '@/presentation/components/shared/app-logo';
 import { isVendorRole, getShopAdminEntryPath } from '@/shared/roles';
 import { ipc } from '@/presentation/lib/ipc';
 import { VendorSidebar } from '@/presentation/components/layout/vendor-sidebar';
@@ -40,9 +41,12 @@ export default function VendorLayout({ children }: { children: React.ReactNode }
       <div className="flex min-h-screen flex-1 flex-col">
         <header className="border-b border-white/10 bg-violet-950/80 px-6 py-4">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-lg font-bold">{APP_NAME}</p>
-              <p className="text-xs text-violet-300">Vendor portal — TOL licenses & TVP top-ups</p>
+            <div className="flex items-center gap-3">
+              <AppLogo size={40} />
+              <div>
+                <p className="text-lg font-bold">{APP_NAME}</p>
+                <p className="text-xs text-violet-300">Vendor portal — TOL licenses & TVP top-ups</p>
+              </div>
             </div>
             <div className="flex items-center gap-4">
               <span className="text-sm text-violet-200">{user.fullName}</span>

@@ -25,10 +25,11 @@ win:
     - target: portable
       arch:
         - x64
+  icon: brand/icon.ico
   signAndEditExecutable: false
 
 nsis:
-  artifactName: TEBIB-Bingo-Setup-${version}.${ext}
+  artifactName: ${productName}-Setup-${version}.${ext}
   oneClick: false
   allowToChangeInstallationDirectory: true
   allowElevation: true
@@ -40,4 +41,4 @@ nsis:
   include: build/installer.nsh
 
 portable:
-  artifactName: TEBIB-Bingo-Portable-${version}.${ext}
+  artifactName: ${productName}-Portable-${version}.${ext}
