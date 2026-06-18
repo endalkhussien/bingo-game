@@ -1,8 +1,8 @@
 {
-  "name": "bingo-management-platform",
+  "name": "waliya-management-platform",
   "version": "1.0.0",
-  "description": "TEBIB-Bingo — offline bingo management for agents and admins (Windows 8+)",
-  "author": "TEBIB-Bingo",
+  "description": "Waliya — offline game management for agents and admins (Windows 8+)",
+  "author": "Waliya",
   "main": "dist-electron/electron/main.js",
   "scripts": {
     "setup": "npm install && npm run build:electron && npm run rebuild:native",

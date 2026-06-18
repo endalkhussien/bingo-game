@@ -42,6 +42,13 @@ export async function createGame(agentId: string, config: {
   const agent = await db.select().from(agents).where(eq(agents.id, agentId)).get();
   if (!agent) return { success: false, error: 'Agent not found' };
 
+  if (agent.walletBalance <= 0) {
+    return {
+      success: false,
+      error: 'Wallet balance is 0. Recharge with a TBG code from your admin before starting a game.',
+    };
+  }
+
   const playerCount = config.selectedNumbers.length;
   if (playerCount === 0) {
     return { success: false, error: 'Select at least one cartella.' };
@@ -72,7 +79,7 @@ export async function createGame(agentId: string, config: {
     const extra = missing.length > 8 ? ` (+${missing.length - 8} more)` : '';
     return {
       success: false,
-      error: `Cartella(s) not in your deck: ${shown}${extra}. Add them on Bingo Cards first.`,
+      error: `Cartella(s) not in your deck: ${shown}${extra}. Add them on Waliya Cards first.`,
     };
   }
 

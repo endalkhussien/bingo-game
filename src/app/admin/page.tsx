@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/presentation/providers/auth-provider';
 import { ipc } from '@/presentation/lib/ipc';
-import { getShopAdminEntryPath, isShopAdminRole } from '@/shared/roles';
+import { getShopAdminEntryPath, isShopAdminRole, type ShopLicenseStatus } from '@/shared/roles';
 
 export default function AdminIndexPage() {
   const { user, isLoading } = useAuth();
@@ -16,9 +16,9 @@ export default function AdminIndexPage() {
       router.replace('/login');
       return;
     }
-    ipc<{ active: boolean }>('license:status')
-      .then((status) => router.replace(getShopAdminEntryPath(!!status?.active)))
-      .catch(() => router.replace(getShopAdminEntryPath(false)));
+    ipc<ShopLicenseStatus>('license:status')
+      .then((status) => router.replace(getShopAdminEntryPath(status ?? { active: false, needsActivation: true, activated: false, needsTopup: false })))
+      .catch(() => router.replace(getShopAdminEntryPath({ active: false, needsActivation: true, activated: false, needsTopup: false })));
   }, [user, isLoading, router]);
 
   return (

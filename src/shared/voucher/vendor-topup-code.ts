@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { decodeBase64Url, encodeBase64Url } from './base64url';
 
 const TOPUP_SIGNING_KEY = 'tebib-bingo-v1-vendor-topup-signing-secret';
 
@@ -22,17 +23,17 @@ function sign(data: string): string {
 }
 
 function encodePayload(payload: VendorTopupPayload): string {
-  return Buffer.from(JSON.stringify({
+  return encodeBase64Url(JSON.stringify({
     a: payload.amount,
     e: payload.validUntil,
     s: payload.shopName,
     n: payload.nonce,
-  }), 'utf8').toString('base64url');
+  }));
 }
 
 function decodePayload(encoded: string): VendorTopupPayload | null {
   try {
-    const raw = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8')) as {
+    const raw = JSON.parse(decodeBase64Url(encoded)) as {
       a?: number; e?: number; s?: string; n?: string;
     };
     if (!raw.s || !raw.n) return null;

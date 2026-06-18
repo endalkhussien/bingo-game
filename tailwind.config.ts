@@ -7,9 +7,9 @@ const config: Config = {
     extend: {
       colors: {
         sidebar: {
-          DEFAULT: '#1a1f2e',
-          hover: '#252b3d',
-          active: '#2d3548',
+          DEFAULT: '#1a1410',
+          hover: '#2a1f18',
+          active: '#3d2e1f',
         },
         bingo: {
           b: '#3b82f6',

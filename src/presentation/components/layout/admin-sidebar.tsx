@@ -45,7 +45,7 @@ export function AdminSidebar() {
   return (
     <aside className="flex w-60 flex-col bg-sidebar text-white">
       <div className="flex items-center gap-2 border-b border-white/10 px-4 py-5">
-        <AppLogo size={40} />
+        <AppLogo size={56} className="rounded-2xl shadow-md ring-2 ring-amber-500/20" />
         <div>
           <div className="text-sm font-bold">{APP_NAME}</div>
           <div className="text-[10px] text-gray-400">{user ? getRoleLabel(user.role) : 'Shop Admin'}</div>

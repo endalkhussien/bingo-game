@@ -8,10 +8,10 @@ import { useAuth } from '@/presentation/providers/auth-provider';
 import { APP_NAME, APP_TAGLINE } from '@/shared/brand';
 import { AppLogo } from '@/presentation/components/shared/app-logo';
 
-/** Minch Bingo sidebar — Game Board, Bingo Cards, Reports, Recharge */
+/** Waliya sidebar — Game Board, Waliya Cards, Reports, Recharge */
 const navItems = [
   { href: '/agent/game-board', label: 'Game Board', icon: Gamepad2 },
-  { href: '/agent/cards', label: 'Bingo Cards', icon: CreditCard },
+  { href: '/agent/cards', label: 'Waliya Cards', icon: CreditCard },
   { href: '/agent/reports', label: 'Reports', icon: BarChart3 },
   { href: '/agent/recharge', label: 'Recharge Balance', icon: RefreshCw },
 ];
@@ -21,12 +21,12 @@ export function AgentSidebar() {
   const { logout } = useAuth();
 
   return (
-    <aside className="flex w-56 flex-col bg-[#1e293b] text-white">
-      <div className="flex items-center gap-2 border-b border-white/10 px-4 py-5">
-        <AppLogo size={40} />
+    <aside className="flex w-56 flex-col bg-[#1a1410] text-white">
+      <div className="flex items-center gap-2 border-b border-amber-900/40 px-4 py-5">
+        <AppLogo size={56} className="rounded-2xl shadow-md ring-2 ring-amber-500/20" />
         <div>
           <div className="text-sm font-bold leading-tight">{APP_NAME}</div>
-          <div className="text-[10px] text-gray-400">{APP_TAGLINE}</div>
+          <div className="text-[10px] text-amber-200/50">{APP_TAGLINE}</div>
         </div>
       </div>
       <nav className="flex-1 space-y-1 px-3 py-4">
@@ -39,7 +39,7 @@ export function AgentSidebar() {
               href={item.href}
               className={cn(
                 'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-                active ? 'bg-[#334155] text-white' : 'text-gray-300 hover:bg-[#334155]/60 hover:text-white',
+                active ? 'bg-amber-800/60 text-white' : 'text-amber-100/70 hover:bg-amber-900/40 hover:text-white',
               )}
             >
               <Icon className="h-5 w-5" />

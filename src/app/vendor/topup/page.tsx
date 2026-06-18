@@ -74,7 +74,7 @@ export default function VendorTopupPage() {
         <p className="flex items-center gap-2 font-semibold">
           <Wallet className="h-5 w-5 text-emerald-600" /> Generate TVP prepaid code
         </p>
-        <TextInput label="Shop name" value={shopName} onChange={(e) => setShopName(e.target.value)} placeholder="Same name as TOL shop" />
+        <TextInput label="Shop name" value={shopName} onChange={(e) => setShopName(e.target.value)} placeholder="Same name as TAK shop" />
         <TextInput label="Amount (ETB)" type="number" min={1} step={1} value={amount} onChange={(e) => setAmount(e.target.value)} />
         <button type="button" onClick={generate} disabled={loading}
           className="rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60">

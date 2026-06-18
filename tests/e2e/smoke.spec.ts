@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('TEBIB-Bingo smoke tests', () => {
+test.describe('Waliya smoke tests', () => {
   test('agent can login and open game board', async ({ page }) => {
     await page.goto('/login/');
     await page.fill('input[type="text"]', 'agent');
@@ -32,7 +32,7 @@ test.describe('TEBIB-Bingo smoke tests', () => {
     await page.waitForURL(/agent\/dashboard/);
 
     await page.goto('/agent/cards/');
-    await expect(page.getByRole('heading', { name: 'Bingo Cards' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Waliya Cards' })).toBeVisible();
     const createBtn = page.getByRole('button', { name: /Create/i }).first();
     await createBtn.click();
     await expect(page.getByText(/Card #/)).toBeVisible({ timeout: 10000 });

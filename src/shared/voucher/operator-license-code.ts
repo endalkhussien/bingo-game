@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { decodeBase64Url, encodeBase64Url } from './base64url';
 
 const LICENSE_SIGNING_KEY = 'tebib-bingo-v1-operator-license-signing-secret';
 
@@ -23,17 +24,17 @@ function sign(data: string): string {
 }
 
 function encodePayload(payload: OperatorLicensePayload): string {
-  return Buffer.from(JSON.stringify({
+  return encodeBase64Url(JSON.stringify({
     s: payload.shopName,
     e: payload.validUntil,
     p: payload.period,
     c: payload.vendorCommissionRate,
-  }), 'utf8').toString('base64url');
+  }));
 }
 
 function decodePayload(encoded: string): OperatorLicensePayload | null {
   try {
-    const raw = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8')) as {
+    const raw = JSON.parse(decodeBase64Url(encoded)) as {
       s?: string; e?: number; p?: LicensePeriod; c?: number;
     };
     if (!raw.s || !raw.e || !raw.p) return null;

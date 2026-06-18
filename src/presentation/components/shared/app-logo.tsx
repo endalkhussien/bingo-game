@@ -17,7 +17,7 @@ export function AppLogo({ size = 40, className = '' }: AppLogoProps) {
   if (failed) {
     return (
       <div
-        className={`flex shrink-0 items-center justify-center rounded-lg bg-indigo-500 font-bold text-white ${className}`}
+        className={`flex shrink-0 items-center justify-center rounded-lg bg-amber-600 font-bold text-white ${className}`}
         style={{ width: size, height: size, fontSize: Math.round(size * 0.45) }}
         aria-hidden
       >

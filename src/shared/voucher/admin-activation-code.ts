@@ -1,6 +1,7 @@
 import crypto from 'crypto';
+import { decodeBase64Url, encodeBase64Url } from './base64url';
 
-const ACTIVATION_SIGNING_KEY = 'tebib-bingo-v1-admin-activation-signing-secret';
+const ACTIVATION_SIGNING_KEY = 'waliya-v1-admin-activation-signing-secret';
 
 export interface AdminActivationPayload {
   shopName: string;
@@ -22,17 +23,17 @@ function sign(data: string): string {
 }
 
 function encodePayload(payload: AdminActivationPayload): string {
-  return Buffer.from(JSON.stringify({
+  return encodeBase64Url(JSON.stringify({
     s: payload.shopName,
     a: payload.amount,
     c: payload.vendorCommissionRate,
     n: payload.nonce,
-  }), 'utf8').toString('base64url');
+  }));
 }
 
 function decodePayload(encoded: string): AdminActivationPayload | null {
   try {
-    const raw = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8')) as {
+    const raw = JSON.parse(decodeBase64Url(encoded)) as {
       s?: string; a?: number; c?: number; n?: string;
     };
     if (!raw.s || !raw.n) return null;

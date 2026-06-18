@@ -3,6 +3,8 @@ import brandConfig from '../../brand.config.json';
 /** Change name & tagline in brand.config.json at project root (one file). */
 export const APP_NAME = brandConfig.appName;
 export const APP_TAGLINE = brandConfig.tagline;
+export const BRAND_PRIMARY = (brandConfig as { primaryColor?: string }).primaryColor ?? '#b45309';
+export const BRAND_ACCENT = (brandConfig as { accentColor?: string }).accentColor ?? '#7c3aed';
 
 /** Put your logo in public/brand/logo.png (PNG, square, ~256–512 px). */
 export const APP_LOGO_SRC = `/brand/${brandConfig.logoFile}`;

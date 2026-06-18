@@ -153,9 +153,15 @@ function requireShopAdminRoleOnly() {
   return session;
 }
 
-function requireShopAdminSession() {
+function requireShopAdminActivatedOnly() {
   const session = requireShopAdminRoleOnly();
-  if (!mockAdminActivated) throw new Error('OPERATOR_LICENSE_EXPIRED');
+  if (!mockAdminActivated) throw new Error('SHOP_NOT_ACTIVATED');
+  return session;
+}
+
+function requireShopAdminSession() {
+  const session = requireShopAdminActivatedOnly();
+  if (mockOperatorWalletBalance <= 0) throw new Error('SHOP_BALANCE_EMPTY');
   return session;
 }
 
@@ -178,7 +184,7 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
       return { success: true, data: { token: 'mock', user: currentSession.user, agent: currentSession.agent } };
     }
     if (username === 'vendor' && password === 'vendor2024') {
-      currentSession = { user: { id: 'v1', fullName: 'TEBIB Vendor', username: 'vendor', role: 'SUPER_ADMIN' }, agent: null };
+      currentSession = { user: { id: 'v1', fullName: 'Waliya Vendor', username: 'vendor', role: 'SUPER_ADMIN' }, agent: null };
       saveSession(currentSession);
       return { success: true, data: { token: 'mock', user: currentSession.user, agent: null } };
     }
@@ -439,6 +445,9 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
 
   'games:create': async (config: unknown) => {
     requireSession();
+    if (mockBalance <= 0) {
+      return { success: false, error: 'Wallet balance is 0. Recharge with a TBG code from your admin before starting a game.' };
+    }
     const c = config as { betAmount: number; selectedNumbers: number[]; voiceType?: string; language?: string; drawSpeedMs?: number; commissionRate?: number };
     const playerCount = c.selectedNumbers?.length ?? 0;
     if (playerCount === 0) return { success: false, error: 'Select at least one cartella.' };
@@ -452,7 +461,7 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
     initMockDeck();
     const missing = (c.selectedNumbers ?? []).filter((n) => !mockCards.some((card) => card.cardNumber === String(n)));
     if (missing.length > 0) {
-      return { success: false, error: `Cartella(s) not in your deck: ${missing.slice(0, 8).join(', ')}. Add them on Bingo Cards first.` };
+      return { success: false, error: `Cartella(s) not in your deck: ${missing.slice(0, 8).join(', ')}. Add them on Waliya Cards first.` };
     }
     const game = {
       id: `game-${mockGames.length + 1}`, gameCode: `TBG-${1000 + mockGames.length}`, status: 'PAUSED',
@@ -644,13 +653,13 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
   'audit:list': async () => mockAuditLogs,
 
   'license:status': async () => ({
-    active: mockAdminActivated,
+    activated: mockAdminActivated,
+    active: mockAdminActivated && mockOperatorWalletBalance > 0,
     shopName: mockAdminActivated ? 'Demo Shop' : '',
     vendorCommissionRate: 20,
     walletBalance: mockOperatorWalletBalance,
-    validUntil: mockAdminActivated ? Math.floor(Date.now() / 1000) + 86400 * 365 : 0,
-    period: '',
-    daysRemaining: mockAdminActivated ? 365 : 0,
+    needsActivation: !mockAdminActivated,
+    needsTopup: mockAdminActivated && mockOperatorWalletBalance <= 0,
   }),
   'license:activate': async (code: unknown) => {
     requireShopAdminRoleOnly();
@@ -713,15 +722,15 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
   },
 
   'operator-wallet:balance': async () => {
-    requireShopAdminSession();
+    requireShopAdminActivatedOnly();
     return mockOperatorWalletBalance;
   },
   'operator-wallet:transactions': async () => {
-    requireShopAdminSession();
+    requireShopAdminActivatedOnly();
     return mockOperatorWalletTxs;
   },
   'operator-wallet:redeem': async (code: unknown) => {
-    requireShopAdminSession();
+    requireShopAdminActivatedOnly();
     const parsed = parseVendorTopupCode(String(code ?? ''));
     if (!parsed.valid || !parsed.payload) {
       return { success: false, error: parsed.error ?? 'Invalid TVP code' };

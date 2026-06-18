@@ -1,5 +1,5 @@
-appId: com.tebibbingo.app
-productName: TEBIB-Bingo
+appId: com.waliya.app
+productName: Waliya
 # Electron 22 — last major version supporting Windows 8 / 8.1
 electronVersion: 22.3.27
 directories:
@@ -36,8 +36,8 @@ nsis:
   perMachine: false
   createDesktopShortcut: true
   createStartMenuShortcut: true
-  shortcutName: TEBIB-Bingo
-  uninstallDisplayName: TEBIB-Bingo
+  shortcutName: Waliya
+  uninstallDisplayName: Waliya
   include: build/installer.nsh
 
 portable:

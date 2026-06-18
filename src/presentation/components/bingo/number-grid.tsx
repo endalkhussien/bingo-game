@@ -41,7 +41,7 @@ export function NumberGrid({ availableNumbers, selectedSet, onToggle, onClear, d
           <p className="font-medium">No cartellas in your deck</p>
           <p className="mt-2">
             <Link href="/agent/cards/" className="font-semibold text-indigo-600 underline">
-              Bingo Cards
+              Waliya Cards
             </Link>{' '}
             to add cartellas first.
           </p>

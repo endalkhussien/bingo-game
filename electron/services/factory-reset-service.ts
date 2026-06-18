@@ -58,6 +58,6 @@ export async function factoryReset(adminId: string) {
 
   return {
     success: true,
-    message: 'All data cleared. Paste TOL and TVP from vendor to start fresh. Create agents with zero balance — recharge them with TBG codes.',
+    message: 'All data cleared. Paste TAK from vendor to re-activate, then TVP for top-ups. Create agents with zero balance — recharge them with TBG codes.',
   };
 }

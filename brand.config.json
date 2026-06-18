@@ -1,8 +1,10 @@
 {
-  "appName": "TEBIB-Bingo",
+  "appName": "Waliya",
   "tagline": "Play · Win · Earn",
-  "logoFile": "logo.png",
+  "logoFile": "logo.svg",
   "iconFile": "icon.ico",
   "initialCartellaCount": 150,
-  "cartellaCount": 300
+  "cartellaCount": 300,
+  "primaryColor": "#b45309",
+  "accentColor": "#7c3aed"
 }

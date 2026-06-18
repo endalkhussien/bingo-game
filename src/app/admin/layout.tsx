@@ -10,8 +10,16 @@ import { AdminHeader } from '@/presentation/components/layout/admin-header';
 import { ipc } from '@/presentation/lib/ipc';
 import { APP_NAME } from '@/shared/brand';
 import { AppLogo } from '@/presentation/components/shared/app-logo';
-import { isShopAdminRole, isVendorRole } from '@/shared/roles';
-import { isAdminSetupPath, SHOP_ADMIN_HOME, TOL_JUST_ACTIVATED_KEY, VENDOR_HOME } from '@/shared/admin-routes';
+import { isShopAdminRole, isVendorRole, type ShopLicenseStatus } from '@/shared/roles';
+import {
+  isAdminLicensePath,
+  isAdminSetupPath,
+  isAdminWalletPath,
+  SHOP_ADMIN_LICENSE,
+  SHOP_ADMIN_WALLET,
+  TOL_JUST_ACTIVATED_KEY,
+  VENDOR_HOME,
+} from '@/shared/admin-routes';
 
 /** Shop admin only — vendor uses /vendor, agents use /agent. */
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -19,13 +27,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const router = useRouter();
   const pathname = usePathname();
   const onSetupPage = isAdminSetupPath(pathname);
-  const [licenseOk, setLicenseOk] = useState<boolean | null>(null);
+  const [licenseStatus, setLicenseStatus] = useState<ShopLicenseStatus | null>(null);
   const [licenseReady, setLicenseReady] = useState(false);
   const [licenseChecking, setLicenseChecking] = useState(false);
-  const [tolJustActivated, setTolJustActivated] = useState(false);
+  const [justActivated, setJustActivated] = useState(false);
 
   useEffect(() => {
-    setTolJustActivated(sessionStorage.getItem(TOL_JUST_ACTIVATED_KEY) === '1');
+    setJustActivated(sessionStorage.getItem(TOL_JUST_ACTIVATED_KEY) === '1');
   }, [pathname]);
 
   const checkLicense = useCallback((showSpinner = false) => {
@@ -33,15 +41,20 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     setLicenseChecking(true);
 
     if (!user || !isShopAdminRole(user.role)) {
-      setLicenseOk(null);
+      setLicenseStatus(null);
       setLicenseReady(true);
       setLicenseChecking(false);
       return;
     }
 
-    ipc<{ active: boolean }>('license:status')
-      .then((s) => setLicenseOk(s.active))
-      .catch(() => setLicenseOk(false))
+    ipc<ShopLicenseStatus>('license:status')
+      .then((s) => setLicenseStatus(s))
+      .catch(() => setLicenseStatus({
+        activated: false,
+        active: false,
+        needsActivation: true,
+        needsTopup: false,
+      }))
       .finally(() => {
         setLicenseReady(true);
         setLicenseChecking(false);
@@ -64,39 +77,47 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }, [pathname, user, checkLicense]);
 
   useEffect(() => {
-    if (licenseChecking || !licenseReady) return;
+    if (licenseChecking || !licenseReady || !licenseStatus) return;
 
-    if (tolJustActivated) {
-      if (licenseOk === true) {
+    if (justActivated) {
+      if (licenseStatus.active) {
         sessionStorage.removeItem(TOL_JUST_ACTIVATED_KEY);
-        setTolJustActivated(false);
+        setJustActivated(false);
       }
       return;
     }
 
-    if (licenseOk === false && isShopAdminRole(user?.role ?? '') && !onSetupPage) {
-      router.replace('/admin/license/');
+    if (!isShopAdminRole(user?.role ?? '')) return;
+
+    if (licenseStatus.needsActivation && !isAdminLicensePath(pathname)) {
+      router.replace(SHOP_ADMIN_LICENSE);
+      return;
     }
-  }, [licenseOk, licenseReady, licenseChecking, onSetupPage, router, user, tolJustActivated]);
+
+    if (licenseStatus.needsTopup && !isAdminWalletPath(pathname) && !onSetupPage) {
+      router.replace(SHOP_ADMIN_WALLET);
+    }
+  }, [licenseStatus, licenseReady, licenseChecking, onSetupPage, pathname, router, user, justActivated]);
 
   if (isLoading || (user && isShopAdminRole(user.role) && !licenseReady)) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-slate-100">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
-        <p className="text-lg font-medium text-slate-700">Loading…</p>
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[#1a1410]">
+        <AppLogo size={72} className="rounded-2xl shadow-lg" />
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-amber-500 border-t-transparent" />
+        <p className="text-lg font-medium text-amber-100/80">Loading…</p>
       </div>
     );
   }
 
   if (!user || !isShopAdminRole(user.role)) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-slate-100 p-6 text-center">
-        <AppLogo size={64} />
-        <p className="text-xl font-bold text-slate-900">Please sign in first</p>
-        <p className="max-w-sm text-slate-600">Use username <strong>admin</strong> on the login page, then come back here.</p>
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[#1a1410] p-6 text-center">
+        <AppLogo size={80} className="rounded-2xl shadow-lg" />
+        <p className="text-xl font-bold text-white">Please sign in first</p>
+        <p className="max-w-sm text-amber-100/70">Use username <strong className="text-white">admin</strong> on the login page, then come back here.</p>
         <Link
           href="/login/"
-          className="rounded-xl bg-emerald-600 px-8 py-3 text-lg font-bold text-white hover:bg-emerald-700"
+          className="rounded-xl bg-amber-600 px-8 py-3 text-lg font-bold text-white hover:bg-amber-700"
         >
           Go to Login
         </Link>
@@ -106,20 +127,20 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   if (onSetupPage) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-100 to-white">
-        <header className="border-b border-slate-200 bg-white px-6 py-4 shadow-sm">
+      <div className="min-h-screen bg-gradient-to-b from-[#1a1410] to-[#2a1f18]">
+        <header className="border-b border-amber-900/40 bg-[#1a1410]/90 px-6 py-4 shadow-sm">
           <div className="mx-auto flex max-w-2xl items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <AppLogo size={40} />
+            <div className="flex items-center gap-4">
+              <AppLogo size={56} className="rounded-2xl shadow-md ring-2 ring-amber-500/20" />
               <div>
-                <p className="text-lg font-bold text-slate-900">{APP_NAME}</p>
-                <p className="text-sm text-slate-500">Shop Admin Setup</p>
+                <p className="text-lg font-bold text-white">{APP_NAME}</p>
+                <p className="text-sm text-amber-200/70">Shop Admin Setup</p>
               </div>
             </div>
             <button
               type="button"
               onClick={() => logout()}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-amber-800/50 px-3 py-2 text-sm font-medium text-amber-100 hover:bg-amber-900/30"
             >
               <LogOut className="h-4 w-4" /> Logout
             </button>
@@ -130,16 +151,35 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     );
   }
 
-  if (licenseOk === false) {
+  if (licenseStatus?.needsActivation) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-slate-100 p-6 text-center">
-        <p className="text-xl font-bold text-slate-900">Activation required</p>
-        <p className="text-slate-600">Ask your vendor for an activation key, then paste it on the next screen.</p>
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[#1a1410] p-6 text-center">
+        <AppLogo size={80} className="rounded-2xl shadow-lg" />
+        <p className="text-xl font-bold text-white">Activation required</p>
+        <p className="text-amber-100/70">Ask your vendor for a TAK activation key, then paste it on the next screen.</p>
         <Link
-          href="/admin/license/"
-          className="rounded-xl bg-emerald-600 px-8 py-3 text-lg font-bold text-white hover:bg-emerald-700"
+          href={SHOP_ADMIN_LICENSE}
+          className="rounded-xl bg-amber-600 px-8 py-3 text-lg font-bold text-white hover:bg-amber-700"
         >
           Enter Activation Key
+        </Link>
+      </div>
+    );
+  }
+
+  if (licenseStatus?.needsTopup) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[#1a1410] p-6 text-center">
+        <AppLogo size={80} className="rounded-2xl shadow-lg" />
+        <p className="text-xl font-bold text-white">Balance is 0 — top-up required</p>
+        <p className="max-w-md text-amber-100/70">
+          Your shop is activated but has no TVP balance. Contact your vendor for a TVP code before you can operate or issue agent recharge codes.
+        </p>
+        <Link
+          href={SHOP_ADMIN_WALLET}
+          className="rounded-xl bg-amber-600 px-8 py-3 text-lg font-bold text-white hover:bg-amber-700"
+        >
+          Redeem TVP Top-up
         </Link>
       </div>
     );
