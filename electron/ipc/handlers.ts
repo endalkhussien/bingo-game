@@ -19,7 +19,7 @@ import * as operatorWallet from '../services/operator-wallet-service';
 import * as vendorTopup from '../services/vendor-topup-service';
 import * as factoryReset from '../services/factory-reset-service';
 import { isAdminRole, isVendorRole } from '../../src/shared/roles';
-import { speakNumber, speakBallCall, listInstalledVoices } from '../tts/tts-engine';
+import { speakNumber, speakBallCall, speakPlainText, listInstalledVoices } from '../tts/tts-engine';
 import { closeCallerDisplayWindow, openCallerDisplayWindow } from '../utils/caller-display-window';
 
 const sessions = new Map<number, string>();
@@ -387,6 +387,10 @@ export function registerIpcHandlers() {
   ipcMain.handle('tts:speak-ball-call', async (event, number: number, language: string, voiceType: string) => {
     await requireAuth(event);
     return speakBallCall(number, language, voiceType);
+  });
+  ipcMain.handle('tts:speak-text', async (event, text: string, lang: string, voiceType: string) => {
+    await requireAuth(event);
+    return speakPlainText(text, lang, voiceType);
   });
   ipcMain.handle('tts:test', async (event, voiceType: string, language: string, sample?: number) => {
     await requireAuth(event);

@@ -93,3 +93,15 @@ export function buildCartellaAnnouncement(
     preferFemale,
   };
 }
+
+/** Spoken once when the agent presses Start to begin calling */
+export function buildGameStartedAnnouncement(
+  language: string,
+  voiceType: string,
+): { text: string; lang: string; preferFemale: boolean } {
+  const preferFemale = voiceType.includes('FEMALE');
+  if (language === 'am') {
+    return { text: 'ጨዋታ ጀመረች', lang: 'am-ET', preferFemale };
+  }
+  return { text: 'Game has started', lang: 'en-US', preferFemale };
+}

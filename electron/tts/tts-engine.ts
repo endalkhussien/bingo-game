@@ -236,6 +236,17 @@ export async function speakNumber(
   return { success: false, error: 'TTS failed' };
 }
 
+export async function speakPlainText(text: string, lang: string, voiceType: string): Promise<SpeakResult> {
+  const preferFemale = voiceType.includes('FEMALE');
+  if (await speakWindowsSapi(text, lang)) {
+    return { success: true, engine: 'windows-sapi' };
+  }
+  if (await speakEspeak(text, lang, preferFemale)) {
+    return { success: true, engine: 'espeak-ng' };
+  }
+  return { success: false, error: 'TTS failed' };
+}
+
 export async function listInstalledVoices(): Promise<string[]> {
   if (process.platform !== 'win32') return [];
 

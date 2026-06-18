@@ -8,16 +8,16 @@ import { NumberGrid } from '@/presentation/components/bingo/number-grid';
 import { CalledNumbersModal } from '@/presentation/components/bingo/called-numbers-modal';
 import { CalledNumbersStrip } from '@/presentation/components/bingo/called-numbers-strip';
 import { CheckCardModal } from '@/presentation/components/bingo/check-card-modal';
-import { WINNING_PATTERNS, DRAW_INTERVALS, VOICE_TYPES, MIN_BET, DEFAULT_JACKPOT_MAX_CALLS, DEFAULT_CALL_COOLDOWN_MS } from '@/shared/constants';
+import { WINNING_PATTERNS, DRAW_INTERVALS, VOICE_TYPES, MIN_BET, DEFAULT_JACKPOT_MAX_CALLS, DEFAULT_CALL_COOLDOWN_MS, GAME_START_DELAY_MS } from '@/shared/constants';
 import { DRAW_BALL_COUNT } from '@/shared/brand';
-import { speakBallCall, speakCartella, loadVoices } from '@/presentation/lib/tts';
+import { speakBallCall, speakCartella, speakGameStarted, loadVoices } from '@/presentation/lib/tts';
 import { stopCurrentAudio, preloadBallCallClips } from '@/presentation/lib/amharic-audio';
 import { AudioSyncManager, runAutoCallLoop } from '@/presentation/lib/audio-sync-manager';
 import { CallingEngine } from '@/domain/services/calling-engine';
 import { getBallLabel } from '@/domain/services/bingo-engine';
 import { formatBallCallLabel } from '@/shared/tts/ball-call';
 import { calculateTotalPot, calculateGameEconomics, calculateWinnerPrize } from '@/shared/prize';
-import { broadcastLiveGame, type LiveGameSnapshot } from '@/presentation/lib/live-game-sync';
+import { broadcastLiveGame, subscribeGameControl, type LiveGameSnapshot, type CallingPhase } from '@/presentation/lib/live-game-sync';
 import { isElectron } from '@/shared/runtime';
 import { CallerDisplay } from '@/presentation/components/caller/caller-display';
 import Link from 'next/link';
@@ -57,6 +57,7 @@ function buildLiveSnapshot(
   called: number[],
   callHistory: CallHistoryEntry[],
   commissionRate: number,
+  callingPhase: CallingPhase,
 ): LiveGameSnapshot {
   const playerCount = game.playerCount ?? game.selectedNumbers?.length ?? 0;
   const { prize } = calculateWinnerPrize(game.betAmount, playerCount, commissionRate);
@@ -76,6 +77,7 @@ function buildLiveSnapshot(
     selectedNumbers: game.selectedNumbers,
     commissionRate,
     startedAt: Math.floor(Date.now() / 1000),
+    callingPhase,
   };
 }
 
@@ -120,6 +122,7 @@ export default function GameBoardPage() {
   const [callerTabBlocked, setCallerTabBlocked] = useState(false);
   const [showWebCallerPreview, setShowWebCallerPreview] = useState(false);
   const [availableCartellas, setAvailableCartellas] = useState<number[]>([]);
+  const [callingPhase, setCallingPhase] = useState<CallingPhase>('ready');
   const inBrowser = !isElectron();
 
   const syncManagerRef = useRef(new AudioSyncManager({
@@ -140,6 +143,8 @@ export default function GameBoardPage() {
   const intervalRef = useRef(interval);
   const voiceRef = useRef(voice);
   const languageRef = useRef(language);
+  const callingPhaseRef = useRef<CallingPhase>('ready');
+  const announcingRef = useRef(false);
 
   const playerCount = activeGame?.playerCount ?? activeGame?.selectedNumbers?.length ?? selected.length;
   const totalPot = activeGame?.totalPot ?? calculateTotalPot(parseFloat(betAmount || '0') || 0, playerCount);
@@ -180,14 +185,16 @@ export default function GameBoardPage() {
   useEffect(() => { isPausedRef.current = isPaused; }, [isPaused]);
   useEffect(() => { activeGameRef.current = activeGame; }, [activeGame]);
 
+  useEffect(() => { callingPhaseRef.current = callingPhase; }, [callingPhase]);
+
   useEffect(() => {
     if (!activeGame) return;
     const rate = parseFloat(commissionPercent) || 20;
     broadcastLiveGame({
       type: 'game-update',
-      payload: buildLiveSnapshot(activeGame, called, callHistory, rate),
+      payload: buildLiveSnapshot(activeGame, called, callHistory, rate, callingPhaseRef.current),
     });
-  }, [activeGame, called, callHistory, commissionPercent]);
+  }, [activeGame, called, callHistory, commissionPercent, callingPhase]);
 
   const handleLanguageChange = (lang: string) => {
     setLanguage(lang);
@@ -223,15 +230,12 @@ export default function GameBoardPage() {
         setGameWinners(game.winners ?? []);
         const drawnCount = game.drawnNumbers?.length ?? 0;
         const max = game.maxBalls ?? DRAW_BALL_COUNT;
-        if (!paused && drawnCount < max) {
-          autoDrawRef.current = true;
-          setAutoDraw(true);
-        } else {
-          autoDrawRef.current = false;
-          setAutoDraw(false);
-          if (drawnCount >= max) {
-            setDrawError('All numbers drawn');
-          }
+        autoDrawRef.current = false;
+        setAutoDraw(false);
+        setCallingPhase('ready');
+        if (drawnCount >= max) {
+          setDrawError('All numbers drawn');
+          setCallingPhase('paused');
         }
       }
     });
@@ -266,19 +270,21 @@ export default function GameBoardPage() {
     autoDrawRef.current = false;
     setAutoDraw(false);
     callingLoopIdRef.current += 1;
+    isPausedRef.current = true;
+    setIsPaused(true);
+    announcingRef.current = false;
+    setCallingPhase('paused');
     syncManagerRef.current.abort();
     stopCurrentAudio();
 
     if (!pauseOnServer || !activeGameRef.current) return;
 
-    isPausedRef.current = true;
-    setIsPaused(true);
     await ipc('games:pause', activeGameRef.current.id);
     setActiveGame((g) => g ? { ...g, status: 'PAUSED' } : g);
   }, []);
 
   const startCalling = useCallback(async (resumeOnServer = false) => {
-    if (!activeGameRef.current || bingoClaimActive) return;
+    if (!activeGameRef.current || bingoClaimActive || announcingRef.current) return;
 
     if (resumeOnServer) {
       await ipc('games:resume', activeGameRef.current.id);
@@ -289,11 +295,41 @@ export default function GameBoardPage() {
     setIsPaused(false);
     autoDrawRef.current = true;
     setAutoDraw(true);
+    setCallingPhase('calling');
   }, [bingoClaimActive]);
+
+  const beginCalling = useCallback(async () => {
+    if (!activeGameRef.current || autoDrawRef.current || bingoClaimActive || announcingRef.current) return;
+
+    announcingRef.current = true;
+    setCallingPhase('announcing');
+    syncManagerRef.current.abort();
+    stopCurrentAudio();
+
+    try {
+      await speakGameStarted(voiceRef.current, languageRef.current);
+      const delayStart = Date.now();
+      while (Date.now() - delayStart < GAME_START_DELAY_MS) {
+        if (!activeGameRef.current || isPausedRef.current) {
+          setCallingPhase('paused');
+          return;
+        }
+        await new Promise((r) => setTimeout(r, 50));
+      }
+    } finally {
+      announcingRef.current = false;
+    }
+
+    if (!activeGameRef.current || isPausedRef.current) {
+      setCallingPhase('paused');
+      return;
+    }
+    await startCalling(true);
+  }, [bingoClaimActive, startCalling]);
 
   const drawFromServer = useCallback(async () => {
     const game = activeGameRef.current;
-    if (!game || isPausedRef.current) return null;
+    if (!game || isPausedRef.current || !autoDrawRef.current || announcingRef.current) return null;
 
     const result = await ipc<{
       success: boolean;
@@ -366,7 +402,7 @@ export default function GameBoardPage() {
         selectedNumbers: selected,
         drawnNumbers: [],
         drawSpeedMs: interval,
-        status: 'RUNNING',
+        status: 'PAUSED',
         playerCount: selected.length,
         totalPot: calculateTotalPot(bet, selected.length),
       };
@@ -375,11 +411,14 @@ export default function GameBoardPage() {
       setCalled([]);
       setCallHistory([]);
       setLastDrawn(null);
-      setIsPaused(false);
-      isPausedRef.current = false;
+      setIsPaused(true);
+      isPausedRef.current = true;
+      autoDrawRef.current = false;
+      setAutoDraw(false);
+      setCallingPhase('ready');
       await refreshBalance();
       const rate = parseFloat(commissionPercent) || 20;
-      const snapshot = buildLiveSnapshot(game, [], [], rate);
+      const snapshot = buildLiveSnapshot(game, [], [], rate, 'ready');
       broadcastLiveGame({ type: 'game-started', payload: snapshot });
       broadcastLiveGame({ type: 'game-update', payload: snapshot });
       const opened = await openCallerDisplayWindow(callerTab);
@@ -387,7 +426,6 @@ export default function GameBoardPage() {
         setShowWebCallerPreview(true);
         if (!opened) setCallerTabBlocked(true);
       }
-      await startCalling(false);
     } else {
       setBetError(result.error ?? 'Failed to create game');
     }
@@ -424,7 +462,8 @@ export default function GameBoardPage() {
         && callingLoopIdRef.current === loopId
         && autoDrawRef.current
         && !!activeGameRef.current
-        && !isPausedRef.current,
+        && !isPausedRef.current
+        && !announcingRef.current,
       drawNumber: drawFromServer,
       onDraw: (data) => {
         applyDrawResult({
@@ -502,19 +541,26 @@ export default function GameBoardPage() {
     setBingoClaimActive(false);
   };
 
-  const handleResume = async () => {
-    if (!activeGame || bingoClaimActive) return;
+  const handleResume = useCallback(async () => {
+    if (!activeGameRef.current || bingoClaimActive) return;
     setCheckModalOpen(false);
-    await startCalling(true);
-  };
+    if ((activeGameRef.current.drawnNumbers?.length ?? called.length) === 0) {
+      await beginCalling();
+    } else {
+      await startCalling(true);
+    }
+  }, [bingoClaimActive, beginCalling, startCalling, called.length]);
 
-  const handleEndGame = async () => {
-    if (!activeGame) return;
+  const handleEndGame = useCallback(async () => {
+    const game = activeGameRef.current;
+    if (!game) return;
     await stopCalling(false);
-    const result = await ipc<{ success: boolean; data?: { agentRevenue: number } }>('games:end', activeGame.id);
+    setCallingPhase('ended');
+    const result = await ipc<{ success: boolean; data?: { agentRevenue: number } }>('games:end', game.id);
     if (result.success && result.data) {
       setProfit(result.data.agentRevenue);
       setActiveGame(null);
+      activeGameRef.current = null;
       setCalled([]);
       setCallHistory([]);
       setLastDrawn(null);
@@ -525,7 +571,16 @@ export default function GameBoardPage() {
       await ipc('window:close-caller-display').catch(() => {});
       await refreshBalance();
     }
-  };
+  }, [stopCalling, refreshBalance]);
+
+  useEffect(() => {
+    return subscribeGameControl((msg) => {
+      if (msg.type === 'start-calling') void beginCalling();
+      if (msg.type === 'pause') void stopCalling(true);
+      if (msg.type === 'resume') void handleResume();
+      if (msg.type === 'end-game') void handleEndGame();
+    });
+  }, [beginCalling, stopCalling, handleResume, handleEndGame]);
 
   return (
     <div>
@@ -559,7 +614,7 @@ export default function GameBoardPage() {
           <div className="bg-slate-800 px-3 py-2 text-xs font-medium text-slate-200">
             Inline caller display (web test) — also open in a separate tab for full-screen
           </div>
-          <div className="max-h-[70vh] overflow-auto">
+          <div className="max-h-[70vh] overflow-hidden">
             <CallerDisplay />
           </div>
         </div>
@@ -691,14 +746,15 @@ export default function GameBoardPage() {
         {!activeGame ? (
           <button onClick={handleCreateGame} disabled={creating || selected.length === 0}
             className="rounded-lg bg-green-600 px-6 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-50">
-            {creating ? 'Starting...' : `Start Game (${selected.length} cards)`}
+            {creating ? 'Preparing...' : `Prepare Game (${selected.length} cards)`}
           </button>
         ) : (
           <div className="flex flex-wrap items-center gap-2">
-            {!isPaused && !autoDraw && (
+            {isPaused && !bingoClaimActive && !autoDraw && (callingPhase === 'ready' || drawCount === 0) && (
               <button
-                onClick={() => startCalling(false)}
-                className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-6 py-2.5 text-sm font-bold text-white shadow-md hover:bg-green-700"
+                onClick={() => beginCalling()}
+                disabled={announcingRef.current || callingPhase === 'announcing'}
+                className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-6 py-2.5 text-sm font-bold text-white shadow-md hover:bg-green-700 disabled:opacity-50"
               >
                 <Play className="h-5 w-5" /> Start
               </button>
@@ -722,9 +778,9 @@ export default function GameBoardPage() {
             {autoDraw && !isPaused ? (
               <button onClick={() => stopCalling(true)} disabled={callerLocked}
                 className="inline-flex items-center gap-1 rounded-lg bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600 disabled:opacity-50">
-                <Pause className="h-4 w-4" /> Stop
+                <Pause className="h-4 w-4" /> Pause
               </button>
-            ) : isPaused && !bingoClaimActive && gameWinners.length === 0 ? (
+            ) : isPaused && !bingoClaimActive && drawCount > 0 && callingPhase !== 'ready' ? (
               <button onClick={handleResume}
                 className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">
                 <Play className="h-4 w-4" /> Resume
