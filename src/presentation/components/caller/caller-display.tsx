@@ -18,7 +18,7 @@ interface PreviewCard {
 
 /** Hall / projector screen — Minch Bingo layout */
 export function CallerDisplay() {
-  const { game, loading } = useLiveGame(2000);
+  const { game, loading } = useLiveGame(800);
   const [previewCards, setPreviewCards] = useState<PreviewCard[]>([]);
   const [previewIndex, setPreviewIndex] = useState(0);
   const [fullscreen, setFullscreen] = useState(false);
@@ -114,10 +114,14 @@ export function CallerDisplay() {
   if (!game) {
     return (
       <div className="flex h-screen flex-col overflow-hidden bg-[#1e1e1e] text-white">
+        <header className="shrink-0 px-5 py-2 text-sm text-white/50">{APP_NAME}</header>
         <div className="flex flex-1 flex-col items-center justify-center p-8 text-center">
-          <p className="text-2xl font-bold">{APP_NAME}</p>
-          <p className="mt-4 text-gray-300">Waiting for game…</p>
-          <p className="mt-2 text-sm text-gray-500">Select cartellas on Game Board and click Create Game.</p>
+          <div className="mb-4 h-10 w-10 animate-spin rounded-full border-4 border-[#facc15] border-t-transparent" />
+          <p className="text-xl font-bold">{APP_NAME}</p>
+          <p className="mt-4 text-gray-300">Waiting for game from Game Board…</p>
+          <p className="mt-2 max-w-md text-sm text-gray-500">
+            Keep the Game Board tab open. Select cartellas and click <strong>Create Game</strong> — this screen will sync automatically.
+          </p>
         </div>
       </div>
     );

@@ -78,6 +78,37 @@ export function readPersistedLiveGame(): LiveGameSnapshot | null {
   }
 }
 
+/** Listen for sessionStorage updates from the Game Board tab (web cross-tab sync). */
+export function subscribeStorageLiveGame(handler: (snapshot: LiveGameSnapshot | null) => void): () => void {
+  if (typeof window === 'undefined') return () => {};
+
+  const onStorage = (event: StorageEvent) => {
+    if (event.key !== LIVE_GAME_STORAGE_KEY) return;
+    if (!event.newValue) {
+      handler(null);
+      return;
+    }
+    try {
+      handler(JSON.parse(event.newValue) as LiveGameSnapshot);
+    } catch {
+      /* ignore */
+    }
+  };
+
+  window.addEventListener('storage', onStorage);
+  return () => window.removeEventListener('storage', onStorage);
+}
+
+let liveBroadcastChannel: BroadcastChannel | null = null;
+
+function getLiveBroadcastChannel(): BroadcastChannel | null {
+  if (typeof window === 'undefined' || typeof BroadcastChannel === 'undefined') return null;
+  if (!liveBroadcastChannel) {
+    liveBroadcastChannel = new BroadcastChannel(LIVE_GAME_CHANNEL);
+  }
+  return liveBroadcastChannel;
+}
+
 /** Keep the fullest draw history when merging poll + broadcast snapshots. */
 export function mergeLiveGameSnapshots(
   current: LiveGameSnapshot | null,
@@ -120,9 +151,8 @@ export function broadcastLiveGame(message: LiveGameMessage): void {
 
   if (typeof window === 'undefined' || typeof BroadcastChannel === 'undefined') return;
   try {
-    const channel = new BroadcastChannel(LIVE_GAME_CHANNEL);
-    channel.postMessage(message);
-    channel.close();
+    const channel = getLiveBroadcastChannel();
+    channel?.postMessage(message);
   } catch {
     /* ignore */
   }
