@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { Eye, EyeOff, Play, Pause, Megaphone, ListOrdered } from 'lucide-react';
+import { Eye, EyeOff, Play, Pause, Megaphone, ListOrdered, Monitor } from 'lucide-react';
 import { ipc } from '@/presentation/lib/ipc';
 import { useAuth } from '@/presentation/providers/auth-provider';
 import { NumberGrid } from '@/presentation/components/bingo/number-grid';
@@ -16,7 +16,9 @@ import { AudioSyncManager, runAutoCallLoop } from '@/presentation/lib/audio-sync
 import { CallingEngine } from '@/domain/services/calling-engine';
 import { getBallLabel } from '@/domain/services/bingo-engine';
 import { formatBallCallLabel } from '@/shared/tts/ball-call';
-import { calculateTotalPot, calculateGameEconomics } from '@/shared/prize';
+import { calculateTotalPot, calculateGameEconomics, calculateWinnerPrize } from '@/shared/prize';
+import { broadcastLiveGame, type LiveGameSnapshot } from '@/presentation/lib/live-game-sync';
+import { isElectron } from '@/shared/runtime';
 
 interface GameWinner {
   cardNumber: string;
@@ -46,6 +48,41 @@ interface ActiveGame {
   voiceType?: string;
   language?: string;
   winners?: GameWinner[];
+}
+
+function buildLiveSnapshot(
+  game: ActiveGame,
+  called: number[],
+  callHistory: CallHistoryEntry[],
+  commissionRate: number,
+): LiveGameSnapshot {
+  const playerCount = game.playerCount ?? game.selectedNumbers?.length ?? 0;
+  const { prize } = calculateWinnerPrize(game.betAmount, playerCount, commissionRate);
+  return {
+    id: game.id,
+    gameCode: game.gameCode,
+    betAmount: game.betAmount,
+    status: game.status,
+    playerCount,
+    totalPot: game.totalPot ?? calculateTotalPot(game.betAmount, playerCount),
+    prize,
+    drawnNumbers: called,
+    callHistory,
+    maxBalls: game.maxBalls ?? DRAW_BALL_COUNT,
+    voiceType: game.voiceType,
+    language: game.language,
+    selectedNumbers: game.selectedNumbers,
+    commissionRate,
+    startedAt: Math.floor(Date.now() / 1000),
+  };
+}
+
+async function openCallerDisplayWindow(): Promise<void> {
+  if (isElectron()) {
+    await ipc('window:open-caller-display');
+    return;
+  }
+  window.open('/agent/caller-display/', '_blank', 'noopener,noreferrer');
 }
 
 export default function GameBoardPage() {
@@ -130,6 +167,15 @@ export default function GameBoardPage() {
   useEffect(() => { autoDrawRef.current = autoDraw; }, [autoDraw]);
   useEffect(() => { isPausedRef.current = isPaused; }, [isPaused]);
   useEffect(() => { activeGameRef.current = activeGame; }, [activeGame]);
+
+  useEffect(() => {
+    if (!activeGame) return;
+    const rate = parseFloat(commissionPercent) || 20;
+    broadcastLiveGame({
+      type: 'game-update',
+      payload: buildLiveSnapshot(activeGame, called, callHistory, rate),
+    });
+  }, [activeGame, called, callHistory, commissionPercent]);
 
   const handleLanguageChange = (lang: string) => {
     setLanguage(lang);
@@ -316,6 +362,11 @@ export default function GameBoardPage() {
       setIsPaused(false);
       isPausedRef.current = false;
       await refreshBalance();
+      const rate = parseFloat(commissionPercent) || 20;
+      const snapshot = buildLiveSnapshot(game, [], [], rate);
+      broadcastLiveGame({ type: 'game-started', payload: snapshot });
+      broadcastLiveGame({ type: 'game-update', payload: snapshot });
+      await openCallerDisplayWindow();
       await startCalling(false);
     } else {
       setBetError(result.error ?? 'Failed to create game');
@@ -450,6 +501,8 @@ export default function GameBoardPage() {
       setGameWinners([]);
       setCheckModalOpen(false);
       setCalledModalOpen(false);
+      broadcastLiveGame({ type: 'game-ended' });
+      await ipc('window:close-caller-display').catch(() => {});
       await refreshBalance();
     }
   };
@@ -597,6 +650,13 @@ export default function GameBoardPage() {
             <button onClick={() => setCalledModalOpen(true)}
               className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">
               <ListOrdered className="h-4 w-4" /> All called ({drawCount})
+            </button>
+            <button
+              type="button"
+              onClick={() => openCallerDisplayWindow()}
+              className="inline-flex items-center gap-1 rounded-lg bg-slate-700 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+            >
+              <Monitor className="h-4 w-4" /> Caller Display
             </button>
             <button onClick={handleDraw} disabled={isPaused || callerLocked}
               className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 disabled:opacity-50">Draw once</button>

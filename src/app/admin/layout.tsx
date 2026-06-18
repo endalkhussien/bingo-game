@@ -11,7 +11,7 @@ import { ipc } from '@/presentation/lib/ipc';
 import { APP_NAME } from '@/shared/brand';
 import { AppLogo } from '@/presentation/components/shared/app-logo';
 import { isShopAdminRole, isVendorRole } from '@/shared/roles';
-import { isAdminSetupPath, SHOP_ADMIN_HOME, VENDOR_HOME } from '@/shared/admin-routes';
+import { isAdminSetupPath, SHOP_ADMIN_HOME, TOL_JUST_ACTIVATED_KEY, VENDOR_HOME } from '@/shared/admin-routes';
 
 /** Shop admin only — vendor uses /vendor, agents use /agent. */
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -22,6 +22,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [licenseOk, setLicenseOk] = useState<boolean | null>(null);
   const [licenseReady, setLicenseReady] = useState(false);
   const [licenseChecking, setLicenseChecking] = useState(false);
+  const [tolJustActivated, setTolJustActivated] = useState(false);
+
+  useEffect(() => {
+    setTolJustActivated(sessionStorage.getItem(TOL_JUST_ACTIVATED_KEY) === '1');
+  }, [pathname]);
 
   const checkLicense = useCallback((showSpinner = false) => {
     if (!user || !isShopAdminRole(user.role)) return;
@@ -53,10 +58,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     if (licenseChecking || !licenseReady) return;
+
+    if (tolJustActivated) {
+      if (licenseOk === true) {
+        sessionStorage.removeItem(TOL_JUST_ACTIVATED_KEY);
+        setTolJustActivated(false);
+      }
+      return;
+    }
+
     if (licenseOk === false && isShopAdminRole(user?.role ?? '') && !onSetupPage) {
       router.replace('/admin/license/');
     }
-  }, [licenseOk, licenseReady, licenseChecking, onSetupPage, router, user]);
+  }, [licenseOk, licenseReady, licenseChecking, onSetupPage, router, user, checkLicense, tolJustActivated]);
 
   if (isLoading || (isShopAdminRole(user?.role ?? '') && !licenseReady)) {
     return <div className="flex h-screen items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" /></div>;
@@ -99,7 +113,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     );
   }
 
-  if (licenseOk === false) {
+  if (licenseOk === false && !onSetupPage) {
+    if (licenseChecking || tolJustActivated) {
+      return <div className="flex h-screen items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" /></div>;
+    }
     return null;
   }
 

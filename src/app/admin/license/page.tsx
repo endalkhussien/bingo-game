@@ -4,7 +4,8 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { invokeIpc } from '@/presentation/lib/ipc';
 import { runFactoryReset } from '@/presentation/lib/factory-reset';
-import { SHOP_ADMIN_HOME } from '@/shared/admin-routes';
+import { SHOP_ADMIN_HOME, TOL_JUST_ACTIVATED_KEY } from '@/shared/admin-routes';
+import { normalizeOperatorLicenseCodeInput } from '@/shared/voucher/operator-license-code';
 import { isElectron } from '@/shared/runtime';
 
 export default function AdminLicensePage() {
@@ -20,8 +21,21 @@ export default function AdminLicensePage() {
     setError('');
     setLoading(true);
     try {
-      const r = await invokeIpc<{ success: boolean; error?: string }>('license:activate', code.trim());
+      const normalized = normalizeOperatorLicenseCodeInput(code);
+      if (!normalized) {
+        setError('Paste the full TOL- code from your vendor.');
+        return;
+      }
+
+      const r = await invokeIpc<{ success: boolean; error?: string }>('license:activate', normalized);
       if (r?.success) {
+        sessionStorage.setItem(TOL_JUST_ACTIVATED_KEY, '1');
+        const status = await invokeIpc<{ active: boolean }>('license:status');
+        if (!status?.active) {
+          sessionStorage.removeItem(TOL_JUST_ACTIVATED_KEY);
+          setError('License was saved but could not be verified. Refresh the page and try again.');
+          return;
+        }
         router.replace(SHOP_ADMIN_HOME);
         router.refresh();
       } else {
@@ -63,6 +77,13 @@ export default function AdminLicensePage() {
         <p className="mt-2 text-sm text-slate-600">
           Paste a <strong>TOL</strong> code from your vendor. After activation you can issue TAS and TBG codes to agents.
         </p>
+        <ul className="mt-3 list-inside list-disc space-y-1 text-xs text-slate-600">
+          <li>
+            Log in as <strong>shop admin</strong> (<code className="rounded bg-slate-100 px-1">admin</code>), not vendor (
+            <code className="rounded bg-slate-100 px-1">vendor</code>).
+          </li>
+          <li>Paste the full <strong>TOL-…</strong> code. Line breaks from Telegram or email are OK.</li>
+        </ul>
 
         <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
           <p className="font-medium text-slate-800">Database</p>

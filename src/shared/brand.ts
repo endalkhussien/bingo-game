@@ -11,5 +11,5 @@ export const APP_LOGO_SRC = `/brand/${brandConfig.logoFile}`;
 export const APP_ICON_FILE = brandConfig.iconFile;
 
 export const DRAW_BALL_COUNT = 75;
-/** Total cartella bingo cards in the deck */
-export const CARTELLA_COUNT = 150;
+/** Total cartella bingo cards in the deck (configurable in brand.config.json) */
+export const CARTELLA_COUNT = brandConfig.cartellaCount ?? 150;

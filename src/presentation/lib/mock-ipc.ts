@@ -1,6 +1,6 @@
 // In-memory mock store for browser development without Electron
 
-import { DEFAULT_CALL_COOLDOWN_MS } from '@/shared/constants';
+import { CARTELLA_MAX, DEFAULT_CALL_COOLDOWN_MS } from '@/shared/constants';
 import { generateOperatorLicenseCode } from '@/shared/voucher/operator-license-code';
 import { generateVendorTopupCode, parseVendorTopupCode, hashVendorTopupCode } from '@/shared/voucher/vendor-topup-code';
 
@@ -22,7 +22,6 @@ function loadSession(): Session | null {
 
 let currentSession: Session | null = loadSession();
 let mockBalance = 0;
-let cardCounter = 0;
 const mockCards: Array<{ id: string; cardNumber: string; grid: number[][]; cardData: string; agentId: string; createdAt: number; updatedAt: number }> = [];
 const mockGames: Array<Record<string, unknown>> = [];
 const mockAgents = [
@@ -65,10 +64,10 @@ function generateCard(): number[][] {
   return grid;
 }
 
-function ensureMockDeck() {
-  for (let n = 1; n <= 150; n++) {
+function ensureMockCardsForNumbers(numbers: number[]) {
+  for (const n of numbers) {
+    if (n < 1 || n > CARTELLA_MAX) continue;
     if (!mockCards.some((c) => c.cardNumber === String(n))) {
-      cardCounter++;
       const grid = generateCard();
       mockCards.push({
         id: `card-${n}`,
@@ -82,6 +81,10 @@ function ensureMockDeck() {
     }
   }
   mockCards.sort((a, b) => Number(a.cardNumber) - Number(b.cardNumber));
+}
+
+function ensureMockDeck() {
+  ensureMockCardsForNumbers(Array.from({ length: Math.min(20, CARTELLA_MAX) }, (_, i) => i + 1));
 }
 
 function requireShopAdminRoleOnly() {
@@ -324,15 +327,29 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
   'pricing:update': async () => ({ success: true }),
   'pricing:disable': async () => ({ success: true }),
 
-  'cards:list': async () => { ensureMockDeck(); return mockCards; },
+  'cards:list': async () => mockCards.sort((a, b) => Number(a.cardNumber) - Number(b.cardNumber)),
   'cards:create': async () => {
-    ensureMockDeck();
-    if (mockCards.length >= 150) return { error: 'All 150 cartella cards exist' };
-    const n = mockCards.length + 1;
+    if (mockCards.length >= CARTELLA_MAX) return { error: `All ${CARTELLA_MAX} cartella cards exist` };
+    const used = new Set(mockCards.map((c) => c.cardNumber));
+    let n = 1;
+    while (used.has(String(n)) && n <= CARTELLA_MAX) n++;
     const grid = generateCard();
     const card = { id: `card-${n}`, cardNumber: String(n), grid, cardData: JSON.stringify({ grid }), agentId: 'agent-1', createdAt: Date.now() / 1000, updatedAt: Date.now() / 1000 };
     mockCards.push(card);
     return card;
+  },
+  'cards:create-by-number': async (cardNumber: unknown) => {
+    const num = Number(cardNumber);
+    if (!Number.isFinite(num) || num < 1 || num > CARTELLA_MAX) throw new Error(`Cartella number must be 1–${CARTELLA_MAX}`);
+    if (mockCards.some((c) => c.cardNumber === String(num))) throw new Error(`Cartella #${num} already exists.`);
+    const grid = generateCard();
+    const card = { id: `card-${num}`, cardNumber: String(num), grid, cardData: JSON.stringify({ grid }), agentId: 'agent-1', createdAt: Date.now() / 1000, updatedAt: Date.now() / 1000 };
+    mockCards.push(card);
+    return card;
+  },
+  'cards:get-by-number': async (cardNumber: unknown) => {
+    const card = mockCards.find((c) => c.cardNumber === String(cardNumber));
+    return card ? { id: card.id, cardNumber: card.cardNumber, grid: card.grid } : null;
   },
   'cards:rebuild-deck': async (regenerateAll: unknown) => {
     ensureMockDeck();
@@ -353,7 +370,13 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
   },
   'cards:delete': async (id: unknown) => { const i = mockCards.findIndex(c => c.id === id); if (i >= 0) mockCards.splice(i, 1); return { success: true }; },
   'cards:update': async () => ({ success: true }),
-  'cards:generate': async (count: unknown) => { const r = []; for (let i = 0; i < Number(count); i++) r.push(await mockHandlers['cards:create']()); return r; },
+  'cards:generate': async (count: unknown) => { const r = []; for (let i = 0; i < Number(count); i++) { const c = await mockHandlers['cards:create'](); if (c && !('error' in (c as object))) r.push(c); else break; } return r; },
+
+  'window:open-caller-display': async () => {
+    if (typeof window !== 'undefined') window.open('/agent/caller-display/', '_blank');
+    return true;
+  },
+  'window:close-caller-display': async () => true,
 
   'games:create': async (config: unknown) => {
     requireSession();
@@ -367,18 +390,43 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
     if (mockBalance + pot < prize) {
       return { success: false, error: `Insufficient balance to cover winner prize (${prize.toFixed(0)} ETB).` };
     }
+    ensureMockCardsForNumbers(c.selectedNumbers ?? []);
     const game = {
       id: `game-${mockGames.length + 1}`, gameCode: `TBG-${1000 + mockGames.length}`, status: 'RUNNING',
       betAmount: c.betAmount, playerCount,
-      selectedNumbers: c.selectedNumbers, drawnNumbers: [], voiceType: c.voiceType ?? 'AMHARIC_MALE',
-      language: c.language ?? 'am', totalPot: pot, maxBalls: 75, drawSpeedMs: c.drawSpeedMs ?? DEFAULT_CALL_COOLDOWN_MS, commissionRate: rate,
+      selectedNumbers: c.selectedNumbers, drawnNumbers: [], callHistory: [], voiceType: c.voiceType ?? 'AMHARIC_MALE',
+      language: c.language ?? 'am', totalPot: pot, prize, maxBalls: 75, drawSpeedMs: c.drawSpeedMs ?? DEFAULT_CALL_COOLDOWN_MS, commissionRate: rate,
+      startedAt: Math.floor(Date.now() / 1000),
     };
     mockGames.push(game);
     mockBalance += pot;
     if (currentSession?.agent) currentSession.agent.walletBalance = mockBalance;
     return { success: true, data: game };
   },
-  'games:active': async () => mockGames.find(g => g.status === 'RUNNING' || g.status === 'PAUSED') ?? null,
+  'games:active': async () => {
+    const g = mockGames.find(x => x.status === 'RUNNING' || x.status === 'PAUSED') as {
+      drawnNumbers?: number[];
+      betAmount: number;
+      playerCount: number;
+      commissionRate?: number;
+      totalPot?: number;
+      prize?: number;
+      callHistory?: { number: number; drawOrder: number; drawnAt: number }[];
+    } | undefined;
+    if (!g) return null;
+    const drawn = g.drawnNumbers ?? [];
+    const rate = g.commissionRate ?? 20;
+    const pot = g.totalPot ?? g.betAmount * g.playerCount;
+    const prize = g.prize ?? pot - pot * (rate / 100);
+    return {
+      ...g,
+      drawnNumbers: drawn,
+      callHistory: g.callHistory ?? drawn.map((n, i) => ({ number: n, drawOrder: i + 1, drawnAt: Math.floor(Date.now() / 1000) })),
+      totalPot: pot,
+      prize,
+      commissionRate: rate,
+    };
+  },
   'games:draw': async (_id: unknown) => {
     const g = mockGames.find(x => x.status === 'RUNNING');
     const drawn = g ? ((g as { drawnNumbers?: number[] }).drawnNumbers ?? []) : [];
@@ -388,6 +436,9 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
     if (g) {
       drawn.push(n);
       (g as { drawnNumbers: number[] }).drawnNumbers = drawn;
+      const hist = (g as { callHistory?: { number: number; drawOrder: number; drawnAt: number }[] }).callHistory ?? [];
+      hist.push({ number: n, drawOrder: drawn.length, drawnAt: Math.floor(Date.now() / 1000) });
+      (g as { callHistory: typeof hist }).callHistory = hist;
       return { success: true, data: { number: n, drawOrder: drawn.length, drawCount: drawn.length, drawnAt: Math.floor(Date.now() / 1000), maxBalls: 75, voiceType: (g as { voiceType?: string }).voiceType ?? 'AMHARIC_MALE', language: (g as { language?: string }).language ?? 'am', winners: [] } };
     }
     return { success: true, data: { number: n, drawOrder: 1, drawCount: 1, drawnAt: Math.floor(Date.now() / 1000), maxBalls: 75, voiceType: 'AMHARIC_MALE', language: 'am', winners: [] } };

@@ -2,5 +2,6 @@
   "appName": "TEBIB-Bingo",
   "tagline": "Play · Win · Earn",
   "logoFile": "logo.png",
-  "iconFile": "icon.ico"
+  "iconFile": "icon.ico",
+  "cartellaCount": 300
 }

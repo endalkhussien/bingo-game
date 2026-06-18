@@ -69,5 +69,8 @@ const tol = generateOperatorLicenseCode('Bole Hall', 7, 20);
 assert('TOL code generated', tol.code.startsWith('TOL-'));
 const tolParsed = parseOperatorLicenseCode(tol.code);
 assert('TOL code parses', tolParsed.valid && tolParsed.payload?.shopName === 'Bole Hall');
+const wrappedTol = tol.code.match(/.{1,40}/g).join('\n');
+const wrappedParsed = parseOperatorLicenseCode(wrappedTol);
+assert('TOL code parses when pasted with line breaks', wrappedParsed.valid);
 
 console.log('\nALL CROSS-PC CHECKS PASSED\n');

@@ -1,4 +1,4 @@
-import { ipcMain, clipboard } from 'electron';
+import { ipcMain, clipboard, BrowserWindow } from 'electron';
 import * as auth from '../services/auth-service';
 import * as cards from '../services/card-service';
 import * as games from '../services/game-service';
@@ -20,6 +20,7 @@ import * as vendorTopup from '../services/vendor-topup-service';
 import * as factoryReset from '../services/factory-reset-service';
 import { isAdminRole, isVendorRole } from '../../src/shared/roles';
 import { speakNumber, speakBallCall, listInstalledVoices } from '../tts/tts-engine';
+import { closeCallerDisplayWindow, openCallerDisplayWindow } from '../utils/caller-display-window';
 
 const sessions = new Map<number, string>();
 
@@ -134,7 +135,9 @@ export function registerIpcHandlers() {
             : 'Only shop admin can activate TOL. Login as admin.',
         };
       }
-      return await operatorLicense.activateOperatorLicense(code.trim());
+      return await operatorLicense.activateOperatorLicense(
+        String(code ?? '').replace(/\s+/g, ''),
+      );
     } catch (err) {
       return { success: false, error: err instanceof Error ? err.message : 'Activation failed' };
     }
@@ -310,6 +313,21 @@ export function registerIpcHandlers() {
     requireAgent(event).then((s) => cards.rebuildDeck(s.agent!.id, regenerateAll ?? false)));
   ipcMain.handle('cards:delete', async (event, id: string) => requireAgent(event).then((s) => cards.deleteCard(id, s.agent!.id)));
   ipcMain.handle('cards:generate', async (event, count: number) => requireAgent(event).then((s) => cards.generateBulkCards(s.agent!.id, count)));
+  ipcMain.handle('cards:create-by-number', async (event, cardNumber: number, grid?: number[][]) =>
+    requireAgent(event).then((s) => cards.createCardByNumber(s.agent!.id, cardNumber, grid)));
+  ipcMain.handle('cards:get-by-number', async (event, cardNumber: number) =>
+    requireAgent(event).then((s) => cards.getCardByNumber(s.agent!.id, cardNumber)));
+
+  // ── Caller display window ──
+  ipcMain.handle('window:open-caller-display', async (event) => {
+    await requireAgent(event);
+    const parent = BrowserWindow.fromWebContents(event.sender);
+    return openCallerDisplayWindow(parent);
+  });
+  ipcMain.handle('window:close-caller-display', async () => {
+    closeCallerDisplayWindow();
+    return true;
+  });
 
   // ── Games ──
   ipcMain.handle('games:create', async (event, config) => requireAgent(event).then((s) => games.createGame(s.agent!.id, config)));
