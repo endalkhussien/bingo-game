@@ -26,6 +26,9 @@ check('package.json version', pkg.version === '1.0.0', `got ${pkg.version}`);
 check('Electron 22 (Windows 8+)', pkg.devDependencies?.electron === '22.3.27', `got ${pkg.devDependencies?.electron}`);
 check('better-sqlite3 9.6 (Electron 22 ABI)', pkg.dependencies?.['better-sqlite3'] === '9.6.0', `got ${pkg.dependencies?.['better-sqlite3']}`);
 
+const browserslist = JSON.stringify(pkg.browserslist ?? []);
+check('Chromium 108 target (Electron 22 / Win 8+)', browserslist.includes('108'), browserslist);
+
 const audioCount = fs.existsSync(path.join(root, 'public/audio'))
   ? fs.readdirSync(path.join(root, 'public/audio')).filter((f) => f.endsWith('.mp3')).length
   : 0;

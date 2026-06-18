@@ -4,6 +4,7 @@ import { initDatabase } from './services/database-service';
 import { registerIpcHandlers } from './ipc/handlers';
 import { closeCallerDisplayWindow } from './utils/caller-display-window';
 import { startStaticServer } from './utils/static-server';
+import { checkWindowsSupport } from './utils/windows-support';
 import { APP_NAME } from '../src/shared/brand';
 
 let mainWindow: BrowserWindow | null = null;
@@ -81,7 +82,18 @@ async function createWindow() {
   });
 }
 
-app.whenReady().then(createWindow);
+const windowsSupport = checkWindowsSupport();
+if (!windowsSupport.supported) {
+  app.whenReady().then(() => {
+    dialog.showErrorBox(
+      'Unsupported Windows',
+      windowsSupport.reason ?? 'This version of Windows is not supported.',
+    );
+    app.quit();
+  });
+} else {
+  app.whenReady().then(createWindow);
+}
 
 app.on('window-all-closed', () => {
   closeStaticServer?.();

@@ -18,6 +18,7 @@ asarUnpack:
   - out/sounds/**
   - out/audio/**
 win:
+  # 64-bit only — Windows 8, 8.1, 10, and 11 (Electron 22 does not support 32-bit shops)
   target:
     - target: nsis
       arch:
