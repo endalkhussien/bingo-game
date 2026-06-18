@@ -2,139 +2,160 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { KeyRound, Phone, LogIn, CheckCircle2 } from 'lucide-react';
 import { invokeIpc } from '@/presentation/lib/ipc';
-import { runFactoryReset } from '@/presentation/lib/factory-reset';
 import { SHOP_ADMIN_HOME, TOL_JUST_ACTIVATED_KEY } from '@/shared/admin-routes';
 import { normalizeAdminActivationCodeInput } from '@/shared/voucher/admin-activation-code';
-import { isElectron } from '@/shared/runtime';
+import { AppLogo } from '@/presentation/components/shared/app-logo';
+import { APP_NAME } from '@/shared/brand';
+
+const STEPS = [
+  {
+    num: '1',
+    icon: LogIn,
+    title: 'Login as Admin',
+    titleAm: 'እንደ አድሚን ግባ',
+    text: 'Username: admin · Password: admin123 (from your installer)',
+    textAm: 'የተጠቃሚ ስም: admin · የይለፍ ቃል: admin123',
+  },
+  {
+    num: '2',
+    icon: Phone,
+    title: 'Get key from Vendor',
+    titleAm: 'ከሻጭ ቁልፍ ያግኙ',
+    text: 'Call or message your vendor. They will send you a long code starting with TAK-',
+    textAm: 'ሻጩን ይደውሉ። TAK- የሚبدأ የረጅም ኮድ ይላክልዎታል።',
+  },
+  {
+    num: '3',
+    icon: KeyRound,
+    title: 'Paste key & press ACTIVATE',
+    titleAm: 'ኮዱን ይለጥፉ እና አግብር ይጫኑ',
+    text: 'Copy the whole code. Paste below. Press the big green button.',
+    textAm: 'ሙሉውን ኮድ ቅዳ → ከታች ይለጥፉ → አረንጓዴ ቁልፍ ይጫኑ።',
+  },
+];
 
 export default function AdminLicensePage() {
   const router = useRouter();
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
-  const [resetting, setResetting] = useState(false);
-  const [resetMsg, setResetMsg] = useState('');
 
   const handleActivate = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setSuccess('');
     setLoading(true);
     try {
       const normalized = normalizeAdminActivationCodeInput(code);
       if (!normalized) {
-        setError('Paste the full TAK- activation key from your vendor.');
+        setError('Please paste the activation key from your vendor.');
         return;
       }
 
-      const r = await invokeIpc<{ success: boolean; error?: string; data?: { message?: string; walletBalance?: number } }>(
-        'license:activate',
-        normalized,
-      );
+      const r = await invokeIpc<{
+        success: boolean;
+        error?: string;
+        data?: { message?: string; walletBalance?: number; amount?: number };
+      }>('license:activate', normalized);
+
       if (r?.success) {
         sessionStorage.setItem(TOL_JUST_ACTIVATED_KEY, '1');
-        const status = await invokeIpc<{ active: boolean }>('license:status');
-        if (!status?.active) {
-          sessionStorage.removeItem(TOL_JUST_ACTIVATED_KEY);
-          setError('Activation was saved but could not be verified. Refresh and try again.');
-          return;
-        }
-        router.replace(SHOP_ADMIN_HOME);
-        router.refresh();
+        const balance = r.data?.walletBalance ?? r.data?.amount;
+        setSuccess(
+          balance != null
+            ? `Success! Your shop is ready. Balance: ${balance.toFixed(0)} ETB`
+            : 'Success! Your shop admin is now active.',
+        );
+        window.setTimeout(() => {
+          window.location.assign(SHOP_ADMIN_HOME);
+        }, 1500);
       } else {
-        setError(r?.error ?? 'Invalid activation key');
+        setError(r?.error ?? 'Invalid key. Ask vendor for a new one.');
       }
     } catch {
-      setError('Activation failed');
+      setError('Could not activate. Try again or contact your vendor.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleClearAll = async () => {
-    if (
-      !confirm(
-        'Delete ALL data?\n\nThis removes the SQLite database (agents, games, wallet) and cannot be undone.'
-      )
-    ) {
-      return;
-    }
-    setResetting(true);
-    setResetMsg('');
-    const r = await runFactoryReset();
-    setResetting(false);
-    if (r.ok) {
-      setResetMsg(r.message);
-      setCode('');
-      setError('');
-      router.refresh();
-    } else {
-      setResetMsg(r.error);
-    }
-  };
-
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-100 p-4">
-      <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-8 shadow-lg">
-        <h1 className="text-2xl font-bold text-slate-900">Shop Admin — Activation</h1>
-        <p className="mt-2 text-sm text-slate-600">
-          Paste the <strong>TAK</strong> activation key from your vendor. One key unlocks the admin portal and adds your starting <strong>TVP balance</strong>.
-        </p>
-        <ul className="mt-3 list-inside list-disc space-y-1 text-xs text-slate-600">
-          <li>
-            Log in as <strong>shop admin</strong> (<code className="rounded bg-slate-100 px-1">admin</code>), not vendor.
-          </li>
-          <li>Each <strong>TAK-…</strong> key works once and includes ETB balance for TBG vouchers.</li>
-        </ul>
+    <div className="mx-auto max-w-2xl px-4 py-8 sm:px-6">
+      <div className="mb-8 text-center">
+        <AppLogo size={72} className="mx-auto rounded-2xl shadow-md" />
+        <h1 className="mt-4 text-3xl font-black text-slate-900 sm:text-4xl">{APP_NAME}</h1>
+        <p className="mt-2 text-xl font-bold text-emerald-700">Shop Admin — Enter Activation Key</p>
+        <p className="mt-1 text-lg text-slate-600">የሱቅ አድሚን — የማግበር ቁልፍ ያስገቡ</p>
+      </div>
 
-        {!isElectron() && (
-          <div className="mt-4 rounded-lg border border-indigo-200 bg-indigo-50 p-3 text-xs text-indigo-900">
-            <p className="font-semibold">Browser preview</p>
-            <p className="mt-1">Login as <strong>vendor</strong> → <strong>Admin Activation</strong> → generate TAK → login as <strong>admin</strong> → paste here.</p>
-          </div>
+      <div className="mb-8 space-y-4">
+        {STEPS.map((step) => {
+          const Icon = step.icon;
+          return (
+            <div
+              key={step.num}
+              className="flex gap-4 rounded-2xl border-2 border-slate-200 bg-white p-5 shadow-sm"
+            >
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-xl font-black text-white">
+                {step.num}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <Icon className="h-5 w-5 text-emerald-600" />
+                  <p className="text-lg font-bold text-slate-900">{step.title}</p>
+                </div>
+                <p className="text-base font-semibold text-slate-700">{step.titleAm}</p>
+                <p className="mt-1 text-sm text-slate-600">{step.text}</p>
+                <p className="mt-0.5 text-sm text-slate-500">{step.textAm}</p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <form onSubmit={handleActivate} className="rounded-2xl border-2 border-emerald-300 bg-white p-6 shadow-lg">
+        <label className="block text-center text-xl font-bold text-slate-900">
+          Paste activation key here
+        </label>
+        <p className="text-center text-base text-slate-600">የማግበር ቁልፍ እዚህ ይለጥፉ</p>
+
+        <textarea
+          value={code}
+          onChange={(e) => { setCode(e.target.value); setError(''); setSuccess(''); }}
+          rows={5}
+          className="mt-4 w-full rounded-xl border-2 border-slate-300 px-4 py-4 text-base font-mono leading-relaxed focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200"
+          placeholder="TAK-xxxxxxxx..."
+          autoFocus
+        />
+
+        {error && (
+          <p className="mt-4 rounded-lg bg-red-100 px-4 py-3 text-center text-base font-semibold text-red-800">
+            {error}
+          </p>
+        )}
+        {success && (
+          <p className="mt-4 flex items-center justify-center gap-2 rounded-lg bg-emerald-100 px-4 py-3 text-center text-base font-semibold text-emerald-900">
+            <CheckCircle2 className="h-6 w-6 shrink-0" />
+            {success}
+          </p>
         )}
 
-        <form onSubmit={handleActivate} className="mt-6 space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-700">Vendor activation key (TAK)</label>
-            <textarea
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              rows={4}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-sm"
-              placeholder="Paste TAK- code from vendor"
-            />
-          </div>
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          <button
-            type="submit"
-            disabled={loading || !code.trim()}
-            className="w-full rounded-lg bg-emerald-600 py-2.5 font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
-          >
-            {loading ? 'Activating…' : 'Activate shop admin'}
-          </button>
-        </form>
+        <button
+          type="submit"
+          disabled={loading || !code.trim()}
+          className="mt-6 w-full rounded-2xl bg-emerald-600 py-5 text-2xl font-black uppercase tracking-wide text-white shadow-lg hover:bg-emerald-700 disabled:opacity-50"
+        >
+          {loading ? 'Please wait…' : 'ACTIVATE'}
+        </button>
+        <p className="mt-2 text-center text-sm text-slate-500">አረንጓዴ ቁልፍ — Activate</p>
+      </form>
 
-        <div className="mt-8 border-t border-slate-200 pt-6">
-          <p className="text-sm font-medium text-slate-800">Clear All Data</p>
-          <p className="mt-1 text-xs text-slate-500">
-            Wipes agents, games, and wallet. You will need a new TAK key from the vendor.
-          </p>
-          {resetMsg && (
-            <p className={`mt-2 text-sm ${resetMsg.startsWith('All') || resetMsg.includes('cleared') ? 'text-emerald-700' : 'text-red-600'}`}>
-              {resetMsg}
-            </p>
-          )}
-          <button
-            type="button"
-            onClick={handleClearAll}
-            disabled={resetting}
-            className="mt-3 w-full rounded-lg border border-red-300 bg-red-50 py-2.5 text-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-50"
-          >
-            {resetting ? 'Clearing…' : 'Clear All Data'}
-          </button>
-        </div>
-      </div>
+      <p className="mt-8 text-center text-sm text-slate-500">
+        No key? Contact your vendor. Do not use the <strong>vendor</strong> login — use <strong>admin</strong>.
+      </p>
     </div>
   );
 }
