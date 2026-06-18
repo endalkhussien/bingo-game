@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Pause, Play, Square, Maximize2, Minimize2, Search, Megaphone, Trophy, Ban } from 'lucide-react';
+import { Play, Square, Maximize2, Minimize2, Shuffle, Trophy, Ban } from 'lucide-react';
 import { BingoBallBoard } from '@/presentation/components/caller/bingo-ball-board';
-import { BingoCardView } from '@/presentation/components/bingo/bingo-card-view';
+import { MinchCartellaPreview } from '@/presentation/components/caller/minch-cartella-preview';
 import { useLiveGame } from '@/presentation/hooks/use-live-game';
 import { ipc } from '@/presentation/lib/ipc';
 import { APP_NAME } from '@/shared/brand';
@@ -16,10 +16,11 @@ interface PreviewCard {
   grid: number[][];
 }
 
-/** Hall / projector screen — Minch Bingo style layout */
+/** Hall / projector screen — Minch Bingo layout */
 export function CallerDisplay() {
   const { game, loading } = useLiveGame(2000);
-  const [previewCard, setPreviewCard] = useState<PreviewCard | null>(null);
+  const [previewCards, setPreviewCards] = useState<PreviewCard[]>([]);
+  const [previewIndex, setPreviewIndex] = useState(0);
   const [fullscreen, setFullscreen] = useState(false);
   const [stickyBall, setStickyBall] = useState<number | null>(null);
 
@@ -29,35 +30,43 @@ export function CallerDisplay() {
   const displayBall = lastDrawn ?? stickyBall;
   const drawCount = called.length;
   const maxBalls = game?.maxBalls ?? 75;
-  const recent = [...called].slice(-4).reverse();
+  const recent = [...called].slice(-8);
   const callingPhase = game?.callingPhase ?? (game?.status === 'PAUSED' ? 'paused' : 'ready');
   const isAnnouncing = callingPhase === 'announcing';
   const isCalling = callingPhase === 'calling';
-  const isPaused = callingPhase === 'paused' || (game?.status === 'PAUSED' && !isCalling);
+  const isPaused = !isCalling && (callingPhase === 'paused' || game?.status === 'PAUSED' || callingPhase === 'ready');
   const bingoClaimActive = !!game?.bingoClaimActive;
-  const canStart = game && !bingoClaimActive && (callingPhase === 'ready' || (isPaused && drawCount === 0));
-  const showGameStarted = isAnnouncing || (callingPhase === 'calling' && drawCount === 0);
+  const showCheckCards = bingoClaimActive || (isPaused && drawCount > 0);
   const announcement = game?.announcement;
+
+  const previewCard = previewCards[previewIndex] ?? null;
 
   useEffect(() => {
     if (lastDrawn !== null) setStickyBall(lastDrawn);
   }, [lastDrawn]);
 
   useEffect(() => {
-    if (!game) setStickyBall(null);
-  }, [game]);
-
-  useEffect(() => {
-    const first = game?.selectedNumbers?.[0];
-    if (!first || !game?.id) {
-      setPreviewCard(null);
+    if (!game) {
+      setStickyBall(null);
+      setPreviewCards([]);
       return;
     }
-    void ipc<{ grid: number[][]; cardNumber: string } | null>('cards:get-by-number', first).then((card) => {
-      if (card?.grid) setPreviewCard({ cardNumber: card.cardNumber, grid: card.grid });
-      else setPreviewCard(null);
+    const nums = game.selectedNumbers ?? [];
+    if (!nums.length) {
+      setPreviewCards([]);
+      return;
+    }
+    void Promise.all(
+      nums.slice(0, 12).map((n) =>
+        ipc<{ grid: number[][]; cardNumber: string } | null>('cards:get-by-number', n).then((c) =>
+          c?.grid ? { cardNumber: c.cardNumber, grid: c.grid } : null,
+        ),
+      ),
+    ).then((rows) => {
+      setPreviewCards(rows.filter((r): r is PreviewCard => !!r));
+      setPreviewIndex(0);
     });
-  }, [game?.id, game?.selectedNumbers]);
+  }, [game?.id, game?.selectedNumbers, game]);
 
   const toggleFullscreen = async () => {
     if (!document.fullscreenElement) {
@@ -69,16 +78,15 @@ export function CallerDisplay() {
     }
   };
 
-  const handleStart = () => {
-    broadcastGameControl({ type: 'start-calling' });
-  };
-
-  const handlePause = () => {
-    broadcastGameControl({ type: 'pause' });
-  };
-
-  const handleResume = () => {
-    broadcastGameControl({ type: 'resume' });
+  const handlePlay = () => {
+    if (!game || isAnnouncing) return;
+    if (isCalling) {
+      broadcastGameControl({ type: 'pause' });
+    } else if (drawCount === 0) {
+      broadcastGameControl({ type: 'start-calling' });
+    } else {
+      broadcastGameControl({ type: 'resume' });
+    }
   };
 
   const handleEndGame = () => {
@@ -86,17 +94,18 @@ export function CallerDisplay() {
     broadcastGameControl({ type: 'end-game' });
   };
 
-  const handleBingoClaim = () => {
-    broadcastGameControl({ type: 'bingo-claim' });
-  };
-
   const handleCheckCards = () => {
     broadcastGameControl({ type: 'check-cards' });
   };
 
+  const handleShufflePreview = () => {
+    if (previewCards.length <= 1) return;
+    setPreviewIndex((i) => (i + 1) % previewCards.length);
+  };
+
   if (loading && !game && !readPersistedLiveGame()) {
     return (
-      <div className="flex h-screen items-center justify-center overflow-hidden bg-[#0b0f1f] text-white">
+      <div className="flex h-screen items-center justify-center overflow-hidden bg-[#1e1e1e] text-white">
         <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#facc15] border-t-transparent" />
       </div>
     );
@@ -104,197 +113,154 @@ export function CallerDisplay() {
 
   if (!game) {
     return (
-      <div className="flex h-screen flex-col overflow-hidden bg-[#0b0f1f] text-white">
-        <header className="shrink-0 border-b border-white/10 px-6 py-2 text-sm text-white/60">{APP_NAME}</header>
+      <div className="flex h-screen flex-col overflow-hidden bg-[#1e1e1e] text-white">
         <div className="flex flex-1 flex-col items-center justify-center p-8 text-center">
-          <p className="text-xl font-bold">{APP_NAME}</p>
-          <p className="mt-4 text-slate-300">No active game</p>
-          <p className="mt-2 max-w-md text-sm text-slate-500">
-            Prepare a game on Game Board, then press Start — this screen mirrors the hall display.
-          </p>
+          <p className="text-2xl font-bold">{APP_NAME}</p>
+          <p className="mt-4 text-gray-300">Waiting for game…</p>
+          <p className="mt-2 text-sm text-gray-500">Select cartellas on Game Board and click Create Game.</p>
         </div>
       </div>
     );
   }
 
-  const statusLabel = bingoClaimActive
-    ? 'BINGO CLAIM'
-    : isAnnouncing
-      ? (game.language === 'am' ? 'ጨዋታ ጀመረች' : 'Game has started')
-      : isCalling
-        ? 'Calling…'
-        : isPaused
-          ? 'Paused'
-          : 'Ready';
-
   return (
-    <div className="relative flex h-screen flex-col overflow-hidden bg-[#0b0f1f] text-white select-none">
+    <div className="relative flex h-screen flex-col overflow-hidden bg-[#1e1e1e] text-white select-none">
       {announcement && (
-        <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/70 p-6">
+        <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/75 p-6">
           <div className={cn(
-            'max-w-lg rounded-2xl px-8 py-10 text-center shadow-2xl',
-            announcement.type === 'winner' ? 'bg-green-600 text-white' : 'bg-red-700 text-white',
+            'max-w-xl rounded-xl px-10 py-12 text-center shadow-2xl',
+            announcement.type === 'winner' ? 'bg-[#16a34a] text-white' : 'bg-[#b91c1c] text-white',
           )}>
             {announcement.type === 'winner' ? (
-              <Trophy className="mx-auto mb-4 h-16 w-16" />
+              <Trophy className="mx-auto mb-4 h-20 w-20" />
             ) : (
-              <Ban className="mx-auto mb-4 h-16 w-16" />
+              <Ban className="mx-auto mb-4 h-20 w-20" />
             )}
-            <p className="text-3xl font-black uppercase">
-              {announcement.type === 'winner' ? 'Winner!' : 'Eliminated'}
-            </p>
-            <p className="mt-3 text-4xl font-black">#{announcement.cardNumber}</p>
+            <p className="text-4xl font-black">#{announcement.cardNumber}</p>
             {announcement.prizeAmount != null && (
               <p className="mt-4 text-3xl font-bold">{announcement.prizeAmount.toFixed(0)} {CURRENCY_LABEL}</p>
             )}
-            <p className="mt-4 text-sm opacity-90">{announcement.message}</p>
+            <p className="mt-4 text-lg">{announcement.message}</p>
           </div>
         </div>
       )}
-      <header className="flex shrink-0 items-center justify-between border-b border-white/10 px-5 py-2">
-        <span className="text-sm font-semibold tracking-wide text-white/80">{APP_NAME}</span>
-        <div className="flex items-center gap-4 text-sm">
-          <span className="rounded-full bg-white/10 px-3 py-0.5 text-xs font-semibold uppercase tracking-wide text-[#facc15]">
-            {statusLabel}
-          </span>
-          <span className="font-semibold">
-            Players: <span className="font-black text-white">{game.playerCount}</span>
-          </span>
-        </div>
-      </header>
 
-      <div className="flex shrink-0 items-center gap-2 px-5 py-2">
-        {recent.length === 0 ? (
-          <span className="text-xs text-white/40">—</span>
-        ) : (
-          recent.map((n, i) => (
-            <div
-              key={`${n}-${i}`}
-              className={cn(
-                'flex h-9 w-9 items-center justify-center rounded-full text-sm font-bold',
-                i === 0
-                  ? 'bg-[#facc15] text-[#111827] ring-2 ring-[#fde047]'
-                  : 'bg-[#374151] text-white',
-              )}
-            >
-              {n}
-            </div>
-          ))
-        )}
+      {/* Top bar — Recent draws + Players */}
+      <div className="flex shrink-0 items-center justify-between px-5 py-3">
+        <div className="flex items-center gap-3">
+          <span className="text-sm font-medium text-gray-300">Recent Draws:</span>
+          <div className="flex items-center gap-1.5">
+            {recent.length === 0 ? (
+              <span className="text-xs text-gray-500">—</span>
+            ) : (
+              recent.map((n) => (
+                <div
+                  key={n}
+                  className="flex h-9 w-9 items-center justify-center rounded-full bg-[#4b5563] text-sm font-bold text-white"
+                >
+                  {n}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+        <p className="text-base font-semibold">
+          Players: <span className="font-black">{game.playerCount}</span>
+        </p>
       </div>
 
-      <div className="flex min-h-0 flex-1 gap-3 px-4 pb-2 sm:px-5">
-        <div className="flex w-[11rem] shrink-0 flex-col rounded-lg bg-white text-[#111827] shadow-lg sm:w-[12.5rem]">
-          <div className="flex flex-1 flex-col items-center justify-center px-3 py-4">
-            {showGameStarted ? (
+      {/* Main area */}
+      <div className="flex min-h-0 flex-1 gap-4 px-5 pb-3">
+        {/* Left white panel */}
+        <div className="flex w-[10.5rem] shrink-0 flex-col rounded-lg bg-white text-[#111827] shadow-xl sm:w-[11.5rem]">
+          <div className="flex flex-1 flex-col items-center justify-center px-4 py-6">
+            {isAnnouncing ? (
               <div className="text-center">
-                <p className="text-lg font-black uppercase leading-tight text-emerald-600">
-                  {game.language === 'am' ? 'ጨዋታ' : 'Game has'}
-                </p>
-                <p className="text-xl font-black uppercase text-emerald-600">
-                  {game.language === 'am' ? 'ጀመረች' : 'Started'}
+                <p className="text-lg font-black uppercase text-emerald-600">
+                  {game.language === 'am' ? 'ጨዋታ ጀመረች' : 'Game has started'}
                 </p>
               </div>
             ) : displayBall !== null ? (
-              <div className="flex h-24 w-24 items-center justify-center rounded-full border-[3px] border-[#111827] bg-white sm:h-28 sm:w-28">
-                <span className="text-5xl font-black sm:text-6xl">{displayBall}</span>
+              <div className="flex h-[7.5rem] w-[7.5rem] items-center justify-center rounded-full border-[3px] border-black bg-white sm:h-32 sm:w-32">
+                <span className="text-6xl font-black sm:text-7xl">{displayBall}</span>
               </div>
             ) : (
-              <div className="rounded-full border-2 border-[#111827] px-6 py-3 text-base font-semibold text-[#6b7280]">
-                Ready
+              <div className="rounded-full border-2 border-black px-8 py-3 text-lg font-semibold text-gray-500">
+                Loading
               </div>
             )}
           </div>
-
-          <div className="shrink-0 border-t border-gray-200 px-3 py-3 text-center">
-            <p className="text-2xl font-black">{drawCount}/{maxBalls}</p>
-            <p className="mt-2 text-sm font-medium text-[#6b7280]">
+          <div className="border-t border-gray-200 px-4 py-4 text-center">
+            <p className="text-3xl font-black text-gray-700">{drawCount}/{maxBalls}</p>
+            <p className="mt-3 text-base text-gray-600">
               Win:{' '}
-              <span className="text-xl font-black text-red-600">
+              <span className="text-2xl font-black text-red-600">
                 {game.prize.toFixed(0)} {CURRENCY_LABEL}
               </span>
             </p>
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-hidden rounded-lg bg-[#0f1428] px-2 py-2 sm:px-3">
+        {/* 75-ball board */}
+        <div className="min-h-0 flex-1 overflow-hidden rounded-lg bg-[#2a2a2a] px-2 py-2">
           <BingoBallBoard calledSet={calledSet} lastDrawn={displayBall} maxBalls={maxBalls} />
         </div>
       </div>
 
-      <footer className="flex shrink-0 flex-wrap items-end justify-between gap-3 border-t border-white/10 px-5 py-3">
-        <div className="w-28 shrink-0 sm:w-32">
+      {/* Footer — cartella + controls (always visible) */}
+      <footer className="flex shrink-0 items-center justify-between gap-4 border-t border-white/10 px-5 py-4">
+        <div className="w-[7.5rem] shrink-0 sm:w-32">
           {previewCard ? (
-            <BingoCardView cardNumber={previewCard.cardNumber} grid={previewCard.grid} compact />
+            <MinchCartellaPreview grid={previewCard.grid} calledSet={calledSet} compact />
           ) : (
-            <div className="rounded-lg border border-dashed border-white/15 p-2 text-center text-[10px] text-white/40">
+            <div className="rounded-md border-2 border-dashed border-white/20 p-3 text-center text-[10px] text-white/40">
               Cartella
             </div>
           )}
         </div>
 
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          {isCalling && (
-            <button
-              type="button"
-              onClick={handleBingoClaim}
-              className="inline-flex min-w-[6.5rem] items-center justify-center gap-2 rounded-xl bg-[#eab308] px-4 py-2.5 text-sm font-bold text-[#111827] shadow-md hover:bg-[#ca8a04]"
-            >
-              <Megaphone className="h-5 w-5" /> BINGO!
-            </button>
-          )}
-          {bingoClaimActive && (
-            <button
-              type="button"
-              onClick={handleCheckCards}
-              className="inline-flex min-w-[7rem] items-center justify-center gap-2 rounded-xl bg-[#2563eb] px-4 py-2.5 text-sm font-bold text-white shadow-md hover:bg-[#1d4ed8]"
-            >
-              <Search className="h-5 w-5" /> CHECK CARDS
-            </button>
-          )}
-          {canStart && (
-            <button
-              type="button"
-              onClick={handleStart}
-              disabled={isAnnouncing}
-              className="inline-flex min-w-[6.5rem] items-center justify-center gap-2 rounded-xl bg-[#16a34a] px-4 py-2.5 text-sm font-bold text-white shadow-md hover:bg-[#15803d] disabled:opacity-50"
-            >
-              <Play className="h-5 w-5 fill-white" /> Start
-            </button>
-          )}
-          {isCalling && !bingoClaimActive && (
-            <button
-              type="button"
-              onClick={handlePause}
-              className="inline-flex min-w-[6.5rem] items-center justify-center gap-2 rounded-xl bg-[#ea580c] px-4 py-2.5 text-sm font-bold text-white shadow-md hover:bg-[#c2410c]"
-            >
-              <Pause className="h-5 w-5" /> Pause
-            </button>
-          )}
-          {isPaused && drawCount > 0 && !canStart && !bingoClaimActive && (
-            <button
-              type="button"
-              onClick={handleResume}
-              className="inline-flex min-w-[6.5rem] items-center justify-center gap-2 rounded-xl bg-[#16a34a] px-4 py-2.5 text-sm font-bold text-white shadow-md hover:bg-[#15803d]"
-            >
-              <Play className="h-5 w-5 fill-white" /> Resume
-            </button>
-          )}
+        <div className="flex flex-wrap items-center justify-end gap-3">
+          <button
+            type="button"
+            onClick={handlePlay}
+            disabled={isAnnouncing}
+            className="inline-flex min-h-[3rem] min-w-[7.5rem] items-center justify-center gap-2 rounded-2xl bg-[#22c55e] px-6 py-3 text-base font-bold text-white shadow-lg hover:bg-[#16a34a] disabled:opacity-50"
+          >
+            <Play className="h-6 w-6 fill-white" /> Play
+          </button>
           <button
             type="button"
             onClick={handleEndGame}
-            className="inline-flex min-w-[6.5rem] items-center justify-center gap-2 rounded-xl bg-[#dc2626] px-4 py-2.5 text-sm font-bold text-white shadow-md hover:bg-[#b91c1c]"
+            className="inline-flex min-h-[3rem] min-w-[7.5rem] items-center justify-center gap-2 rounded-2xl bg-[#ef4444] px-6 py-3 text-base font-bold text-white shadow-lg hover:bg-[#dc2626]"
           >
-            <Square className="h-4 w-4 fill-white" /> End Game
+            <Square className="h-5 w-5 fill-white" /> End Game
           </button>
           <button
             type="button"
             onClick={toggleFullscreen}
-            className="inline-flex min-w-[6.5rem] items-center justify-center gap-2 rounded-xl bg-[#2563eb] px-4 py-2.5 text-sm font-bold text-white shadow-md hover:bg-[#1d4ed8]"
+            className="inline-flex min-h-[3rem] min-w-[7.5rem] items-center justify-center gap-2 rounded-2xl bg-[#3b82f6] px-6 py-3 text-base font-bold text-white shadow-lg hover:bg-[#2563eb]"
           >
             {fullscreen ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-5 w-5" />}
             Fullscreen
           </button>
+          {showCheckCards && (
+            <button
+              type="button"
+              onClick={handleCheckCards}
+              className="inline-flex min-h-[3rem] min-w-[8rem] items-center justify-center gap-2 rounded-2xl bg-[#f59e0b] px-6 py-3 text-base font-bold text-[#111827] shadow-lg hover:bg-[#d97706]"
+            >
+              Check Cards
+            </button>
+          )}
+          {previewCards.length > 1 && (
+            <button
+              type="button"
+              onClick={handleShufflePreview}
+              className="inline-flex min-h-[3rem] min-w-[7rem] items-center justify-center gap-2 rounded-2xl bg-[#8b5cf6] px-5 py-3 text-base font-bold text-white shadow-lg hover:bg-[#7c3aed]"
+            >
+              <Shuffle className="h-5 w-5" /> Shuffle
+            </button>
+          )}
         </div>
       </footer>
     </div>

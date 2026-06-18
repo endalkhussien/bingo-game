@@ -41,7 +41,7 @@ export function BingoBallBoard({ calledSet, lastDrawn, maxBalls = 75 }: BingoBal
                       ? 'bg-[#facc15] text-[#111827] ring-2 ring-[#fde047]'
                       : isCalled
                         ? 'bg-[#facc15] text-[#111827]'
-                        : 'bg-[#4b5563] text-[#e5e7eb]',
+                        : 'bg-[#5a5a5a] text-[#f3f4f6]',
                   )}
                 >
                   {n}

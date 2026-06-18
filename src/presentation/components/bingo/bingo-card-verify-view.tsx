@@ -1,7 +1,6 @@
 'use client';
 
-import { BINGO_COLUMNS, BINGO_COLUMN_COLORS } from '@/shared/constants';
-import { Star } from 'lucide-react';
+import { BINGO_COLUMNS } from '@/shared/constants';
 import { cn } from '@/presentation/lib/utils';
 
 interface BingoCardVerifyViewProps {
@@ -11,6 +10,7 @@ interface BingoCardVerifyViewProps {
   compact?: boolean;
 }
 
+/** Minch-style check card grid — green = called, red = not called yet */
 export function BingoCardVerifyView({
   cardNumber,
   grid,
@@ -20,15 +20,11 @@ export function BingoCardVerifyView({
   const called = new Set(calledNumbers);
 
   return (
-    <div className={cn('rounded-xl bg-slate-800 p-3 shadow-lg', compact ? '' : 'w-full')}>
-      <h3 className="mb-2 text-center text-sm font-semibold text-white">Cartella #{cardNumber}</h3>
-      <p className="mb-2 text-center text-xs text-slate-300">
-        Green = called · {calledNumbers.length} balls drawn
-      </p>
-      <div className="overflow-hidden rounded-lg">
-        <div className="grid grid-cols-5 gap-px bg-slate-600">
+    <div className={cn('w-full', compact ? '' : 'max-w-md')}>
+      <div className="overflow-hidden rounded-lg border border-gray-300">
+        <div className="grid grid-cols-5 gap-px bg-gray-300">
           {BINGO_COLUMNS.map((col) => (
-            <div key={col} className={cn(BINGO_COLUMN_COLORS[col], 'py-1 text-center text-xs font-bold text-white')}>
+            <div key={col} className="bg-gray-700 py-1.5 text-center text-xs font-bold text-white">
               {col}
             </div>
           ))}
@@ -40,17 +36,22 @@ export function BingoCardVerifyView({
                 <div
                   key={`${ri}-${ci}`}
                   className={cn(
-                    'flex h-8 items-center justify-center text-xs font-bold',
-                    isCalled ? 'bg-green-500 text-white' : 'bg-slate-200 text-slate-700',
+                    'flex h-10 items-center justify-center text-sm font-bold',
+                    isFree
+                      ? 'bg-emerald-500 text-white'
+                      : isCalled
+                        ? 'bg-emerald-500 text-white'
+                        : 'bg-red-500 text-white',
                   )}
                 >
-                  {isFree ? <Star className="h-3 w-3 fill-white text-white" /> : cell}
+                  {isFree ? 'Free' : cell}
                 </div>
               );
             }),
           )}
         </div>
       </div>
+      <p className="mt-2 text-center text-xs text-gray-500">Card #{cardNumber}</p>
     </div>
   );
 }
