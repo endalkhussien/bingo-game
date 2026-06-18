@@ -346,7 +346,8 @@ export default function GameBoardPage() {
       await speakGameStarted(voiceRef.current, languageRef.current);
       const delayStart = Date.now();
       while (Date.now() - delayStart < GAME_START_DELAY_MS) {
-        if (!activeGameRef.current || isPausedRef.current) {
+        // Game starts PAUSED on server — only abort if user pressed Pause (stopCalling clears announcingRef).
+        if (!activeGameRef.current || !announcingRef.current) {
           setCallingPhase('paused');
           return;
         }
@@ -356,7 +357,7 @@ export default function GameBoardPage() {
       announcingRef.current = false;
     }
 
-    if (!activeGameRef.current || isPausedRef.current) {
+    if (!activeGameRef.current) {
       setCallingPhase('paused');
       return;
     }

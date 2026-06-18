@@ -40,10 +40,11 @@ export default function LoginPage() {
       if (result.user.role === ROLE_OPERATOR) {
         try {
           const status = await ipc<{ active: boolean }>('license:status');
-          router.push(getShopAdminEntryPath(!!status?.active));
+          window.location.assign(getShopAdminEntryPath(!!status?.active));
         } catch {
-          router.push(getShopAdminEntryPath(false));
+          window.location.assign(getShopAdminEntryPath(false));
         }
+        return;
       } else {
         router.push(getPostLoginPath(result.user.role));
       }

@@ -2,7 +2,8 @@ import type { NextConfig } from 'next';
 import path from 'path';
 
 const nextConfig: NextConfig = {
-  output: 'export',
+  // Static export only for production (Electron). Dev server needs full RSC so /admin/license/ navigation works.
+  ...(process.env.NODE_ENV === 'production' ? { output: 'export' as const } : {}),
   trailingSlash: true,
   images: { unoptimized: true },
   transpilePackages: ['lucide-react'],
