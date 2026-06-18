@@ -84,22 +84,6 @@ export default function LoginPage() {
     }
   };
 
-  const fillDemo = (role: 'vendor' | 'admin' | 'agent') => {
-    if (role === 'vendor') {
-      setUsername('vendor');
-      setPassword('vendor2024');
-    } else if (role === 'admin') {
-      setUsername('admin');
-      setPassword('admin123');
-    } else {
-      setUsername('agent');
-      setPassword('agent123');
-    }
-    setError('');
-    setSuccess('');
-    setMode('login');
-  };
-
   return (
     <div className="relative flex min-h-screen overflow-hidden bg-[#1a1410]">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-900/40 via-[#1a1410] to-[#1a1410]" />
@@ -110,7 +94,7 @@ export default function LoginPage() {
         <div className="flex flex-1 flex-col justify-between px-8 py-10 lg:px-14 lg:py-12">
           <div>
             <div className="mb-6 flex items-center gap-4">
-              <AppLogo size={96} className="rounded-2xl shadow-lg ring-2 ring-amber-400/30" />
+              <AppLogo size={128} className="rounded-2xl shadow-lg ring-2 ring-amber-400/30" />
               <div className="flex gap-2">
                 {BINGO_LETTERS.map(({ letter, color }) => (
                   <div key={letter} className={`flex h-10 w-10 items-center justify-center rounded-lg ${color} text-lg font-black text-white shadow`}>
@@ -211,12 +195,6 @@ export default function LoginPage() {
 
             {error && <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
             {success && <p className="mt-4 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{success}</p>}
-
-            <div className="mt-6 grid grid-cols-3 gap-2">
-              <button type="button" onClick={() => fillDemo('vendor')} className="rounded-lg border py-2 text-xs font-medium text-gray-600 hover:bg-gray-50">Demo vendor</button>
-              <button type="button" onClick={() => fillDemo('admin')} className="rounded-lg border py-2 text-xs font-medium text-gray-600 hover:bg-gray-50">Demo shop admin</button>
-              <button type="button" onClick={() => fillDemo('agent')} className="rounded-lg border py-2 text-xs font-medium text-gray-600 hover:bg-gray-50">Demo agent</button>
-            </div>
           </div>
         </div>
       </div>

@@ -8,6 +8,7 @@ import { MinchCartellaPreview } from '@/presentation/components/caller/minch-car
 import { useLiveGame } from '@/presentation/hooks/use-live-game';
 import { ipc } from '@/presentation/lib/ipc';
 import { APP_NAME } from '@/shared/brand';
+import { AppLogo } from '@/presentation/components/shared/app-logo';
 import { CURRENCY_LABEL } from '@/shared/constants';
 import { broadcastGameControl, readPersistedLiveGame, type LiveGameSnapshot } from '@/presentation/lib/live-game-sync';
 import { cn } from '@/presentation/lib/utils';
@@ -58,6 +59,7 @@ function CallerDisplayView({
   const isCalling = callingPhase === 'calling';
   const isPaused = !isCalling;
   const claimActive = !!game.bingoClaimActive;
+  const hasWinner = (game.winners?.length ?? 0) > 0;
   const announcement = game.announcement;
 
   const previewCard = previewCards[previewIndex] ?? null;
@@ -123,6 +125,7 @@ function CallerDisplayView({
 
       <div className="flex shrink-0 items-center justify-between px-6 py-4">
         <div className="flex items-center gap-4">
+          <AppLogo size={64} className="rounded-xl shadow-md ring-2 ring-amber-400/20" />
           <span className="text-lg font-semibold text-gray-200">Recent Draws:</span>
           <div className="flex items-center gap-2">
             {recent.length === 0 ? (
@@ -192,11 +195,11 @@ function CallerDisplayView({
           <button
             type="button"
             onClick={onPlay}
-            disabled={isAnnouncing}
+            disabled={isAnnouncing || hasWinner}
             className="inline-flex min-h-[3.5rem] min-w-[8.5rem] items-center justify-center gap-2 rounded-2xl bg-[#22c55e] px-8 py-4 text-xl font-bold text-white shadow-lg hover:bg-[#16a34a] disabled:opacity-50"
           >
             <Play className="h-7 w-7 fill-white" />
-            {isCalling ? 'Pause' : isPaused && drawCount > 0 ? 'Resume' : 'Play'}
+            {hasWinner ? 'Winner!' : isCalling ? 'Pause' : isPaused && drawCount > 0 ? 'Resume' : 'Play'}
           </button>
           <button
             type="button"
@@ -268,6 +271,7 @@ export function CallerDisplay({ embedded }: CallerDisplayProps = {}) {
       <CallerDisplayView
         game={game}
         onPlay={() => {
+          if ((game.winners?.length ?? 0) > 0) return;
           const phase = game.callingPhase ?? 'ready';
           const calling = phase === 'calling';
           const count = game.drawnNumbers?.length ?? 0;

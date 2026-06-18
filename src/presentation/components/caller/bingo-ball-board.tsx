@@ -25,7 +25,7 @@ export function BingoBallBoard({ calledSet, lastDrawn, maxBalls = 75, large }: B
           <div
             key={letter}
             className="grid gap-1 lg:gap-1.5"
-            style={{ gridTemplateColumns: large ? '4.5rem repeat(15, minmax(0, 1fr))' : '2rem repeat(15, minmax(0, 1fr))' }}
+            style={{ gridTemplateColumns: large ? '5rem repeat(15, minmax(0, 1fr))' : '2rem repeat(15, minmax(0, 1fr))' }}
           >
             <div className={cn(
               'flex items-center justify-center font-black text-white',
@@ -41,7 +41,7 @@ export function BingoBallBoard({ calledSet, lastDrawn, maxBalls = 75, large }: B
                   key={n}
                   className={cn(
                     'flex items-center justify-center rounded-md font-bold',
-                    large ? 'min-h-[2.5rem] text-lg sm:min-h-[2.75rem] sm:text-xl lg:min-h-[3.25rem] lg:text-2xl xl:min-h-[3.5rem] xl:text-3xl' : 'aspect-square min-h-[1.75rem] text-[11px] sm:text-xs',
+                    large ? 'min-h-[3rem] text-xl sm:min-h-[3.5rem] sm:text-2xl lg:min-h-[4rem] lg:text-3xl xl:min-h-[4.5rem] xl:text-4xl' : 'aspect-square min-h-[1.75rem] text-[11px] sm:text-xs',
                     isLatest
                       ? 'bg-[#facc15] text-[#111827] ring-2 ring-[#fde047]'
                       : isCalled

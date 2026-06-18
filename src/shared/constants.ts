@@ -33,6 +33,9 @@ export const DRAW_INTERVALS = [
   { value: 6000, label: '6 seconds' },
 ] as const;
 
+/** Agent game commission % — hidden on board until hover; default 10 */
+export const GAME_COMMISSION_OPTIONS = [10, 20, 25, 30, 35] as const;
+
 export const VOICE_TYPES = [
   { value: 'AMHARIC_MALE', label: 'Amharic Male 1' },
   { value: 'AMHARIC_FEMALE', label: 'Amharic Female 1' },

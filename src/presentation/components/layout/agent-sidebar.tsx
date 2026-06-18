@@ -8,10 +8,10 @@ import { useAuth } from '@/presentation/providers/auth-provider';
 import { APP_NAME, APP_TAGLINE } from '@/shared/brand';
 import { AppLogo } from '@/presentation/components/shared/app-logo';
 
-/** Waliya sidebar — Game Board, Waliya Cards, Reports, Recharge */
+/** Waliya sidebar — Game Board, Bingo Cards, Reports, Recharge */
 const navItems = [
   { href: '/agent/game-board', label: 'Game Board', icon: Gamepad2 },
-  { href: '/agent/cards', label: 'Waliya Cards', icon: CreditCard },
+  { href: '/agent/cards', label: 'Bingo Cards', icon: CreditCard },
   { href: '/agent/reports', label: 'Reports', icon: BarChart3 },
   { href: '/agent/recharge', label: 'Recharge Balance', icon: RefreshCw },
 ];
@@ -23,7 +23,7 @@ export function AgentSidebar() {
   return (
     <aside className="flex w-56 flex-col bg-[#1a1410] text-white">
       <div className="flex items-center gap-2 border-b border-amber-900/40 px-4 py-5">
-        <AppLogo size={56} className="rounded-2xl shadow-md ring-2 ring-amber-500/20" />
+        <AppLogo size={72} className="rounded-2xl shadow-md ring-2 ring-amber-500/20" />
         <div>
           <div className="text-sm font-bold leading-tight">{APP_NAME}</div>
           <div className="text-[10px] text-amber-200/50">{APP_TAGLINE}</div>

@@ -32,7 +32,7 @@ test.describe('Waliya smoke tests', () => {
     await page.waitForURL(/agent\/dashboard/);
 
     await page.goto('/agent/cards/');
-    await expect(page.getByRole('heading', { name: 'Waliya Cards' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Bingo Cards' })).toBeVisible();
     const createBtn = page.getByRole('button', { name: /Create/i }).first();
     await createBtn.click();
     await expect(page.getByText(/Card #/)).toBeVisible({ timeout: 10000 });

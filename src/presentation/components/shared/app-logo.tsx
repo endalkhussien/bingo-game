@@ -10,7 +10,7 @@ type AppLogoProps = {
 };
 
 /** Logo from public/brand/logo.png — shows first letter if image missing. */
-export function AppLogo({ size = 40, className = '' }: AppLogoProps) {
+export function AppLogo({ size = 52, className = '' }: AppLogoProps) {
   const [failed, setFailed] = useState(false);
   const letter = APP_NAME.trim().charAt(0).toUpperCase() || 'B';
 

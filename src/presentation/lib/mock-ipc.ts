@@ -462,7 +462,7 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
     initMockDeck();
     const missing = (c.selectedNumbers ?? []).filter((n) => !mockCards.some((card) => card.cardNumber === String(n)));
     if (missing.length > 0) {
-      return { success: false, error: `Cartella(s) not in your deck: ${missing.slice(0, 8).join(', ')}. Add them on Waliya Cards first.` };
+      return { success: false, error: `Cartella(s) not in your deck: ${missing.slice(0, 8).join(', ')}. Add them on Bingo Cards first.` };
     }
     const game = {
       id: `game-${mockGames.length + 1}`, gameCode: `TBG-${1000 + mockGames.length}`, status: 'PAUSED',
@@ -541,6 +541,8 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
   'games:draw': async (_id: unknown) => {
     const g = getMockActiveGame();
     if (g?.status === 'PAUSED') return { success: false, error: 'Game is paused' };
+    const winners = (g as { winners?: unknown[] })?.winners ?? [];
+    if (winners.length > 0) return { success: false, error: 'Winner declared — end the game before drawing more numbers' };
     const drawn = g ? ((g as { drawnNumbers?: number[] }).drawnNumbers ?? []) : [];
     const available = Array.from({ length: 75 }, (_, i) => i + 1).filter((n) => !drawn.includes(n));
     if (available.length === 0) return { success: false, error: 'All numbers drawn' };
@@ -563,6 +565,9 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
   },
   'games:resume': async (id: unknown) => {
     const g = mockGames.find((x) => x.id === id) as MockActiveGame | undefined;
+    if ((g as { winners?: unknown[] })?.winners?.length) {
+      return { success: false, error: 'Winner declared — press End Game to finish' };
+    }
     if (g) { g.status = 'RUNNING'; touchMockActiveGame(g); }
     return { success: true };
   },
@@ -616,6 +621,12 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
     const { totalPot, prize } = calculateWinnerPrize(betAmount, playerCount, rate);
     mockBalance -= prize;
     if (currentSession?.agent) currentSession.agent.walletBalance = mockBalance;
+    if (g) {
+      (g as { status?: string }).status = 'PAUSED';
+      const prev = (g as { winners?: Array<{ cardNumber: string; prizeAmount: number }> }).winners ?? [];
+      (g as { winners: typeof prev }).winners = [...prev, { cardNumber: num, prizeAmount: prize }];
+      touchMockActiveGame(g as MockActiveGame);
+    }
     return {
       success: true, valid: true,
       message: `Cartella #${num} wins ${prize.toFixed(0)} ETB!`,
