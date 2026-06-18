@@ -542,17 +542,6 @@ export default function GameBoardPage() {
     setCheckModalOpen(true);
   }, [activeGame, stopCalling]);
 
-  const continueAfterClaim = useCallback(async () => {
-    setCheckModalOpen(false);
-    setBingoClaimActive(false);
-    if (!activeGameRef.current) return;
-    if (getEffectiveDrawCount() > 0) {
-      await startCalling(true);
-    } else {
-      await beginCalling();
-    }
-  }, [beginCalling, startCalling, getEffectiveDrawCount]);
-
   const handleValidateCard = async (cardNumber: string) => {
     if (!activeGame) return { valid: false, message: 'No active game' };
     const result = await ipc<{
@@ -600,6 +589,8 @@ export default function GameBoardPage() {
       setBannedCartellas((prev) => (
         prev.includes(normalizedCard) ? prev : [...prev, normalizedCard]
       ));
+      setBingoClaimActive(false);
+      setCheckModalOpen(false);
       const ann: LiveGameAnnouncement = {
         type: 'eliminated',
         cardNumber: normalizedCard,
@@ -608,7 +599,6 @@ export default function GameBoardPage() {
       };
       setLiveAnnouncement(ann);
       window.setTimeout(() => setLiveAnnouncement(null), 5000);
-      window.setTimeout(() => { void continueAfterClaim(); }, 2500);
     }
 
     return {
@@ -674,6 +664,9 @@ export default function GameBoardPage() {
   const handleHallPlay = useCallback(() => {
     if (autoDrawRef.current && !isPausedRef.current) {
       void stopCalling(true);
+      if (getEffectiveDrawCount() > 0) {
+        setBingoClaimActive(true);
+      }
       return;
     }
     if (getEffectiveDrawCount() === 0) {
@@ -686,13 +679,17 @@ export default function GameBoardPage() {
   useEffect(() => {
     return subscribeGameControl((msg) => {
       if (msg.type === 'start-calling') void beginCalling();
-      if (msg.type === 'pause') void stopCalling(true);
+      if (msg.type === 'pause') {
+        void stopCalling(true).then(() => {
+          if (getEffectiveDrawCount() > 0) setBingoClaimActive(true);
+        });
+      }
       if (msg.type === 'resume') void handleResume();
       if (msg.type === 'end-game') void handleEndGame();
       if (msg.type === 'bingo-claim') void handleBingoClaim();
       if (msg.type === 'check-cards') handleCheckCards();
     });
-  }, [beginCalling, stopCalling, handleResume, handleEndGame, handleCheckCards]);
+  }, [beginCalling, stopCalling, handleResume, handleEndGame, handleCheckCards, getEffectiveDrawCount]);
 
   return (
     <>

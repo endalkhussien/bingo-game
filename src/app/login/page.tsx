@@ -117,7 +117,7 @@ export default function LoginPage() {
             <h1 className="text-4xl font-black tracking-tight text-white lg:text-5xl">{APP_NAME}</h1>
             <p className="mt-3 text-lg text-slate-300">{APP_TAGLINE}</p>
             <p className="mt-2 max-w-md text-sm text-slate-400">
-              <strong className="text-white">Vendor</strong> → TOL + TVP for shop ·
+              <strong className="text-white">Vendor</strong> → TAK activation key for shop ·
               <strong className="text-white"> Shop admin</strong> → TAS + TBG for agents ·
               <strong className="text-white"> Agent</strong> → Activate PC once
             </p>

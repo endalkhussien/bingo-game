@@ -93,7 +93,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-3 text-sm">
-              <Link href="/admin/license/" className="font-medium text-indigo-700 hover:underline">TOL License</Link>
+              <Link href="/admin/license/" className="font-medium text-indigo-700 hover:underline">Activation</Link>
               <Link href="/admin/settings/backup/" className="font-medium text-gray-700 hover:underline">Backup & Data</Link>
               {licenseOk && (
                 <Link href={SHOP_ADMIN_HOME} className="font-medium text-gray-700 hover:underline">Dashboard</Link>

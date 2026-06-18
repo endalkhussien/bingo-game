@@ -24,7 +24,6 @@ export interface CallerDisplayControls {
 }
 
 export interface CallerDisplayProps {
-  /** Minch mode: parent owns game logic; buttons call these directly (no broadcast). */
   embedded?: {
     game: LiveGameSnapshot;
     controls: CallerDisplayControls;
@@ -58,7 +57,7 @@ function CallerDisplayView({
   const isAnnouncing = callingPhase === 'announcing';
   const isCalling = callingPhase === 'calling';
   const isPaused = !isCalling;
-  const showCheckCards = !!game.bingoClaimActive || (isPaused && drawCount > 0);
+  const claimActive = !!game.bingoClaimActive;
   const announcement = game.announcement;
 
   const previewCard = previewCards[previewIndex] ?? null;
@@ -101,7 +100,7 @@ function CallerDisplayView({
   };
 
   return (
-    <div className="relative flex h-full min-h-screen flex-col overflow-hidden bg-[#1e1e1e] text-white select-none">
+    <div className="relative flex h-full min-h-screen flex-col overflow-hidden bg-[#141c2e] text-white select-none">
       {announcement && (
         <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/75 p-6">
           <div className={cn(
@@ -132,7 +131,7 @@ function CallerDisplayView({
               recent.map((n) => (
                 <div
                   key={n}
-                  className="flex h-14 w-14 items-center justify-center rounded-full bg-[#4b5563] text-xl font-bold text-white"
+                  className="flex h-14 w-14 items-center justify-center rounded-full border-[3px] border-[#facc15] bg-white text-xl font-bold text-[#111827]"
                 >
                   {n}
                 </div>
@@ -146,19 +145,19 @@ function CallerDisplayView({
       </div>
 
       <div className="flex min-h-0 flex-1 gap-5 px-6 pb-4">
-        <div className="flex w-[13rem] shrink-0 flex-col rounded-xl bg-white text-[#111827] shadow-xl sm:w-[15rem] lg:w-[17rem]">
+        <div className="flex w-[13rem] shrink-0 flex-col rounded-lg bg-white text-[#111827] shadow-xl sm:w-[15rem] lg:w-[17rem]">
           <div className="flex flex-1 flex-col items-center justify-center px-4 py-8">
             {isAnnouncing ? (
               <p className="text-center text-2xl font-black uppercase leading-tight text-emerald-600">
                 {game.language === 'am' ? 'ጨዋታ ጀመረች' : 'Game has started'}
               </p>
             ) : displayBall !== null ? (
-              <div className="flex h-40 w-40 items-center justify-center rounded-full border-4 border-black bg-white lg:h-52 lg:w-52">
+              <div className="flex h-40 w-40 items-center justify-center rounded-full border-[5px] border-black bg-white lg:h-52 lg:w-52">
                 <span className="text-8xl font-black lg:text-[7rem]">{displayBall}</span>
               </div>
             ) : (
               <div className="rounded-full border-[3px] border-black px-10 py-4 text-2xl font-bold text-gray-500">
-                Loading
+                —
               </div>
             )}
           </div>
@@ -173,7 +172,7 @@ function CallerDisplayView({
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-hidden rounded-xl bg-[#2a2a2a] px-3 py-3">
+        <div className="min-h-0 flex-1 overflow-hidden rounded-lg bg-[#1e2a42] px-3 py-3">
           <BingoBallBoard calledSet={calledSet} lastDrawn={displayBall} maxBalls={maxBalls} large />
         </div>
       </div>
@@ -212,13 +211,13 @@ function CallerDisplayView({
             className="inline-flex min-h-[3.5rem] min-w-[8.5rem] items-center justify-center gap-2 rounded-2xl bg-[#3b82f6] px-8 py-4 text-lg font-bold text-white shadow-lg hover:bg-[#2563eb]"
           >
             {fullscreen ? <Minimize2 className="h-6 w-6" /> : <Maximize2 className="h-6 w-6" />}
-            Fullscreen
+            {fullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
           </button>
-          {showCheckCards && (
+          {claimActive && (
             <button
               type="button"
               onClick={onCheckCards}
-              className="inline-flex min-h-[3.5rem] min-w-[9rem] items-center justify-center gap-2 rounded-2xl bg-[#f59e0b] px-8 py-4 text-lg font-bold text-[#111827] shadow-lg hover:bg-[#d97706]"
+              className="check-cards-claim inline-flex min-h-[3.5rem] min-w-[10rem] items-center justify-center gap-2 rounded-2xl bg-[#facc15] px-8 py-4 text-xl font-black text-[#111827] shadow-lg hover:bg-[#eab308]"
             >
               Check Cards
             </button>
@@ -247,7 +246,7 @@ export function CallerDisplay({ embedded }: CallerDisplayProps = {}) {
   if (!embedded) {
     if (loading && !game && !readPersistedLiveGame()) {
       return (
-        <div className="flex h-screen items-center justify-center overflow-hidden bg-[#1e1e1e] text-white">
+        <div className="flex h-screen items-center justify-center overflow-hidden bg-[#141c2e] text-white">
           <div className="h-12 w-12 animate-spin rounded-full border-4 border-[#facc15] border-t-transparent" />
         </div>
       );
@@ -255,7 +254,7 @@ export function CallerDisplay({ embedded }: CallerDisplayProps = {}) {
 
     if (!game) {
       return (
-        <div className="flex h-screen flex-col overflow-hidden bg-[#1e1e1e] text-white">
+        <div className="flex h-screen flex-col overflow-hidden bg-[#141c2e] text-white">
           <div className="flex flex-1 flex-col items-center justify-center p-8 text-center">
             <p className="text-2xl font-bold">{APP_NAME}</p>
             <p className="mt-4 text-gray-300">No active game</p>
@@ -294,7 +293,6 @@ export function CallerDisplay({ embedded }: CallerDisplayProps = {}) {
   );
 }
 
-/** Full-screen hall overlay — covers sidebar and header (Minch Bingo). */
 export function HallModeOverlay({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
@@ -306,7 +304,7 @@ export function HallModeOverlay({ children }: { children: React.ReactNode }) {
   }, []);
   if (!mounted) return null;
   return createPortal(
-    <div className="fixed inset-0 z-[9999] bg-[#1e1e1e]">{children}</div>,
+    <div className="fixed inset-0 z-[9999] bg-[#141c2e]">{children}</div>,
     document.body,
   );
 }
