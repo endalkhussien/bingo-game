@@ -37,20 +37,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
   const token = localStorage.getItem('bingo_token');
   if (token) {
-    ipc<{ user: User; agent: Agent | null } | null>('auth:session', token)
-      .then((session) => {
-        if (session) {
-          setUser(session.user);
-          setAgent(session.agent);
-        } else {
-          localStorage.removeItem('bingo_token');
-        }
-        setIsLoading(false);
-      })
-      .catch(() => {
+    ipc<{ user: User; agent: Agent | null } | null>('auth:session', token).then((session) => {
+      if (session) {
+        setUser(session.user);
+        setAgent(session.agent);
+      } else {
         localStorage.removeItem('bingo_token');
-        setIsLoading(false);
-      });
+      }
+      setIsLoading(false);
+    });
   } else {
     setIsLoading(false);
   }

@@ -111,17 +111,6 @@ export default function AdminLicensePage() {
               placeholder="Paste TOL code from vendor portal"
             />
           </div>
-          {!isElectron() && (
-            <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-3 text-xs text-indigo-900">
-              <p className="font-semibold">Browser preview — how to get a TOL code</p>
-              <ol className="mt-2 list-inside list-decimal space-y-1">
-                <li>Log out, then log in as <strong>vendor</strong> / <strong>vendor2024</strong></li>
-                <li>Open <strong>Vendor → TOL</strong> and generate a weekly code</li>
-                <li>Log back in as <strong>admin</strong> / <strong>admin123</strong> and paste it here</li>
-              </ol>
-              <p className="mt-2">After activation, the license is saved in this browser until you clear site data.</p>
-            </div>
-          )}
           {error && <p className="text-sm text-red-600">{error}</p>}
           <button
             type="submit"

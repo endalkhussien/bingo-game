@@ -117,19 +117,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     if (licenseChecking || tolJustActivated) {
       return <div className="flex h-screen items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" /></div>;
     }
-    return (
-      <div className="flex h-screen items-center justify-center bg-gray-50 p-6">
-        <div className="max-w-md rounded-xl border border-amber-200 bg-white p-8 text-center shadow-sm">
-          <p className="text-lg font-semibold text-gray-900">TOL license required</p>
-          <p className="mt-2 text-sm text-gray-600">
-            Shop admin needs an active TOL code from the vendor before the dashboard and agents pages work.
-          </p>
-          <Link href="/admin/license/" className="mt-6 inline-block rounded-lg bg-emerald-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700">
-            Activate license
-          </Link>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   return (

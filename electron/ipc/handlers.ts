@@ -1,6 +1,4 @@
-import { ipcMain, clipboard, BrowserWindow, dialog } from 'electron';
-import fs from 'fs';
-import path from 'path';
+import { ipcMain, clipboard, BrowserWindow } from 'electron';
 import * as auth from '../services/auth-service';
 import * as cards from '../services/card-service';
 import * as games from '../services/game-service';
@@ -23,7 +21,6 @@ import * as factoryReset from '../services/factory-reset-service';
 import { isAdminRole, isVendorRole } from '../../src/shared/roles';
 import { speakNumber, speakBallCall, speakPlainText, listInstalledVoices } from '../tts/tts-engine';
 import { closeCallerDisplayWindow, openCallerDisplayWindow } from '../utils/caller-display-window';
-import { getDataDir } from '../services/database-service';
 
 const sessions = new Map<number, string>();
 
@@ -368,26 +365,6 @@ export function registerIpcHandlers() {
   ipcMain.handle('backup:create', async (event) => { await requireShopAdmin(event); return backup.createBackup(); });
   ipcMain.handle('backup:list', async (event) => { await requireShopAdmin(event); return backup.listBackups(); });
   ipcMain.handle('backup:restore', async (event, filename: string) => { await requireShopAdmin(event); return backup.restoreBackup(filename); });
-  ipcMain.handle('database:export', async (event) => {
-    await requireShopAdmin(event);
-    const result = await backup.createBackup();
-    return { success: result.success, path: result.data?.path };
-  });
-  ipcMain.handle('database:import', async (event) => {
-    await requireShopAdmin(event);
-    const win = BrowserWindow.fromWebContents(event.sender);
-    const { canceled, filePaths } = await dialog.showOpenDialog(win ?? BrowserWindow.getFocusedWindow()!, {
-      title: 'Import database backup',
-      filters: [{ name: 'SQLite database', extensions: ['db'] }],
-      properties: ['openFile'],
-    });
-    if (canceled || !filePaths?.[0]) {
-      return { success: false, error: 'No file selected' };
-    }
-    const dbPath = path.join(getDataDir(), 'bingo.db');
-    fs.copyFileSync(filePaths[0], dbPath);
-    return { success: true, message: 'Database imported. Reload the app to apply changes.' };
-  });
   ipcMain.handle('database:factory-reset', async (event) => {
     const session = await requireAuth(event);
     if (session.user.role !== 'OPERATOR') {
