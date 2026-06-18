@@ -119,6 +119,7 @@ export default function GameBoardPage() {
   const [drawError, setDrawError] = useState('');
   const [callerTabBlocked, setCallerTabBlocked] = useState(false);
   const [showWebCallerPreview, setShowWebCallerPreview] = useState(false);
+  const [availableCartellas, setAvailableCartellas] = useState<number[]>([]);
   const inBrowser = !isElectron();
 
   const syncManagerRef = useRef(new AudioSyncManager({
@@ -161,6 +162,11 @@ export default function GameBoardPage() {
   const selectedSet = useMemo(() => new Set(selected), [selected]);
 
   useEffect(() => { loadVoices(); preloadBallCallClips(); }, []);
+  useEffect(() => {
+    ipc<{ cardNumber: string }[]>('cards:list').then((rows) => {
+      setAvailableCartellas((rows ?? []).map((c) => Number(c.cardNumber)).filter((n) => Number.isFinite(n)));
+    });
+  }, [activeGame]);
   useEffect(() => { void refreshBalance(); }, [refreshBalance]);
   useEffect(() => {
     if (agent?.commissionRate != null && !activeGame) {
@@ -782,8 +788,13 @@ export default function GameBoardPage() {
         </div>
       )}
 
-      <NumberGrid selectedSet={selectedSet} onToggle={toggleNumber}
-        onClear={() => setSelected([])} disabled={!!activeGame} />
+      <NumberGrid
+        availableNumbers={availableCartellas}
+        selectedSet={selectedSet}
+        onToggle={toggleNumber}
+        onClear={() => setSelected([])}
+        disabled={!!activeGame}
+      />
 
       <CalledNumbersModal
         open={calledModalOpen && !!activeGame}

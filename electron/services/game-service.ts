@@ -10,7 +10,6 @@ import { MIN_BET, CARTELLA_MAX } from '../../src/shared/constants';
 import { DRAW_BALL_COUNT } from '../../src/shared/brand';
 import { calculateTotalPot, calculateWinnerPrize, calculateGameEconomics } from '../../src/shared/prize';
 import { deductPrizePayout, creditGameStakes, deductAdminCommission, reverseGameStakes } from './wallet-service';
-import { ensureCardsExist } from './card-service';
 import { parseCardData } from '../../src/domain/services/card-generator';
 import { verifyTicketForGame } from './winner-service';
 
@@ -65,6 +64,18 @@ export async function createGame(agentId: string, config: {
   const id = uuid();
   const gameCode = generateGameCode();
 
+  const allCards = await db.select().from(bingoCards).where(eq(bingoCards.agentId, agentId)).all();
+  const cardByNumber = new Map(allCards.map((c) => [c.cardNumber, c]));
+  const missing = config.selectedNumbers.filter((n) => !cardByNumber.has(String(n)));
+  if (missing.length > 0) {
+    const shown = missing.slice(0, 8).join(', ');
+    const extra = missing.length > 8 ? ` (+${missing.length - 8} more)` : '';
+    return {
+      success: false,
+      error: `Cartella(s) not in your deck: ${shown}${extra}. Add them on Bingo Cards first.`,
+    };
+  }
+
   await db.insert(games).values({
     id,
     gameCode,
@@ -86,9 +97,6 @@ export async function createGame(agentId: string, config: {
     updatedAt: now,
   });
 
-  await ensureCardsExist(agentId, config.selectedNumbers);
-  const allCards = await db.select().from(bingoCards).where(eq(bingoCards.agentId, agentId)).all();
-  const cardByNumber = new Map(allCards.map((c) => [c.cardNumber, c]));
   const gameCardInserts = config.selectedNumbers
     .map((num) => cardByNumber.get(String(num)))
     .filter((card): card is NonNullable<typeof card> => !!card)
