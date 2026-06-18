@@ -7,6 +7,7 @@ import {
   mergeLiveGameSnapshots,
   readPersistedLiveGame,
   subscribeLiveGame,
+  type CallingPhase,
   type LiveGameSnapshot,
 } from '@/presentation/lib/live-game-sync';
 
@@ -25,6 +26,7 @@ interface ActiveGameRow {
   selectedNumbers?: number[];
   commissionRate?: number;
   startedAt?: number;
+  callingPhase?: CallingPhase;
   prize?: number;
 }
 
@@ -48,6 +50,7 @@ function toSnapshot(game: ActiveGameRow | null): LiveGameSnapshot | null {
     selectedNumbers: game.selectedNumbers,
     commissionRate,
     startedAt: game.startedAt,
+    callingPhase: game.callingPhase,
   };
 }
 

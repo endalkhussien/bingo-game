@@ -22,6 +22,9 @@ export const DEFAULT_JACKPOT_MAX_CALLS = 45;
 /** Target time between ball calls (voice + gap) — 4 sec is standard hall pace. */
 export const DEFAULT_CALL_COOLDOWN_MS = 4000;
 
+/** Pause after \"Game has started\" announcement before first ball. */
+export const GAME_START_DELAY_MS = 3000;
+
 export const DRAW_INTERVALS = [
   { value: 2000, label: '2 sec (fast)' },
   { value: 3000, label: '3 sec (normal)' },

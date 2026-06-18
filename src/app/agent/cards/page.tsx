@@ -33,6 +33,12 @@ export default function CardsPage() {
     await loadCards();
   };
 
+  const handleDelete = async (id: string, cardNumber: string) => {
+    if (!confirm(`Delete cartella #${cardNumber}? This cannot be undone.`)) return;
+    await ipc('cards:delete', id);
+    await loadCards();
+  };
+
   const handleCreateByNumber = async () => {
     const num = parseInt(manualNumber, 10);
     if (!Number.isFinite(num) || num < 1 || num > CARTELLA_MAX) {
@@ -78,7 +84,7 @@ export default function CardsPage() {
       <div className="mb-6 rounded-xl border border-indigo-100 bg-indigo-50/50 p-4">
         <h2 className="text-sm font-semibold text-indigo-900">Add a cartella</h2>
         <p className="mt-1 text-xs text-indigo-800">
-          Enter the cartella number you want (e.g. 151, 200, 300). Each gets a random 5×5 grid — use <strong>Shuffle</strong> on the card to change numbers.
+          Enter the cartella number you want (e.g. 151, 200, 300). Each gets a random 5×5 grid — use <strong>Update</strong> on the card to shuffle numbers.
         </p>
         <div className="mt-4 flex flex-wrap items-end gap-3">
           <div>
@@ -122,6 +128,7 @@ export default function CardsPage() {
               cardNumber={card.cardNumber}
               grid={card.grid}
               onUpdate={() => handleRegenerate(card.id)}
+              onDelete={() => handleDelete(card.id, card.cardNumber)}
             />
           ))}
         </div>

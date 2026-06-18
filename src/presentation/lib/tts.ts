@@ -1,6 +1,6 @@
 import { formatAmharicBallCall } from '@/shared/tts/amharic-ball-call';
 import { getBallCallSpeechParts } from '@/shared/tts/ball-call';
-import { buildCartellaAnnouncement } from '@/shared/tts/voice-map';
+import { buildCartellaAnnouncement, buildGameStartedAnnouncement } from '@/shared/tts/voice-map';
 import { playAmharicBall, playBallCallAudio } from './amharic-audio';
 import { ipc } from './ipc';
 import { isElectron } from '@/shared/runtime';
@@ -101,6 +101,22 @@ export function speakCartella(number: number, voiceType: string, language: strin
 
     await speakBrowser(payload.text, payload.lang, payload.preferFemale);
   });
+}
+
+/** Speak arbitrary announcement text (game started, etc.). */
+export async function speakPlainText(text: string, lang: string, voiceType: string): Promise<void> {
+  const preferFemale = voiceType.includes('FEMALE');
+  if (isElectron()) {
+    const result = await ipc<{ success: boolean }>('tts:speak-text', text, lang, voiceType);
+    if (result?.success) return;
+  }
+  await speakBrowser(text, lang, preferFemale);
+}
+
+/** Announce \"Game has started\" before the first ball is called. */
+export async function speakGameStarted(voiceType: string, language: string): Promise<void> {
+  const payload = buildGameStartedAnnouncement(language, voiceType);
+  await speakPlainText(payload.text, payload.lang, voiceType);
 }
 
 export async function testVoice(voiceType: string, language: string, sample = 42): Promise<string> {

@@ -441,7 +441,7 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
       return { success: false, error: `Cartella(s) not in your deck: ${missing.slice(0, 8).join(', ')}. Add them on Bingo Cards first.` };
     }
     const game = {
-      id: `game-${mockGames.length + 1}`, gameCode: `TBG-${1000 + mockGames.length}`, status: 'RUNNING',
+      id: `game-${mockGames.length + 1}`, gameCode: `TBG-${1000 + mockGames.length}`, status: 'PAUSED',
       betAmount: c.betAmount, playerCount,
       selectedNumbers: c.selectedNumbers, drawnNumbers: [], callHistory: [], voiceType: c.voiceType ?? 'AMHARIC_MALE',
       language: c.language ?? 'am', totalPot: pot, prize, maxBalls: 75, drawSpeedMs: c.drawSpeedMs ?? DEFAULT_CALL_COOLDOWN_MS, commissionRate: rate,
@@ -479,6 +479,7 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
   },
   'games:draw': async (_id: unknown) => {
     const g = getMockActiveGame();
+    if (g?.status === 'PAUSED') return { success: false, error: 'Game is paused' };
     const drawn = g ? ((g as { drawnNumbers?: number[] }).drawnNumbers ?? []) : [];
     const available = Array.from({ length: 75 }, (_, i) => i + 1).filter((n) => !drawn.includes(n));
     if (available.length === 0) return { success: false, error: 'All numbers drawn' };
@@ -718,6 +719,11 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
   },
 
   'tts:speak': async (_n: unknown, _v: unknown, _l: unknown, _m: unknown) => ({ success: true, engine: 'browser-mock' }),
+  'tts:speak-text': async (text: unknown, lang: unknown, voiceType: unknown) => {
+    const { speakPlainText } = await import('@/presentation/lib/tts');
+    await speakPlainText(String(text), String(lang ?? 'am-ET'), String(voiceType ?? 'AMHARIC_MALE'));
+    return { success: true, engine: 'browser-tts' };
+  },
   'tts:speak-ball-call': async (number: unknown, language: unknown, voiceType: unknown) => {
     const { speakBallCall } = await import('@/presentation/lib/tts');
     await speakBallCall(Number(number), String(voiceType ?? 'AMHARIC_MALE'), String(language ?? 'am'));

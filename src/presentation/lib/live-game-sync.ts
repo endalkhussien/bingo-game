@@ -2,6 +2,15 @@
 
 export const LIVE_GAME_CHANNEL = 'tebib-live-game';
 export const LIVE_GAME_STORAGE_KEY = 'tebib_live_game_snapshot';
+export const GAME_CONTROL_CHANNEL = 'tebib-game-control';
+
+export type CallingPhase = 'ready' | 'announcing' | 'calling' | 'paused' | 'ended';
+
+export type GameControlMessage =
+  | { type: 'start-calling' }
+  | { type: 'pause' }
+  | { type: 'resume' }
+  | { type: 'end-game' };
 
 export interface LiveGameSnapshot {
   id: string;
@@ -19,6 +28,7 @@ export interface LiveGameSnapshot {
   selectedNumbers?: number[];
   commissionRate?: number;
   startedAt?: number;
+  callingPhase?: CallingPhase;
 }
 
 export type LiveGameMessage =
@@ -60,6 +70,7 @@ export function mergeLiveGameSnapshots(
     drawnNumbers: current.drawnNumbers,
     callHistory: current.callHistory,
     status: incoming.status || current.status,
+    callingPhase: incoming.callingPhase ?? current.callingPhase,
   };
 }
 
@@ -86,5 +97,25 @@ export function subscribeLiveGame(handler: (message: LiveGameMessage) => void): 
   }
   const channel = new BroadcastChannel(LIVE_GAME_CHANNEL);
   channel.onmessage = (event: MessageEvent<LiveGameMessage>) => handler(event.data);
+  return () => channel.close();
+}
+
+export function broadcastGameControl(message: GameControlMessage): void {
+  if (typeof window === 'undefined' || typeof BroadcastChannel === 'undefined') return;
+  try {
+    const channel = new BroadcastChannel(GAME_CONTROL_CHANNEL);
+    channel.postMessage(message);
+    channel.close();
+  } catch {
+    /* ignore */
+  }
+}
+
+export function subscribeGameControl(handler: (message: GameControlMessage) => void): () => void {
+  if (typeof window === 'undefined' || typeof BroadcastChannel === 'undefined') {
+    return () => {};
+  }
+  const channel = new BroadcastChannel(GAME_CONTROL_CHANNEL);
+  channel.onmessage = (event: MessageEvent<GameControlMessage>) => handler(event.data);
   return () => channel.close();
 }

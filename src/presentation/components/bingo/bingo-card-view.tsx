@@ -37,7 +37,13 @@ export function BingoCardView({ cardNumber, grid, onUpdate, onDelete, compact }:
           {onUpdate && (
             <button onClick={onUpdate}
               className="flex-1 rounded-md bg-yellow-500 py-1.5 text-xs font-semibold text-white hover:bg-yellow-600">
-              Shuffle
+              Update
+            </button>
+          )}
+          {onDelete && (
+            <button onClick={onDelete}
+              className="flex-1 rounded-md bg-red-600 py-1.5 text-xs font-semibold text-white hover:bg-red-700">
+              Delete
             </button>
           )}
         </div>
