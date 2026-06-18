@@ -54,13 +54,13 @@ console.log('========================================\n');
 
 ensureAmharicAudio();
 
-console.log('→ Rebuilding native modules for Electron...\n');
-run('npx electron-builder install-app-deps');
-
 run('node scripts/clean-build.mjs');
 
 console.log('\n→ Building production app (Next.js + Electron)...\n');
 run('npm run build');
+
+console.log('\n→ Rebuilding native SQLite module for Electron...\n');
+run('npx electron-builder install-app-deps');
 
 console.log('\n→ Running release validation...\n');
 run('node scripts/validate-release.mjs');
@@ -70,6 +70,9 @@ const productName = brand.appName.replace(/"/g, '\\"');
 run(
   `npx electron-builder --win --config electron-builder.yml --config.productName="${productName}" --config.nsis.shortcutName="${productName}" --config.nsis.uninstallDisplayName="${productName}"`,
 );
+
+console.log('\n→ Verifying packaged app contents...\n');
+run('node scripts/validate-packaged.mjs');
 
 const releaseDir = path.join(root, 'release');
 const exes = fs.existsSync(releaseDir)

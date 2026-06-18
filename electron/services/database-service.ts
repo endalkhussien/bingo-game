@@ -5,6 +5,7 @@ import { createDatabase, runMigrations } from '../../src/infrastructure/database
 import { seedDatabase, ensureVendorUser, ensureShopAdminUser } from '../../src/infrastructure/database/seed';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import * as schema from '../../src/infrastructure/database/schema';
+import { formatStartupError, sqliteStartupHint } from '../utils/startup-error';
 
 let database: BetterSQLite3Database<typeof schema> | null = null;
 
@@ -17,12 +18,17 @@ export function getDataDir(): string {
 
 export async function initDatabase(): Promise<BetterSQLite3Database<typeof schema>> {
   const dbPath = path.join(getDataDir(), 'bingo.db');
-  database = createDatabase(dbPath);
-  runMigrations(database);
-  await seedDatabase(database);
-  await ensureVendorUser(database);
-  await ensureShopAdminUser(database);
-  return database;
+  try {
+    database = createDatabase(dbPath);
+    runMigrations(database);
+    await seedDatabase(database);
+    await ensureVendorUser(database);
+    await ensureShopAdminUser(database);
+    return database;
+  } catch (err) {
+    const detail = formatStartupError(err);
+    throw new Error(`Database setup failed for ${dbPath}\n${detail}${sqliteStartupHint(detail)}`);
+  }
 }
 
 export function getDb(): BetterSQLite3Database<typeof schema> {

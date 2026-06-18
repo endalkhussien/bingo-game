@@ -1,10 +1,12 @@
 import { app, BrowserWindow, Menu, dialog } from 'electron';
 import path from 'path';
+import fs from 'fs';
 import { initDatabase } from './services/database-service';
 import { registerIpcHandlers } from './ipc/handlers';
 import { closeCallerDisplayWindow } from './utils/caller-display-window';
 import { startStaticServer } from './utils/static-server';
 import { checkWindowsSupport } from './utils/windows-support';
+import { formatStartupError } from './utils/startup-error';
 import { APP_NAME } from '../src/shared/brand';
 
 let mainWindow: BrowserWindow | null = null;
@@ -61,17 +63,27 @@ async function createWindow() {
   ]));
 
   const uiReady = loadUi(mainWindow).catch((err) => {
-    dialog.showErrorBox('Load Error', `Failed to load UI:\n${err}\n\nRun: npm run build`);
+    const outDir = path.join(app.getAppPath(), 'out');
+    const outExists = fs.existsSync(path.join(outDir, 'index.html'));
+    dialog.showErrorBox(
+      'Load Error',
+      [
+        'Failed to load Waliya UI.',
+        formatStartupError(err),
+        '',
+        `UI folder: ${outDir}`,
+        outExists ? 'index.html was found — retry reinstalling Waliya.' : 'index.html is MISSING — rebuild with: npm run pack:win',
+      ].join('\n'),
+    );
     app.quit();
   });
 
   try {
-    await Promise.all([
-      initDatabase().then(() => registerIpcHandlers()),
-      uiReady,
-    ]);
+    await initDatabase();
+    registerIpcHandlers();
+    await uiReady;
   } catch (err) {
-    dialog.showErrorBox('Startup Error', `Database failed to initialize:\n${err}`);
+    dialog.showErrorBox('Startup Error', formatStartupError(err));
     app.quit();
     return;
   }

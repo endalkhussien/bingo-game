@@ -41,7 +41,12 @@ check('Amharic fallback audio (75)', fallbackCount >= 75, `${fallbackCount}/75`)
 
 check('dist-electron/main.js', fs.existsSync(path.join(root, 'dist-electron/electron/main.js')));
 check('out/index.html', fs.existsSync(path.join(root, 'out/index.html')));
+check('out/login page', fs.existsSync(path.join(root, 'out/login/index.html')));
 check('out/audio in export', fs.existsSync(path.join(root, 'out/audio/B1.mp3')));
+check(
+  'better_sqlite3.node (Electron)',
+  fs.existsSync(path.join(root, 'node_modules/better-sqlite3/build/Release/better_sqlite3.node')),
+);
 
 check('AGENTS-QUICK-GUIDE.txt', fs.existsSync(path.join(root, 'AGENTS-QUICK-GUIDE.txt')));
 check('electron-builder config', fs.existsSync(path.join(root, 'electron-builder.yml')));
