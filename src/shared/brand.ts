@@ -11,5 +11,7 @@ export const APP_LOGO_SRC = `/brand/${brandConfig.logoFile}`;
 export const APP_ICON_FILE = brandConfig.iconFile;
 
 export const DRAW_BALL_COUNT = 75;
-/** Total cartella bingo cards in the deck (configurable in brand.config.json) */
-export const CARTELLA_COUNT = brandConfig.cartellaCount ?? 150;
+/** Cards created on first install (existing deck). Add more manually up to cartellaCount. */
+export const INITIAL_CARTELLA_COUNT = brandConfig.initialCartellaCount ?? 150;
+/** Maximum cartella numbers an agent can create manually */
+export const CARTELLA_COUNT = brandConfig.cartellaCount ?? 300;

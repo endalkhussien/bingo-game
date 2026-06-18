@@ -1,7 +1,6 @@
 'use client';
 
-import { BINGO_COLUMNS } from '@/shared/constants';
-import { COLUMN_RANGES } from '@/shared/constants';
+import { BINGO_COLUMNS, COLUMN_RANGES } from '@/shared/constants';
 import { cn } from '@/presentation/lib/utils';
 
 interface BingoBallBoardProps {
@@ -15,14 +14,19 @@ function columnNumbers(col: keyof typeof COLUMN_RANGES): number[] {
   return Array.from({ length: max - min + 1 }, (_, i) => min + i);
 }
 
+/** Minch-style 75-ball board — 5×15 grid with B-I-N-G-O row labels */
 export function BingoBallBoard({ calledSet, lastDrawn, maxBalls = 75 }: BingoBallBoardProps) {
   return (
-    <div className="flex flex-1 flex-col gap-1.5">
+    <div className="flex h-full w-full flex-col justify-center gap-1">
       {BINGO_COLUMNS.map((letter) => {
         const nums = columnNumbers(letter as keyof typeof COLUMN_RANGES).filter((n) => n <= maxBalls);
         return (
-          <div key={letter} className="grid grid-cols-[2.5rem_repeat(15,minmax(0,1fr))] gap-1">
-            <div className="flex items-center justify-center text-lg font-black text-white sm:text-xl">
+          <div
+            key={letter}
+            className="grid gap-[3px]"
+            style={{ gridTemplateColumns: '2rem repeat(15, minmax(0, 1fr))' }}
+          >
+            <div className="flex items-center justify-center text-base font-black text-white/90 sm:text-lg">
               {letter}
             </div>
             {nums.map((n) => {
@@ -32,12 +36,12 @@ export function BingoBallBoard({ calledSet, lastDrawn, maxBalls = 75 }: BingoBal
                 <div
                   key={n}
                   className={cn(
-                    'flex aspect-square items-center justify-center rounded-md text-xs font-bold transition-colors sm:text-sm',
+                    'flex aspect-square min-h-[1.75rem] items-center justify-center rounded-md text-[11px] font-bold sm:text-xs',
                     isLatest
-                      ? 'bg-yellow-400 text-slate-900 ring-2 ring-yellow-200'
+                      ? 'bg-[#facc15] text-[#111827] ring-2 ring-[#fde047]'
                       : isCalled
-                        ? 'bg-yellow-300/90 text-slate-900'
-                        : 'bg-slate-700/80 text-slate-200',
+                        ? 'bg-[#facc15] text-[#111827]'
+                        : 'bg-[#4b5563] text-[#e5e7eb]',
                   )}
                 >
                   {n}

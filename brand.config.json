@@ -3,5 +3,6 @@
   "tagline": "Play · Win · Earn",
   "logoFile": "logo.png",
   "iconFile": "icon.ico",
+  "initialCartellaCount": 150,
   "cartellaCount": 300
 }

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Gamepad2, CreditCard, BarChart3, Wallet, RefreshCw, Settings, Bell, LogOut } from 'lucide-react';
+import { LayoutDashboard, Gamepad2, CreditCard, BarChart3, Wallet, RefreshCw, Settings, Bell, LogOut, Monitor } from 'lucide-react';
 import { cn } from '@/presentation/lib/utils';
 import { useAuth } from '@/presentation/providers/auth-provider';
 import { useEffect, useState } from 'react';
@@ -13,6 +13,7 @@ import { ipc } from '@/presentation/lib/ipc';
 const navItems = [
   { href: '/agent/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/agent/game-board', label: 'Game Board', icon: Gamepad2 },
+  { href: '/agent/caller-display', label: 'Caller Display', icon: Monitor, external: true },
   { href: '/agent/cards', label: 'Bingo Cards', icon: CreditCard },
   { href: '/agent/games', label: 'Games', icon: Gamepad2 },
   { href: '/agent/wallet', label: 'Wallet', icon: Wallet },
@@ -43,10 +44,17 @@ export function AgentSidebar() {
         {navItems.map((item) => {
           const active = pathname === item.href || (item.href !== '/agent/dashboard' && pathname.startsWith(item.href));
           const Icon = item.icon;
+          const className = cn('flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+            active ? 'bg-sidebar-active text-white' : 'text-gray-300 hover:bg-sidebar-hover hover:text-white');
+          if ('external' in item && item.external) {
+            return (
+              <a key={item.href} href={`${item.href}/`} target="_blank" rel="noopener noreferrer" className={className}>
+                <Icon className="h-5 w-5" />{item.label}
+              </a>
+            );
+          }
           return (
-            <Link key={item.href} href={item.href}
-              className={cn('flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-                active ? 'bg-sidebar-active text-white' : 'text-gray-300 hover:bg-sidebar-hover hover:text-white')}>
+            <Link key={item.href} href={item.href} className={className}>
               <Icon className="h-5 w-5" />{item.label}
             </Link>
           );

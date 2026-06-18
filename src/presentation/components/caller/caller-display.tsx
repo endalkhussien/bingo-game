@@ -8,8 +8,6 @@ import { useLiveGame } from '@/presentation/hooks/use-live-game';
 import { ipc } from '@/presentation/lib/ipc';
 import { APP_NAME } from '@/shared/brand';
 import { CURRENCY_LABEL } from '@/shared/constants';
-import { getBallLabel } from '@/domain/services/bingo-engine';
-import { formatBallCallLabel } from '@/shared/tts/ball-call';
 import { cn } from '@/presentation/lib/utils';
 
 interface PreviewCard {
@@ -17,6 +15,7 @@ interface PreviewCard {
   grid: number[][];
 }
 
+/** Hall / projector screen — Minch Bingo style layout */
 export function CallerDisplay() {
   const { game, loading } = useLiveGame(800);
   const [showStarted, setShowStarted] = useState(false);
@@ -28,15 +27,15 @@ export function CallerDisplay() {
   const lastDrawn = called.length ? called[called.length - 1] : null;
   const drawCount = called.length;
   const maxBalls = game?.maxBalls ?? 75;
-  const recent = [...called].slice(-6).reverse();
+  const recent = [...called].slice(-4).reverse();
   const isPaused = game?.status === 'PAUSED';
   const isRunning = game?.status === 'RUNNING';
-  const language = game?.language ?? 'am';
+  const waitingForFirstBall = isRunning && drawCount === 0;
 
   useEffect(() => {
     if (!game || drawCount > 0) return;
     setShowStarted(true);
-    const t = window.setTimeout(() => setShowStarted(false), 4000);
+    const t = window.setTimeout(() => setShowStarted(false), 3500);
     return () => window.clearTimeout(t);
   }, [game?.id, drawCount, game]);
 
@@ -75,135 +74,140 @@ export function CallerDisplay() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#1a1f3a] text-white">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-yellow-400 border-t-transparent" />
+      <div className="flex min-h-screen items-center justify-center bg-[#0b0f1f] text-white">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#facc15] border-t-transparent" />
       </div>
     );
   }
 
   if (!game) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-[#1a1f3a] p-8 text-center text-white">
-        <p className="text-2xl font-bold">{APP_NAME}</p>
-        <p className="mt-4 text-lg text-slate-300">No active game</p>
-        <p className="mt-2 max-w-md text-sm text-slate-400">
-          Start a game on the Game Board, then open this caller display for the hall screen.
-        </p>
+      <div className="flex min-h-screen flex-col bg-[#0b0f1f] text-white">
+        <header className="border-b border-white/10 px-6 py-2 text-sm text-white/60">{APP_NAME}</header>
+        <div className="flex flex-1 flex-col items-center justify-center p-8 text-center">
+          <p className="text-xl font-bold">{APP_NAME}</p>
+          <p className="mt-4 text-slate-300">No active game</p>
+          <p className="mt-2 max-w-md text-sm text-slate-500">
+            Start a game on Game Board — this screen will show called numbers for the hall.
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#1a1f3a] text-white">
-      {/* Top bar — recent draws + players */}
-      <div className="flex flex-wrap items-center justify-between gap-4 px-4 py-3 sm:px-6">
-        <div className="flex flex-wrap items-center gap-2">
-          {recent.length === 0 ? (
-            <span className="text-sm text-slate-400">Waiting for first ball…</span>
-          ) : (
-            recent.map((n, i) => (
-              <div
-                key={`${n}-${i}`}
-                className={cn(
-                  'flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold',
-                  i === 0 ? 'bg-yellow-400 text-slate-900 ring-2 ring-yellow-200' : 'bg-slate-600 text-white',
-                )}
-              >
-                {n}
-              </div>
-            ))
-          )}
-        </div>
-        <p className="text-lg font-semibold">
-          Players: <span className="font-black text-yellow-300">{game.playerCount}</span>
-        </p>
+    <div className="flex min-h-screen flex-col bg-[#0b0f1f] text-white select-none">
+      {/* App title bar (Minch-style) */}
+      <header className="flex items-center justify-between border-b border-white/10 px-5 py-2">
+        <span className="text-sm font-semibold tracking-wide text-white/80">{APP_NAME}</span>
+        <span className="text-base font-semibold">
+          Players: <span className="font-black text-white">{game.playerCount}</span>
+        </span>
+      </header>
+
+      {/* Recent draws row */}
+      <div className="flex items-center gap-2 px-5 py-3">
+        {recent.length === 0 ? (
+          <span className="text-xs text-white/40">—</span>
+        ) : (
+          recent.map((n, i) => (
+            <div
+              key={`${n}-${i}`}
+              className={cn(
+                'flex h-9 w-9 items-center justify-center rounded-full text-sm font-bold',
+                i === 0
+                  ? 'bg-[#facc15] text-[#111827] ring-2 ring-[#fde047]'
+                  : 'bg-[#374151] text-white',
+              )}
+            >
+              {n}
+            </div>
+          ))
+        )}
       </div>
 
-      {/* Main board area */}
-      <div className="flex flex-1 flex-col gap-4 px-4 pb-4 lg:flex-row lg:px-6">
-        {/* Left panel — current ball */}
-        <div className="flex w-full flex-col items-center justify-between rounded-2xl bg-white px-6 py-8 text-slate-900 shadow-xl lg:w-56 xl:w-64">
-          {showStarted && drawCount === 0 ? (
-            <div className="flex flex-1 flex-col items-center justify-center text-center">
-              <p className="text-2xl font-black uppercase tracking-wide text-emerald-600">Game has</p>
-              <p className="text-3xl font-black uppercase tracking-wide text-emerald-600">Started!</p>
-            </div>
-          ) : lastDrawn !== null ? (
-            <div className="flex flex-1 flex-col items-center justify-center">
-              <div className="flex h-28 w-28 items-center justify-center rounded-full border-4 border-slate-800 bg-slate-100 sm:h-32 sm:w-32">
+      {/* Main: left status panel + ball board */}
+      <div className="flex flex-1 gap-3 px-4 pb-3 sm:px-5">
+        {/* White left panel */}
+        <div className="flex w-[11rem] shrink-0 flex-col rounded-lg bg-white text-[#111827] shadow-lg sm:w-[12.5rem]">
+          <div className="flex flex-1 flex-col items-center justify-center px-3 py-6">
+            {showStarted && waitingForFirstBall ? (
+              <div className="text-center">
+                <p className="text-lg font-black uppercase leading-tight text-emerald-600">Game has</p>
+                <p className="text-xl font-black uppercase text-emerald-600">Started</p>
+              </div>
+            ) : waitingForFirstBall ? (
+              <div className="rounded-full border-2 border-[#111827] px-8 py-3 text-lg font-semibold text-[#6b7280]">
+                Loading
+              </div>
+            ) : lastDrawn !== null ? (
+              <div className="flex h-24 w-24 items-center justify-center rounded-full border-[3px] border-[#111827] bg-white sm:h-28 sm:w-28">
                 <span className="text-5xl font-black sm:text-6xl">{lastDrawn}</span>
               </div>
-              <p className="mt-3 text-lg font-bold">{getBallLabel(lastDrawn).replace('-', ' ')}</p>
-              <p className="text-xs text-slate-500">{formatBallCallLabel(lastDrawn, language)}</p>
-            </div>
-          ) : (
-            <div className="flex flex-1 items-center justify-center">
-              <span className="rounded-full border-2 border-dashed border-slate-300 px-6 py-3 text-lg font-semibold text-slate-400">
-                Loading…
-              </span>
-            </div>
-          )}
+            ) : (
+              <div className="rounded-full border-2 border-[#111827] px-8 py-3 text-lg font-semibold text-[#6b7280]">
+                Loading
+              </div>
+            )}
+          </div>
 
-          <div className="mt-4 w-full text-center">
-            <p className="text-3xl font-black">{drawCount}/{maxBalls}</p>
-            <p className="mt-4 text-sm font-medium text-slate-500">
+          <div className="border-t border-gray-200 px-3 py-4 text-center">
+            <p className="text-2xl font-black">{drawCount}/{maxBalls}</p>
+            <p className="mt-3 text-sm font-medium text-[#6b7280]">
               Win:{' '}
-              <span className="text-2xl font-black text-red-600">
+              <span className="text-xl font-black text-red-600">
                 {game.prize.toFixed(0)} {CURRENCY_LABEL}
               </span>
             </p>
           </div>
         </div>
 
-        {/* 75-number BINGO grid */}
-        <div className="flex flex-1 flex-col rounded-2xl bg-[#232848] p-3 sm:p-4">
+        {/* 75-number grid */}
+        <div className="min-h-0 flex-1 rounded-lg bg-[#0f1428] px-2 py-3 sm:px-3">
           <BingoBallBoard calledSet={calledSet} lastDrawn={lastDrawn} maxBalls={maxBalls} />
         </div>
       </div>
 
-      {/* Bottom controls */}
-      <div className="flex flex-wrap items-end justify-between gap-4 border-t border-white/10 px-4 py-4 sm:px-6">
-        <div className="w-36 sm:w-44">
+      {/* Footer: cartella preview + controls */}
+      <footer className="flex flex-wrap items-end justify-between gap-4 border-t border-white/10 px-5 py-4">
+        <div className="w-32 shrink-0 sm:w-36">
           {previewCard ? (
             <BingoCardView cardNumber={previewCard.cardNumber} grid={previewCard.grid} compact />
           ) : (
-            <div className="rounded-xl border border-dashed border-white/20 p-4 text-center text-xs text-slate-400">
-              Cartella preview
+            <div className="rounded-lg border border-dashed border-white/15 p-3 text-center text-[10px] text-white/40">
+              Cartella
             </div>
           )}
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          {isRunning || isPaused ? (
+        <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
+          {(isRunning || isPaused) && (
             <button
               type="button"
               onClick={handlePauseResume}
-              className={cn(
-                'inline-flex items-center gap-2 rounded-xl px-6 py-3 text-sm font-bold text-white shadow-lg',
-                isPaused ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-emerald-600 hover:bg-emerald-700',
-              )}
+              className="inline-flex min-w-[7rem] items-center justify-center gap-2 rounded-xl bg-[#16a34a] px-5 py-3 text-sm font-bold text-white shadow-md hover:bg-[#15803d]"
             >
-              {isPaused ? <Play className="h-5 w-5" /> : <Pause className="h-5 w-5" />}
-              {isPaused ? 'Resume' : 'Pause'}
+              {isPaused ? <Play className="h-5 w-5 fill-white" /> : <Pause className="h-5 w-5" />}
+              {isPaused ? 'Play' : 'Pause'}
             </button>
-          ) : null}
+          )}
           <button
             type="button"
             onClick={handleEndGame}
-            className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-6 py-3 text-sm font-bold text-white shadow-lg hover:bg-red-700"
+            className="inline-flex min-w-[7rem] items-center justify-center gap-2 rounded-xl bg-[#dc2626] px-5 py-3 text-sm font-bold text-white shadow-md hover:bg-[#b91c1c]"
           >
-            <Square className="h-5 w-5" /> End Game
+            <Square className="h-4 w-4 fill-white" /> End Game
           </button>
           <button
             type="button"
             onClick={toggleFullscreen}
-            className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-sm font-bold text-white shadow-lg hover:bg-blue-700"
+            className="inline-flex min-w-[7rem] items-center justify-center gap-2 rounded-xl bg-[#2563eb] px-5 py-3 text-sm font-bold text-white shadow-md hover:bg-[#1d4ed8]"
           >
             {fullscreen ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-5 w-5" />}
             Fullscreen
           </button>
         </div>
-      </div>
+      </footer>
     </div>
   );
 }
