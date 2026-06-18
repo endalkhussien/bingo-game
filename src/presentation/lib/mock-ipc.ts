@@ -2,6 +2,7 @@
 
 import { CARTELLA_MAX, DEFAULT_CALL_COOLDOWN_MS } from '@/shared/constants';
 import { INITIAL_CARTELLA_COUNT } from '@/shared/brand';
+import { readPersistedLiveGame } from '@/presentation/lib/live-game-sync';
 import { generateOperatorLicenseCode } from '@/shared/voucher/operator-license-code';
 import { generateVendorTopupCode, parseVendorTopupCode, hashVendorTopupCode } from '@/shared/voucher/vendor-topup-code';
 
@@ -455,27 +456,63 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
   },
   'games:active': async () => {
     const g = getMockActiveGame() as {
+      id?: string;
+      gameCode?: string;
       drawnNumbers?: number[];
       betAmount: number;
       playerCount: number;
       commissionRate?: number;
       totalPot?: number;
       prize?: number;
+      status?: string;
       callHistory?: { number: number; drawOrder: number; drawnAt: number }[];
+      maxBalls?: number;
+      voiceType?: string;
+      language?: string;
+      selectedNumbers?: number[];
     } | undefined;
-    if (!g) return null;
-    const drawn = g.drawnNumbers ?? [];
-    const rate = g.commissionRate ?? 20;
-    const pot = g.totalPot ?? g.betAmount * g.playerCount;
-    const prize = g.prize ?? pot - pot * (rate / 100);
+
+    const format = (src: typeof g) => {
+      if (!src) return null;
+      const drawn = src.drawnNumbers ?? [];
+      const rate = src.commissionRate ?? 20;
+      const pot = src.totalPot ?? src.betAmount * src.playerCount;
+      const prize = src.prize ?? pot - pot * (rate / 100);
+      return {
+        ...src,
+        drawnNumbers: drawn,
+        callHistory: src.callHistory ?? drawn.map((n, i) => ({ number: n, drawOrder: i + 1, drawnAt: Math.floor(Date.now() / 1000) })),
+        totalPot: pot,
+        prize,
+        commissionRate: rate,
+        maxBalls: src.maxBalls ?? 75,
+        bannedCartellas: (src as { bannedCartellas?: string[] }).bannedCartellas ?? [],
+      };
+    };
+
+    const fromMock = format(g);
+    if (fromMock) return fromMock;
+
+    const live = readPersistedLiveGame();
+    if (!live) return null;
     return {
-      ...g,
-      drawnNumbers: drawn,
-      callHistory: g.callHistory ?? drawn.map((n, i) => ({ number: n, drawOrder: i + 1, drawnAt: Math.floor(Date.now() / 1000) })),
-      totalPot: pot,
-      prize,
-      commissionRate: rate,
-      bannedCartellas: (g as { bannedCartellas?: string[] }).bannedCartellas ?? [],
+      id: live.id,
+      gameCode: live.gameCode,
+      betAmount: live.betAmount,
+      status: live.status,
+      playerCount: live.playerCount,
+      totalPot: live.totalPot,
+      prize: live.prize,
+      drawnNumbers: live.drawnNumbers,
+      callHistory: live.callHistory,
+      maxBalls: live.maxBalls,
+      voiceType: live.voiceType,
+      language: live.language,
+      selectedNumbers: live.selectedNumbers,
+      commissionRate: live.commissionRate,
+      startedAt: live.startedAt,
+      bannedCartellas: live.bannedCartellas ?? [],
+      winners: live.winners,
     };
   },
   'games:draw': async (_id: unknown) => {

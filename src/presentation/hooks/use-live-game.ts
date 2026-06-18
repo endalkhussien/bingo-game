@@ -7,6 +7,7 @@ import {
   mergeLiveGameSnapshots,
   readPersistedLiveGame,
   subscribeLiveGame,
+  subscribeStorageLiveGame,
   type CallingPhase,
   type GameWinnerSnapshot,
   type LiveGameSnapshot,
@@ -31,6 +32,10 @@ interface ActiveGameRow {
   bannedCartellas?: string[];
   winners?: GameWinnerSnapshot[];
   prize?: number;
+}
+
+function snapshotFromPersisted(): LiveGameSnapshot | null {
+  return readPersistedLiveGame();
 }
 
 function toSnapshot(game: ActiveGameRow | null, prev?: LiveGameSnapshot | null): LiveGameSnapshot | null {
@@ -61,14 +66,21 @@ function toSnapshot(game: ActiveGameRow | null, prev?: LiveGameSnapshot | null):
   };
 }
 
-export function useLiveGame(pollMs = 2000) {
+export function useLiveGame(pollMs = 1000) {
   const [game, setGame] = useState<LiveGameSnapshot | null>(() => readPersistedLiveGame());
   const [loading, setLoading] = useState(true);
   const gameRef = useRef<LiveGameSnapshot | null>(game);
   const endedRef = useRef(false);
 
   const applySnapshot = useCallback((incoming: LiveGameSnapshot | null) => {
-    if (!incoming) return;
+    if (!incoming) {
+      if (endedRef.current) {
+        gameRef.current = null;
+        setGame(null);
+        setLoading(false);
+      }
+      return;
+    }
     endedRef.current = false;
     setGame((prev) => {
       const merged = mergeLiveGameSnapshots(prev, incoming);
@@ -79,14 +91,15 @@ export function useLiveGame(pollMs = 2000) {
   }, []);
 
   const refresh = useCallback(async () => {
+    const persisted = snapshotFromPersisted();
     const row = await ipc<ActiveGameRow | null>('games:active');
-    const snapshot = toSnapshot(row, gameRef.current);
+    const fromPoll = toSnapshot(row, gameRef.current);
+    const incoming = fromPoll ?? persisted;
 
-    if (snapshot) {
-      endedRef.current = false;
+    if (incoming && !endedRef.current) {
       let merged: LiveGameSnapshot | null = null;
       setGame((prev) => {
-        merged = mergeLiveGameSnapshots(prev, snapshot);
+        merged = mergeLiveGameSnapshots(prev, incoming);
         gameRef.current = merged;
         return merged;
       });
@@ -94,10 +107,16 @@ export function useLiveGame(pollMs = 2000) {
       return merged;
     }
 
-    // Poll returned null — keep broadcast/persisted state (other tab may own mock DB).
     if (!endedRef.current && gameRef.current) {
       setLoading(false);
       return gameRef.current;
+    }
+
+    if (!endedRef.current && persisted) {
+      gameRef.current = persisted;
+      setGame(persisted);
+      setLoading(false);
+      return persisted;
     }
 
     setGame(null);
@@ -131,6 +150,16 @@ export function useLiveGame(pollMs = 2000) {
         gameRef.current = null;
         setGame(null);
         setLoading(false);
+      }
+    });
+  }, [applySnapshot]);
+
+  useEffect(() => {
+    return subscribeStorageLiveGame((snapshot) => {
+      if (snapshot) {
+        applySnapshot(snapshot);
+      } else if (endedRef.current) {
+        applySnapshot(null);
       }
     });
   }, [applySnapshot]);
