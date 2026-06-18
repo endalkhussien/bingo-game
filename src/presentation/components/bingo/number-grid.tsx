@@ -50,8 +50,8 @@ export function NumberGrid({ availableNumbers, selectedSet, onToggle, onClear, d
       ) : (
         <div className="overflow-y-auto rounded-xl border-[3px] border-gray-300 bg-white p-4 shadow-md">
           <div
-            className="grid gap-1.5 sm:gap-2"
-            style={{ gridTemplateColumns: 'repeat(15, minmax(0, 1fr))' }}
+            className="grid gap-2 sm:gap-3"
+            style={{ gridTemplateColumns: 'repeat(5, minmax(0, 1fr))' }}
           >
             {numbers.map((num) => {
               const isSelected = selectedSet.has(num);
@@ -63,7 +63,7 @@ export function NumberGrid({ availableNumbers, selectedSet, onToggle, onClear, d
                   onClick={() => !disabled && !isLocked && onToggle(num)}
                   disabled={disabled || isLocked}
                   className={cn(
-                    'relative flex min-h-[2.75rem] items-center justify-center rounded-md border-2 text-base font-black transition-colors sm:min-h-[3.25rem] sm:text-lg md:min-h-[3.75rem] md:text-xl',
+                    'relative flex min-h-[3.5rem] items-center justify-center rounded-lg border-[3px] text-xl font-black transition-colors sm:min-h-[4rem] sm:text-2xl md:min-h-[4.5rem] md:text-3xl',
                     isLocked
                       ? 'cursor-not-allowed border-red-300 bg-red-100 text-red-600 line-through'
                       : isSelected

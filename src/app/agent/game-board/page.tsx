@@ -94,7 +94,7 @@ function buildLiveSnapshot(
 export default function GameBoardPage() {
   const { agent, refreshBalance } = useAuth();
   const [betAmount, setBetAmount] = useState('10');
-  const [interval, setInterval_] = useState(3000);
+  const [interval, setInterval_] = useState(5000);
   const [pattern, setPattern] = useState('FIRST_LINE');
   const [jackpotMaxCalls, setJackpotMaxCalls] = useState(String(DEFAULT_JACKPOT_MAX_CALLS));
   const [voice, setVoice] = useState('AMHARIC_MALE');
