@@ -36,7 +36,28 @@ await check('Agent login works', async () => {
 
 await check('Game board loads', async () => {
   await page.goto(`${BASE}/agent/game-board/`, { waitUntil: 'networkidle' });
-  await page.waitForSelector('button:has-text("Create Game")', { timeout: 5000 });
+  await page.waitForSelector('button:has-text("Start Game")', { timeout: 5000 });
+});
+
+await check('Caller display page loads (web)', async () => {
+  await page.goto(`${BASE}/login/`, { waitUntil: 'networkidle' });
+  await page.fill('input[type="text"]', 'agent');
+  await page.fill('input[type="password"]', 'agent123');
+  await page.click('button[type="submit"]');
+  await page.waitForURL('**/agent/dashboard**', { timeout: 10000 });
+  await page.goto(`${BASE}/agent/caller-display/`, { waitUntil: 'networkidle' });
+  await page.waitForSelector('text=No active game', { timeout: 5000 });
+});
+
+await check('Caller display syncs after game start (web)', async () => {
+  await page.goto(`${BASE}/agent/game-board/`, { waitUntil: 'networkidle' });
+  await page.locator('.number-grid-scroll button').first().click();
+  await page.click('button:has-text("Start Game")');
+  await page.waitForSelector('text=Web preview', { timeout: 8000 });
+  const display = await browser.newPage();
+  await display.goto(`${BASE}/agent/caller-display/`, { waitUntil: 'networkidle' });
+  await display.waitForSelector('text=Game has', { timeout: 10000 });
+  await display.close();
 });
 
 await check('Bingo cards page loads', async () => {

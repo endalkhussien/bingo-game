@@ -19,6 +19,8 @@ import { formatBallCallLabel } from '@/shared/tts/ball-call';
 import { calculateTotalPot, calculateGameEconomics, calculateWinnerPrize } from '@/shared/prize';
 import { broadcastLiveGame, type LiveGameSnapshot } from '@/presentation/lib/live-game-sync';
 import { isElectron } from '@/shared/runtime';
+import { CallerDisplay } from '@/presentation/components/caller/caller-display';
+import Link from 'next/link';
 
 interface GameWinner {
   cardNumber: string;
@@ -77,12 +79,13 @@ function buildLiveSnapshot(
   };
 }
 
-async function openCallerDisplayWindow(): Promise<void> {
+async function openCallerDisplayWindow(existingTab?: Window | null): Promise<boolean> {
   if (isElectron()) {
     await ipc('window:open-caller-display');
-    return;
+    return true;
   }
-  window.open('/agent/caller-display/', '_blank', 'noopener,noreferrer');
+  const tab = existingTab ?? window.open('/agent/caller-display/', '_blank', 'noopener,noreferrer');
+  return !!(tab && !tab.closed);
 }
 
 export default function GameBoardPage() {
@@ -114,6 +117,9 @@ export default function GameBoardPage() {
   const adminCommissionRate = agent?.adminCommissionRate ?? 20;
   const walletBalance = agent?.walletBalance ?? 0;
   const [drawError, setDrawError] = useState('');
+  const [callerTabBlocked, setCallerTabBlocked] = useState(false);
+  const [showWebCallerPreview, setShowWebCallerPreview] = useState(false);
+  const inBrowser = !isElectron();
 
   const syncManagerRef = useRef(new AudioSyncManager({
     cooldownMs: DEFAULT_CALL_COOLDOWN_MS,
@@ -326,7 +332,11 @@ export default function GameBoardPage() {
     }
     setBetError('');
     setDrawError('');
+    setCallerTabBlocked(false);
     setCreating(true);
+
+    // Open hall tab immediately (web) so the browser does not block popups after async IPC.
+    const callerTab = inBrowser ? window.open('/agent/caller-display/', '_blank', 'noopener,noreferrer') : null;
 
     const result = await ipc<{
       success: boolean;
@@ -366,7 +376,11 @@ export default function GameBoardPage() {
       const snapshot = buildLiveSnapshot(game, [], [], rate);
       broadcastLiveGame({ type: 'game-started', payload: snapshot });
       broadcastLiveGame({ type: 'game-update', payload: snapshot });
-      await openCallerDisplayWindow();
+      const opened = await openCallerDisplayWindow(callerTab);
+      if (inBrowser) {
+        setShowWebCallerPreview(true);
+        if (!opened) setCallerTabBlocked(true);
+      }
       await startCalling(false);
     } else {
       setBetError(result.error ?? 'Failed to create game');
@@ -509,6 +523,42 @@ export default function GameBoardPage() {
 
   return (
     <div>
+      {inBrowser && activeGame && (
+        <div className="mb-4 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-950">
+          <p className="font-medium">Web preview — hall caller screen</p>
+          <p className="mt-1 text-xs text-indigo-800">
+            Keep this tab as the <strong>control panel</strong>. Open{' '}
+            <Link href="/agent/caller-display/" target="_blank" className="font-semibold underline">
+              Caller Display
+            </Link>{' '}
+            in a second tab (or use the button below) to mimic the projector window. Both stay in sync.
+          </p>
+          {callerTabBlocked && (
+            <p className="mt-2 text-xs font-medium text-amber-800">
+              Popup was blocked — allow popups for this site, or use <strong>Caller Display</strong> below / the link above.
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={() => setShowWebCallerPreview((v) => !v)}
+            className="mt-2 rounded-lg border border-indigo-300 bg-white px-3 py-1.5 text-xs font-semibold text-indigo-800 hover:bg-indigo-100"
+          >
+            {showWebCallerPreview ? 'Hide inline hall preview' : 'Show inline hall preview (same page)'}
+          </button>
+        </div>
+      )}
+
+      {inBrowser && showWebCallerPreview && activeGame && (
+        <div className="mb-4 overflow-hidden rounded-2xl border-2 border-slate-700 shadow-xl">
+          <div className="bg-slate-800 px-3 py-2 text-xs font-medium text-slate-200">
+            Inline caller display (web test) — also open in a separate tab for full-screen
+          </div>
+          <div className="max-h-[70vh] overflow-auto">
+            <CallerDisplay />
+          </div>
+        </div>
+      )}
+
       {activeGame && (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-gradient-to-r from-indigo-600 to-blue-700 p-5 text-white shadow-lg">
           <div>
@@ -653,7 +703,10 @@ export default function GameBoardPage() {
             </button>
             <button
               type="button"
-              onClick={() => openCallerDisplayWindow()}
+              onClick={async () => {
+                const ok = await openCallerDisplayWindow();
+                if (inBrowser && !ok) setCallerTabBlocked(true);
+              }}
               className="inline-flex items-center gap-1 rounded-lg bg-slate-700 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
             >
               <Monitor className="h-4 w-4" /> Caller Display

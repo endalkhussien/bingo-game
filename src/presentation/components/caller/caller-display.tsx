@@ -87,7 +87,9 @@ export function CallerDisplay() {
         <p className="text-2xl font-bold">{APP_NAME}</p>
         <p className="mt-4 text-lg text-slate-300">No active game</p>
         <p className="mt-2 max-w-md text-sm text-slate-400">
-          Start a game on the Game Board, then open this caller display for the hall screen.
+          Start a game on the <strong>Game Board</strong> tab, then open{' '}
+          <a href="/agent/game-board/" className="text-yellow-300 underline">Game Board</a>
+          {' '}and <strong>Caller Display</strong> in two browser tabs (web preview uses mock data).
         </p>
       </div>
     );
