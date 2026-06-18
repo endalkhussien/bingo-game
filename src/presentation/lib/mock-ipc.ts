@@ -462,7 +462,7 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
     initMockDeck();
     const missing = (c.selectedNumbers ?? []).filter((n) => !mockCards.some((card) => card.cardNumber === String(n)));
     if (missing.length > 0) {
-      return { success: false, error: `Cartella(s) not in your deck: ${missing.slice(0, 8).join(', ')}. Add them on Waliya Cards first.` };
+      return { success: false, error: `Cartella(s) not in your deck: ${missing.slice(0, 8).join(', ')}. Add them on Bingo Cards first.` };
     }
     const game = {
       id: `game-${mockGames.length + 1}`, gameCode: `TBG-${1000 + mockGames.length}`, status: 'PAUSED',

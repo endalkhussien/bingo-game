@@ -79,7 +79,7 @@ export async function createGame(agentId: string, config: {
     const extra = missing.length > 8 ? ` (+${missing.length - 8} more)` : '';
     return {
       success: false,
-      error: `Cartella(s) not in your deck: ${shown}${extra}. Add them on Waliya Cards first.`,
+      error: `Cartella(s) not in your deck: ${shown}${extra}. Add them on Bingo Cards first.`,
     };
   }
 

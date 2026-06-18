@@ -115,7 +115,7 @@ export default function GameBoardPage() {
   const [bingoClaimActive, setBingoClaimActive] = useState(false);
   const [calledModalOpen, setCalledModalOpen] = useState(false);
   const [gameWinners, setGameWinners] = useState<GameWinner[]>([]);
-  const [commissionPercent, setCommissionPercent] = useState('20');
+  const [commissionPercent, setCommissionPercent] = useState('10');
 
   const adminCommissionRate = agent?.adminCommissionRate ?? 20;
   const walletBalance = agent?.walletBalance ?? 0;
@@ -194,11 +194,6 @@ export default function GameBoardPage() {
     });
   }, [activeGame]);
   useEffect(() => { void refreshBalance(); }, [refreshBalance]);
-  useEffect(() => {
-    if (agent?.commissionRate != null && !activeGame) {
-      setCommissionPercent(String(agent.commissionRate));
-    }
-  }, [agent?.commissionRate, activeGame]);
   useEffect(() => { syncManagerRef.current.setCooldownMs(interval); intervalRef.current = interval; }, [interval]);
   useEffect(() => { voiceRef.current = voice; }, [voice]);
   useEffect(() => { languageRef.current = language; }, [language]);
@@ -734,46 +729,88 @@ export default function GameBoardPage() {
 
       {!hallMode && (
         <div>
-          <div className="mb-4 flex flex-wrap items-end gap-3 rounded-xl bg-white p-4 shadow-sm">
-            <input
-              type="number"
-              min={MIN_BET}
-              step={1}
-              value={betAmount}
-              onChange={(e) => { setBetAmount(e.target.value); setBetError(''); }}
-              className="w-20 rounded-lg border px-3 py-2 text-sm font-semibold"
-              title="Bet amount"
-            />
-            <select
-              value={interval}
-              onChange={(e) => setInterval_(Number(e.target.value))}
-              className="rounded-lg border px-3 py-2 text-sm"
-              title="Call delay"
-            >
-              {DRAW_INTERVALS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
-            </select>
-            <select
-              value={pattern}
-              onChange={(e) => setPattern(e.target.value)}
-              className="rounded-lg border px-3 py-2 text-sm"
-              title="Game type"
-            >
-              {WINNING_PATTERNS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
-            </select>
-            <select
-              value={voice}
-              onChange={(e) => handleVoiceChange(e.target.value)}
-              className="rounded-lg border px-3 py-2 text-sm"
-              title="Voice"
-            >
-              {VOICE_TYPES.map((v) => <option key={v.value} value={v.value}>{v.label}</option>)}
-            </select>
-            {betError && <p className="w-full text-xs text-red-500">{betError}</p>}
+          <div className="mb-4 flex flex-wrap items-end gap-3 rounded-xl border-2 border-gray-200 bg-white p-4 shadow-sm">
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Bet (ETB)</span>
+              <input
+                type="number"
+                min={MIN_BET}
+                step={1}
+                value={betAmount}
+                onChange={(e) => { setBetAmount(e.target.value); setBetError(''); }}
+                disabled={!!activeGame}
+                className="h-14 w-[4.5rem] rounded-lg border-2 border-gray-300 bg-white text-center text-2xl font-black text-gray-900 shadow-inner focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200 disabled:bg-gray-100"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Speed</span>
+              <select
+                value={interval}
+                onChange={(e) => setInterval_(Number(e.target.value))}
+                disabled={!!activeGame}
+                className="h-14 min-w-[7.5rem] rounded-lg border-2 border-gray-300 bg-white px-2 text-center text-lg font-bold text-gray-900 focus:border-amber-500 focus:outline-none disabled:bg-gray-100"
+              >
+                {DRAW_INTERVALS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Type</span>
+              <select
+                value={pattern}
+                onChange={(e) => setPattern(e.target.value)}
+                disabled={!!activeGame}
+                className="h-14 min-w-[8rem] rounded-lg border-2 border-gray-300 bg-white px-2 text-center text-lg font-bold text-gray-900 focus:border-amber-500 focus:outline-none disabled:bg-gray-100"
+              >
+                {WINNING_PATTERNS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Voice</span>
+              <select
+                value={voice}
+                onChange={(e) => handleVoiceChange(e.target.value)}
+                disabled={!!activeGame}
+                className="h-14 min-w-[9rem] rounded-lg border-2 border-gray-300 bg-white px-2 text-center text-lg font-bold text-gray-900 focus:border-amber-500 focus:outline-none disabled:bg-gray-100"
+              >
+                {VOICE_TYPES.map((v) => <option key={v.value} value={v.value}>{v.label}</option>)}
+              </select>
+            </div>
+
+            <div className="group flex flex-col gap-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-transparent transition-colors group-hover:text-amber-700">
+                Commission %
+              </span>
+              <div className="relative h-14 w-[4.5rem]">
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={commissionPercent}
+                  onChange={(e) => setCommissionPercent(e.target.value)}
+                  disabled={!!activeGame}
+                  className="absolute inset-0 h-full w-full rounded-lg border-2 border-transparent bg-transparent text-center text-2xl font-black text-transparent opacity-0 transition-all group-hover:border-amber-400 group-hover:bg-amber-50 group-hover:text-amber-900 group-hover:opacity-100 focus:border-amber-500 focus:bg-amber-50 focus:text-amber-900 focus:opacity-100 disabled:group-hover:opacity-50"
+                  title="Game commission % (hover to edit)"
+                />
+                <div
+                  className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-lg border-2 border-dashed border-gray-100 bg-gray-50/50 transition-all group-hover:border-transparent group-hover:bg-transparent group-hover:opacity-0"
+                  aria-hidden
+                />
+                <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-xl font-black text-gray-300 transition-all group-hover:opacity-0">
+                  ·
+                </div>
+              </div>
+            </div>
+
+            {betError && <p className="w-full text-sm font-semibold text-red-600">{betError}</p>}
             <button
               type="button"
               onClick={handleCreateGame}
-              disabled={creating || selected.length === 0}
-              className="ml-auto rounded-lg bg-[#22c55e] px-8 py-2.5 text-sm font-bold text-white shadow hover:bg-[#16a34a] disabled:opacity-50"
+              disabled={creating || selected.length === 0 || !!activeGame}
+              className="ml-auto h-14 rounded-xl bg-[#22c55e] px-10 text-lg font-black uppercase tracking-wide text-white shadow-lg hover:bg-[#16a34a] disabled:opacity-50"
             >
               {creating ? 'Creating…' : 'Create Game'}
             </button>

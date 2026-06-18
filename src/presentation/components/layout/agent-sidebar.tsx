@@ -8,10 +8,10 @@ import { useAuth } from '@/presentation/providers/auth-provider';
 import { APP_NAME, APP_TAGLINE } from '@/shared/brand';
 import { AppLogo } from '@/presentation/components/shared/app-logo';
 
-/** Waliya sidebar — Game Board, Waliya Cards, Reports, Recharge */
+/** Waliya sidebar — Game Board, Bingo Cards, Reports, Recharge */
 const navItems = [
   { href: '/agent/game-board', label: 'Game Board', icon: Gamepad2 },
-  { href: '/agent/cards', label: 'Waliya Cards', icon: CreditCard },
+  { href: '/agent/cards', label: 'Bingo Cards', icon: CreditCard },
   { href: '/agent/reports', label: 'Reports', icon: BarChart3 },
   { href: '/agent/recharge', label: 'Recharge Balance', icon: RefreshCw },
 ];
