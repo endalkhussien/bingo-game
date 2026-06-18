@@ -21,7 +21,7 @@ export async function seedDatabase(db: BetterSQLite3Database<typeof schema>) {
   await db.insert(schema.users).values([
     {
       id: vendorId,
-      fullName: 'TEBIB Vendor',
+      fullName: 'Waliya Vendor',
       username: 'vendor',
       passwordHash: await bcrypt.hash('vendor2024', 12),
       role: 'SUPER_ADMIN',
@@ -143,7 +143,7 @@ export async function ensureVendorUser(db: BetterSQLite3Database<typeof schema>)
   if (!vendor) {
     await db.insert(schema.users).values({
       id: uuid(),
-      fullName: 'TEBIB Vendor',
+      fullName: 'Waliya Vendor',
       username: 'vendor',
       passwordHash: await bcrypt.hash('vendor2024', 12),
       role: 'SUPER_ADMIN',

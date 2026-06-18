@@ -67,7 +67,7 @@ export default function CardsPage() {
     <div>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Bingo Cards (Cartella)</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Waliya Cards (Cartella)</h1>
           <p className="mt-1 text-sm text-gray-500">
             Your deck — {cards.length} cartella{cards.length === 1 ? '' : 's'} (#1–{CARTELLA_MAX} max).
             Add new numbers only when you need them.

@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { decodeBase64Url, encodeBase64Url } from './base64url';
 import { DEFAULT_OPERATOR_ORG_KEY } from './default-org-key';
 
 /** App-wide signing key for agent setup codes (portable across PCs). */
@@ -22,18 +23,18 @@ function sign(data: string): string {
 }
 
 function encodePayload(payload: AgentSetupPayload): string {
-  return Buffer.from(JSON.stringify({
+  return encodeBase64Url(JSON.stringify({
     u: payload.username.trim().toLowerCase(),
     p: payload.password,
     n: payload.fullName,
     c: payload.adminCommissionRate,
     k: payload.orgKey,
-  }), 'utf8').toString('base64url');
+  }));
 }
 
 function decodePayload(encoded: string): AgentSetupPayload | null {
   try {
-    const raw = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8')) as {
+    const raw = JSON.parse(decodeBase64Url(encoded)) as {
       u?: string; p?: string; n?: string; c?: number; k?: string;
     };
     if (!raw.u || !raw.p || !raw.n) return null;

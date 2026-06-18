@@ -36,7 +36,7 @@ async function requireAuth(event: Electron.IpcMainInvokeEvent) {
   return session;
 }
 
-async function requireShopAdmin(event: Electron.IpcMainInvokeEvent) {
+async function requireShopAdminActivated(event: Electron.IpcMainInvokeEvent) {
   const session = await requireAuth(event);
   if (isVendorRole(session.user.role)) {
     throw new Error('Shop admin only. Vendor accounts use the Vendor Board.');
@@ -44,10 +44,21 @@ async function requireShopAdmin(event: Electron.IpcMainInvokeEvent) {
   if (session.user.role !== 'OPERATOR') {
     throw new Error('Shop admin access required');
   }
-  const licensed = await operatorLicense.isOperatorLicensed();
-  if (!licensed) {
-    const err = new Error('OPERATOR_LICENSE_EXPIRED') as Error & { code?: string };
-    err.code = 'OPERATOR_LICENSE_EXPIRED';
+  const activated = await operatorLicense.isShopAdminActivated();
+  if (!activated) {
+    const err = new Error('SHOP_NOT_ACTIVATED') as Error & { code?: string };
+    err.code = 'SHOP_NOT_ACTIVATED';
+    throw err;
+  }
+  return session;
+}
+
+async function requireShopAdmin(event: Electron.IpcMainInvokeEvent) {
+  const session = await requireShopAdminActivated(event);
+  const balance = await operatorWallet.getOperatorWalletBalance();
+  if (balance <= 0) {
+    const err = new Error('SHOP_BALANCE_EMPTY') as Error & { code?: string };
+    err.code = 'SHOP_BALANCE_EMPTY';
     throw err;
   }
   return session;
@@ -63,13 +74,7 @@ async function requireAdmin(event: Electron.IpcMainInvokeEvent) {
   const session = await requireAuth(event);
   if (isVendorRole(session.user.role)) return session;
   if (session.user.role === 'OPERATOR') {
-    const licensed = await operatorLicense.isOperatorLicensed();
-    if (!licensed) {
-      const err = new Error('OPERATOR_LICENSE_EXPIRED') as Error & { code?: string };
-      err.code = 'OPERATOR_LICENSE_EXPIRED';
-      throw err;
-    }
-    return session;
+    return requireShopAdminActivated(event);
   }
   if (isAdminRole(session.user.role)) return session;
   throw new Error('Admin access required');
@@ -122,7 +127,7 @@ export function registerIpcHandlers() {
     return auth.changePassword(session.user.id, oldPw, newPw);
   });
 
-  // ── Operator license (TOL weekly/monthly) ──
+  // ── Shop admin activation (TAK) + TVP balance ──
   ipcMain.handle('license:status', async () => operatorLicense.getOperatorLicenseStatus());
   ipcMain.handle('license:activate', async (event, code: string) => {
     try {
@@ -169,15 +174,15 @@ export function registerIpcHandlers() {
 
   // ── Shop admin wallet (TVP from vendor) ──
   ipcMain.handle('operator-wallet:balance', async (event) => {
-    await requireShopAdmin(event);
+    await requireShopAdminActivated(event);
     return operatorWallet.getOperatorWalletBalance();
   });
   ipcMain.handle('operator-wallet:transactions', async (event) => {
-    await requireShopAdmin(event);
+    await requireShopAdminActivated(event);
     return operatorWallet.getOperatorWalletTransactions();
   });
   ipcMain.handle('operator-wallet:redeem', async (event, code: string) => {
-    await requireShopAdmin(event);
+    await requireShopAdminActivated(event);
     return operatorWallet.redeemVendorTopupCode(code.trim());
   });
 

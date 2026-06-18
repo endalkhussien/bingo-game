@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { KeyRound, Phone, LogIn, CheckCircle2 } from 'lucide-react';
 import { invokeIpc } from '@/presentation/lib/ipc';
 import { SHOP_ADMIN_HOME, TOL_JUST_ACTIVATED_KEY } from '@/shared/admin-routes';
@@ -31,13 +30,12 @@ const STEPS = [
     icon: KeyRound,
     title: 'Paste key & press ACTIVATE',
     titleAm: 'ኮዱን ይለጥፉ እና አግብር ይጫኑ',
-    text: 'Copy the whole code. Paste below. Press the big green button.',
-    textAm: 'ሙሉውን ኮድ ቅዳ → ከታች ይለጥፉ → አረንጓዴ ቁልፍ ይጫኑ።',
+    text: 'Copy the whole code. Paste below. Press the big amber button.',
+    textAm: 'ሙሉውን ኮድ ቅዳ → ከታች ይለጥፉ → ቀለም ቁልፍ ይጫኑ።',
   },
 ];
 
 export default function AdminLicensePage() {
-  const router = useRouter();
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -85,10 +83,10 @@ export default function AdminLicensePage() {
   return (
     <div className="mx-auto max-w-2xl px-4 py-8 sm:px-6">
       <div className="mb-8 text-center">
-        <AppLogo size={72} className="mx-auto rounded-2xl shadow-md" />
-        <h1 className="mt-4 text-3xl font-black text-slate-900 sm:text-4xl">{APP_NAME}</h1>
-        <p className="mt-2 text-xl font-bold text-emerald-700">Shop Admin — Enter Activation Key</p>
-        <p className="mt-1 text-lg text-slate-600">የሱቅ አድሚን — የማግበር ቁልፍ ያስገቡ</p>
+        <AppLogo size={96} className="mx-auto rounded-2xl shadow-lg ring-2 ring-amber-400/30" />
+        <h1 className="mt-4 text-3xl font-black text-white sm:text-4xl">{APP_NAME}</h1>
+        <p className="mt-2 text-xl font-bold text-amber-400">Shop Admin — Enter Activation Key</p>
+        <p className="mt-1 text-lg text-amber-100/60">የሱቅ አድሚን — የማግበር ቁልፍ ያስገቡ</p>
       </div>
 
       <div className="mb-8 space-y-4">
@@ -97,47 +95,47 @@ export default function AdminLicensePage() {
           return (
             <div
               key={step.num}
-              className="flex gap-4 rounded-2xl border-2 border-slate-200 bg-white p-5 shadow-sm"
+              className="flex gap-4 rounded-2xl border-2 border-amber-900/40 bg-[#2a1f18]/80 p-5 shadow-sm"
             >
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-xl font-black text-white">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-amber-600 text-xl font-black text-white">
                 {step.num}
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <Icon className="h-5 w-5 text-emerald-600" />
-                  <p className="text-lg font-bold text-slate-900">{step.title}</p>
+                  <Icon className="h-5 w-5 text-amber-400" />
+                  <p className="text-lg font-bold text-white">{step.title}</p>
                 </div>
-                <p className="text-base font-semibold text-slate-700">{step.titleAm}</p>
-                <p className="mt-1 text-sm text-slate-600">{step.text}</p>
-                <p className="mt-0.5 text-sm text-slate-500">{step.textAm}</p>
+                <p className="text-base font-semibold text-amber-100/80">{step.titleAm}</p>
+                <p className="mt-1 text-sm text-amber-100/60">{step.text}</p>
+                <p className="mt-0.5 text-sm text-amber-100/50">{step.textAm}</p>
               </div>
             </div>
           );
         })}
       </div>
 
-      <form onSubmit={handleActivate} className="rounded-2xl border-2 border-emerald-300 bg-white p-6 shadow-lg">
-        <label className="block text-center text-xl font-bold text-slate-900">
+      <form onSubmit={handleActivate} className="rounded-2xl border-2 border-amber-600/50 bg-[#2a1f18]/90 p-6 shadow-lg">
+        <label className="block text-center text-xl font-bold text-white">
           Paste activation key here
         </label>
-        <p className="text-center text-base text-slate-600">የማግበር ቁልፍ እዚህ ይለጥፉ</p>
+        <p className="text-center text-base text-amber-100/60">የማግበር ቁልፍ እዚህ ይለጥፉ</p>
 
         <textarea
           value={code}
           onChange={(e) => { setCode(e.target.value); setError(''); setSuccess(''); }}
           rows={5}
-          className="mt-4 w-full rounded-xl border-2 border-slate-300 px-4 py-4 text-base font-mono leading-relaxed focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200"
+          className="mt-4 w-full rounded-xl border-2 border-amber-800/50 bg-[#1a1410] px-4 py-4 text-base font-mono leading-relaxed text-white placeholder:text-amber-900 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/30"
           placeholder="TAK-xxxxxxxx..."
           autoFocus
         />
 
         {error && (
-          <p className="mt-4 rounded-lg bg-red-100 px-4 py-3 text-center text-base font-semibold text-red-800">
+          <p className="mt-4 rounded-lg bg-red-900/40 px-4 py-3 text-center text-base font-semibold text-red-200">
             {error}
           </p>
         )}
         {success && (
-          <p className="mt-4 flex items-center justify-center gap-2 rounded-lg bg-emerald-100 px-4 py-3 text-center text-base font-semibold text-emerald-900">
+          <p className="mt-4 flex items-center justify-center gap-2 rounded-lg bg-amber-900/40 px-4 py-3 text-center text-base font-semibold text-amber-100">
             <CheckCircle2 className="h-6 w-6 shrink-0" />
             {success}
           </p>
@@ -146,15 +144,15 @@ export default function AdminLicensePage() {
         <button
           type="submit"
           disabled={loading || !code.trim()}
-          className="mt-6 w-full rounded-2xl bg-emerald-600 py-5 text-2xl font-black uppercase tracking-wide text-white shadow-lg hover:bg-emerald-700 disabled:opacity-50"
+          className="mt-6 w-full rounded-2xl bg-amber-600 py-5 text-2xl font-black uppercase tracking-wide text-white shadow-lg hover:bg-amber-700 disabled:opacity-50"
         >
           {loading ? 'Please wait…' : 'ACTIVATE'}
         </button>
-        <p className="mt-2 text-center text-sm text-slate-500">አረንጓዴ ቁልፍ — Activate</p>
+        <p className="mt-2 text-center text-sm text-amber-100/50">ቀለም ቁልፍ — Activate</p>
       </form>
 
-      <p className="mt-8 text-center text-sm text-slate-500">
-        No key? Contact your vendor. Do not use the <strong>vendor</strong> login — use <strong>admin</strong>.
+      <p className="mt-8 text-center text-sm text-amber-100/50">
+        No key? Contact your vendor. Do not use the <strong className="text-amber-200">vendor</strong> login — use <strong className="text-amber-200">admin</strong>.
       </p>
     </div>
   );

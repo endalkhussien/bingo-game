@@ -68,7 +68,7 @@ export default function VendorReportsPage() {
             {report.shopName ? ` · ${report.shopName}` : ''}
           </p>
           {!report.licenseActive && (
-            <p className="mt-2 text-xs text-amber-300">Shop has not activated TOL yet — run games on shop PC after activation.</p>
+            <p className="mt-2 text-xs text-amber-300">Shop has not activated yet or balance is 0 — games run after TAK activation and TVP balance.</p>
           )}
         </div>
       )}

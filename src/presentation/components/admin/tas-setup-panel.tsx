@@ -23,7 +23,7 @@ export function TasSetupPanel({
       <p className="text-lg font-bold text-emerald-900">{title}</p>
       <p className="mt-1 text-xs text-emerald-800">
         Required on each agent hall PC. Agent: Login → <strong>Activate PC</strong> → paste TAS → Sign in.
-        (Shop admin license uses TOL — not this code.)
+        (Shop admin uses TAK activation — not this code.)
       </p>
       <div className="mt-4 grid gap-2 sm:grid-cols-2">
         <p>Username: <strong className="font-mono">{username}</strong></p>

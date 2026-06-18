@@ -6,7 +6,7 @@ import { useAuth } from '@/presentation/providers/auth-provider';
 import { APP_NAME, APP_TAGLINE } from '@/shared/brand';
 import { AppLogo } from '@/presentation/components/shared/app-logo';
 import { ipc } from '@/presentation/lib/ipc';
-import { getPostLoginPath, getShopAdminEntryPath, isShopAdminRole, ROLE_OPERATOR } from '@/shared/roles';
+import { getPostLoginPath, getShopAdminEntryPath, ROLE_OPERATOR } from '@/shared/roles';
 import { TextInput } from '@/presentation/components/shared/text-input';
 import { TextArea } from '@/presentation/components/shared/text-area';
 
@@ -39,10 +39,15 @@ export default function LoginPage() {
     if (result.success && result.user) {
       if (result.user.role === ROLE_OPERATOR) {
         try {
-          const status = await ipc<{ active: boolean }>('license:status');
-          window.location.assign(getShopAdminEntryPath(!!status?.active));
+          const status = await ipc<{
+            active: boolean;
+            activated?: boolean;
+            needsActivation?: boolean;
+            needsTopup?: boolean;
+          }>('license:status');
+          window.location.assign(getShopAdminEntryPath(status ?? { active: false }));
         } catch {
-          window.location.assign(getShopAdminEntryPath(false));
+          window.location.assign(getShopAdminEntryPath({ active: false, needsActivation: true }));
         }
         return;
       } else {
@@ -96,16 +101,16 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="relative flex min-h-screen overflow-hidden bg-slate-950">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-900/40 via-slate-950 to-slate-950" />
-      <div className="pointer-events-none absolute -left-32 top-20 h-96 w-96 rounded-full bg-blue-600/20 blur-3xl" />
-      <div className="pointer-events-none absolute -right-32 bottom-20 h-96 w-96 rounded-full bg-purple-600/20 blur-3xl" />
+    <div className="relative flex min-h-screen overflow-hidden bg-[#1a1410]">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-900/40 via-[#1a1410] to-[#1a1410]" />
+      <div className="pointer-events-none absolute -left-32 top-20 h-96 w-96 rounded-full bg-amber-600/20 blur-3xl" />
+      <div className="pointer-events-none absolute -right-32 bottom-20 h-96 w-96 rounded-full bg-violet-700/20 blur-3xl" />
 
       <div className="relative z-10 flex w-full flex-col lg:flex-row">
         <div className="flex flex-1 flex-col justify-between px-8 py-10 lg:px-14 lg:py-12">
           <div>
             <div className="mb-6 flex items-center gap-4">
-              <AppLogo size={72} className="rounded-2xl shadow-lg ring-2 ring-white/20" />
+              <AppLogo size={96} className="rounded-2xl shadow-lg ring-2 ring-amber-400/30" />
               <div className="flex gap-2">
                 {BINGO_LETTERS.map(({ letter, color }) => (
                   <div key={letter} className={`flex h-10 w-10 items-center justify-center rounded-lg ${color} text-lg font-black text-white shadow`}>
@@ -130,14 +135,14 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={() => { setMode('login'); setError(''); setSuccess(''); }}
-                className={`flex-1 rounded-lg py-2 text-sm font-semibold ${mode === 'login' ? 'bg-white text-indigo-700 shadow' : 'text-gray-600'}`}
+                className={`flex-1 rounded-lg py-2 text-sm font-semibold ${mode === 'login' ? 'bg-white text-amber-800 shadow' : 'text-gray-600'}`}
               >
                 Sign in
               </button>
               <button
                 type="button"
                 onClick={() => { setMode('activate'); setError(''); setSuccess(''); }}
-                className={`flex-1 rounded-lg py-2 text-sm font-semibold ${mode === 'activate' ? 'bg-white text-indigo-700 shadow' : 'text-gray-600'}`}
+                className={`flex-1 rounded-lg py-2 text-sm font-semibold ${mode === 'activate' ? 'bg-white text-amber-800 shadow' : 'text-gray-600'}`}
               >
                 Activate PC
               </button>
@@ -147,7 +152,7 @@ export default function LoginPage() {
               <div>
                 <h2 className="text-xl font-bold text-gray-900">Agent hall PC — first time?</h2>
                 <p className="mt-1 text-sm text-gray-500">
-                  Shop admin creates your account and sends a <strong>TAS-…</strong> code (not TOL). Paste it here once.
+                  Shop admin creates your account and sends a <strong>TAS-…</strong> code. Paste it here once.
                 </p>
                 <TextArea
                   value={setupCode}
@@ -198,7 +203,7 @@ export default function LoginPage() {
                   <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} className="h-4 w-4 rounded" />
                   Remember me
                 </label>
-                <button type="submit" disabled={loading} className="w-full rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 py-3.5 text-sm font-semibold text-white disabled:opacity-50">
+                <button type="submit" disabled={loading} className="w-full rounded-xl bg-gradient-to-r from-amber-600 to-amber-700 py-3.5 text-sm font-semibold text-white disabled:opacity-50">
                   {loading ? 'Signing in…' : 'Open Dashboard'}
                 </button>
               </form>

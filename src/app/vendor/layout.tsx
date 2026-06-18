@@ -6,7 +6,7 @@ import { LogOut } from 'lucide-react';
 import { useAuth } from '@/presentation/providers/auth-provider';
 import { APP_NAME } from '@/shared/brand';
 import { AppLogo } from '@/presentation/components/shared/app-logo';
-import { isVendorRole, getShopAdminEntryPath } from '@/shared/roles';
+import { isVendorRole, getShopAdminEntryPath, type ShopLicenseStatus } from '@/shared/roles';
 import { ipc } from '@/presentation/lib/ipc';
 import { VendorSidebar } from '@/presentation/components/layout/vendor-sidebar';
 
@@ -18,9 +18,9 @@ export default function VendorLayout({ children }: { children: React.ReactNode }
     if (!isLoading && !user) router.replace('/login');
     if (!isLoading && user && !isVendorRole(user.role)) {
       if (user.role === 'OPERATOR') {
-        ipc<{ active: boolean }>('license:status')
-          .then((s) => router.replace(getShopAdminEntryPath(!!s?.active)))
-          .catch(() => router.replace(getShopAdminEntryPath(false)));
+        ipc<ShopLicenseStatus>('license:status')
+          .then((s) => router.replace(getShopAdminEntryPath(s ?? { active: false, needsActivation: true, activated: false, needsTopup: false })))
+          .catch(() => router.replace(getShopAdminEntryPath({ active: false, needsActivation: true, activated: false, needsTopup: false })));
       } else {
         router.replace('/agent/dashboard');
       }
@@ -42,10 +42,10 @@ export default function VendorLayout({ children }: { children: React.ReactNode }
         <header className="border-b border-white/10 bg-violet-950/80 px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <AppLogo size={40} />
+              <AppLogo size={56} className="rounded-2xl shadow-md ring-2 ring-amber-500/20" />
               <div>
                 <p className="text-lg font-bold">{APP_NAME}</p>
-                <p className="text-xs text-violet-300">Vendor portal — TOL licenses & TVP top-ups</p>
+                <p className="text-xs text-violet-300">Vendor portal — TAK activation & TVP top-ups</p>
               </div>
             </div>
             <div className="flex items-center gap-4">

@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/presentation/providers/auth-provider';
-import { getPostLoginPath, getShopAdminEntryPath, ROLE_OPERATOR } from '@/shared/roles';
+import { getPostLoginPath, getShopAdminEntryPath, ROLE_OPERATOR, type ShopLicenseStatus } from '@/shared/roles';
 import { ipc } from '@/presentation/lib/ipc';
 
 export default function Home() {
@@ -14,9 +14,9 @@ export default function Home() {
     if (isLoading) return;
     if (!user) { router.replace('/login'); return; }
     if (user.role === ROLE_OPERATOR) {
-      ipc<{ active: boolean }>('license:status')
-        .then((status) => router.replace(getShopAdminEntryPath(!!status?.active)))
-        .catch(() => router.replace(getShopAdminEntryPath(false)));
+      ipc<ShopLicenseStatus>('license:status')
+        .then((status) => router.replace(getShopAdminEntryPath(status ?? { active: false, needsActivation: true, activated: false, needsTopup: false })))
+        .catch(() => router.replace(getShopAdminEntryPath({ active: false, needsActivation: true, activated: false, needsTopup: false })));
       return;
     }
     router.replace(getPostLoginPath(user.role));

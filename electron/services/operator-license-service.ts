@@ -38,26 +38,35 @@ export async function isShopAdminActivated(): Promise<boolean> {
   return (await getSetting(KEY_ACTIVATED)) === '1';
 }
 
+export async function isShopAdminOperational(): Promise<boolean> {
+  const activated = await isShopAdminActivated();
+  if (!activated) return false;
+  const walletBalance = await getOperatorWalletBalance();
+  return walletBalance > 0;
+}
+
 export async function getOperatorLicenseStatus() {
-  const active = await isShopAdminActivated();
+  const activated = await isShopAdminActivated();
   const shopName = (await getSetting(KEY_SHOP)) ?? '';
   const vendorCommissionRate = parseFloat((await getSetting(KEY_COMMISSION_RATE)) ?? '20');
   const walletBalance = await getOperatorWalletBalance();
 
   return {
-    active,
+    /** One-time TAK activation completed */
+    activated,
+    /** Activated and TVP balance &gt; 0 — can operate */
+    active: activated && walletBalance > 0,
     shopName,
     vendorCommissionRate,
     walletBalance,
-    /** @deprecated TOL removed — kept for API compat */
-    validUntil: active ? Math.floor(Date.now() / 1000) + 365 * 86400 : 0,
-    period: '' as const,
-    daysRemaining: active ? 365 : 0,
+    needsActivation: !activated,
+    needsTopup: activated && walletBalance <= 0,
   };
 }
 
+/** @deprecated Use isShopAdminOperational */
 export async function isOperatorLicensed(): Promise<boolean> {
-  return isShopAdminActivated();
+  return isShopAdminOperational();
 }
 
 export async function activateOperatorLicense(code: string) {
@@ -101,7 +110,7 @@ export async function activateOperatorLicense(code: string) {
       shopName: parsed.payload.shopName,
       amount: parsed.payload.amount,
       walletBalance: credit.data.newBalance,
-      message: `Activated! ${parsed.payload.amount.toFixed(0)} ETB added to shop balance.`,
+      message: `Activated! ${parsed.payload.amount.toFixed(0)} ETB added to your balance.`,
     },
   };
 }
@@ -127,15 +136,6 @@ export async function generateVendorActivationKey(
       vendorCommissionRate: generated.vendorCommissionRate,
     },
   };
-}
-
-/** @deprecated Use generateVendorActivationKey */
-export async function generateVendorLicenseCode(
-  shopName: string,
-  _validDays: 7 | 30,
-  vendorCommissionRate: number,
-) {
-  return generateVendorActivationKey(shopName, 1000, vendorCommissionRate);
 }
 
 export async function getVendorCommissionReport(periodDays = 7) {
@@ -171,6 +171,6 @@ export async function getVendorCommissionReport(periodDays = 7) {
     shopName: license.shopName,
     vendorCommissionRate: license.vendorCommissionRate,
     licenseActive: license.active,
-    licenseValidUntil: license.validUntil,
+    walletBalance: license.walletBalance,
   };
 }
