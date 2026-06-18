@@ -10,7 +10,24 @@ export type GameControlMessage =
   | { type: 'start-calling' }
   | { type: 'pause' }
   | { type: 'resume' }
-  | { type: 'end-game' };
+  | { type: 'end-game' }
+  | { type: 'bingo-claim' }
+  | { type: 'check-cards' };
+
+export interface GameWinnerSnapshot {
+  cardNumber: string;
+  prizeAmount: number;
+  pattern?: string;
+  calledCountAtWin?: number;
+}
+
+export interface LiveGameAnnouncement {
+  type: 'winner' | 'eliminated';
+  cardNumber: string;
+  prizeAmount?: number;
+  message: string;
+  at: number;
+}
 
 export interface LiveGameSnapshot {
   id: string;
@@ -29,6 +46,10 @@ export interface LiveGameSnapshot {
   commissionRate?: number;
   startedAt?: number;
   callingPhase?: CallingPhase;
+  bingoClaimActive?: boolean;
+  bannedCartellas?: string[];
+  winners?: GameWinnerSnapshot[];
+  announcement?: LiveGameAnnouncement | null;
 }
 
 export type LiveGameMessage =
@@ -64,13 +85,29 @@ export function mergeLiveGameSnapshots(
 ): LiveGameSnapshot | null {
   if (!incoming) return current;
   if (!current || current.id !== incoming.id) return incoming;
-  if (incoming.drawnNumbers.length >= current.drawnNumbers.length) return incoming;
+  if (incoming.drawnNumbers.length >= current.drawnNumbers.length) {
+    return {
+      ...incoming,
+      bingoClaimActive: incoming.bingoClaimActive ?? current.bingoClaimActive,
+      bannedCartellas: incoming.bannedCartellas?.length
+        ? incoming.bannedCartellas
+        : current.bannedCartellas,
+      winners: incoming.winners?.length ? incoming.winners : current.winners,
+      announcement: incoming.announcement ?? current.announcement,
+    };
+  }
   return {
     ...incoming,
     drawnNumbers: current.drawnNumbers,
     callHistory: current.callHistory,
     status: incoming.status || current.status,
     callingPhase: incoming.callingPhase ?? current.callingPhase,
+    bingoClaimActive: incoming.bingoClaimActive ?? current.bingoClaimActive,
+    bannedCartellas: incoming.bannedCartellas?.length
+      ? incoming.bannedCartellas
+      : current.bannedCartellas,
+    winners: incoming.winners?.length ? incoming.winners : current.winners,
+    announcement: incoming.announcement ?? current.announcement,
   };
 }
 

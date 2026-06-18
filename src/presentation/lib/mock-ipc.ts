@@ -475,6 +475,7 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
       totalPot: pot,
       prize,
       commissionRate: rate,
+      bannedCartellas: (g as { bannedCartellas?: string[] }).bannedCartellas ?? [],
     };
   },
   'games:draw': async (_id: unknown) => {
@@ -513,7 +514,16 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
       drawnNumbers?: number[];
       betAmount?: number;
       winningPattern?: string;
+      bannedCartellas?: string[];
     } | undefined;
+    const banned = (g?.bannedCartellas ?? []).map(String);
+    if (banned.includes(num)) {
+      return {
+        success: true, valid: false,
+        message: `Cartella #${num}: This cartella is eliminated (false BINGO claim).`,
+        cardNumber: num,
+      };
+    }
     if (!card) {
       return { success: true, valid: false, message: `Cartella #${num}: This cartella does not exist.`, cardNumber: num };
     }
@@ -525,7 +535,19 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
     const drawn = g.drawnNumbers ?? [];
     const valid = checkWinningPattern(card.grid, drawn, g.winningPattern ?? 'FIRST_LINE');
     if (!valid) {
-      return { success: true, valid: false, message: `Cartella #${num}: Not a winner yet.`, cardNumber: num, calledNumbers: drawn, grid: card.grid };
+      if (!g.bannedCartellas) g.bannedCartellas = [];
+      if (!g.bannedCartellas.includes(num)) g.bannedCartellas.push(num);
+      touchMockActiveGame(g as MockActiveGame);
+      return {
+        success: true,
+        valid: false,
+        banned: true,
+        eliminated: true,
+        message: `Cartella #${num} eliminated — false BINGO claim. Player banned and cartella locked for this game.`,
+        cardNumber: num,
+        calledNumbers: drawn,
+        grid: card.grid,
+      };
     }
     const rate = currentSession?.agent?.commissionRate ?? 20;
     const adminRate = currentSession?.agent?.adminCommissionRate ?? 20;

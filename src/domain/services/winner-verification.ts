@@ -106,7 +106,7 @@ export function verifyTicketWin(input: TicketVerificationInput): TicketVerificat
     return { valid: false, message: 'This cartella is not in the current game.' };
   }
   if (input.ticketCancelled) {
-    return { valid: false, message: 'This cartella is cancelled.' };
+    return { valid: false, message: 'This cartella is eliminated (false BINGO claim).' };
   }
   if (input.alreadyWonSamePattern) {
     return { valid: false, message: 'This cartella already won this prize.' };

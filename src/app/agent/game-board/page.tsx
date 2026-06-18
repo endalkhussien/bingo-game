@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { Eye, EyeOff, Play, Pause, Megaphone, ListOrdered, Monitor } from 'lucide-react';
+import { Eye, EyeOff, Play, Pause, Megaphone, ListOrdered, Monitor, Search, Ban } from 'lucide-react';
 import { ipc } from '@/presentation/lib/ipc';
 import { useAuth } from '@/presentation/providers/auth-provider';
 import { NumberGrid } from '@/presentation/components/bingo/number-grid';
@@ -17,7 +17,7 @@ import { CallingEngine } from '@/domain/services/calling-engine';
 import { getBallLabel } from '@/domain/services/bingo-engine';
 import { formatBallCallLabel } from '@/shared/tts/ball-call';
 import { calculateTotalPot, calculateGameEconomics, calculateWinnerPrize } from '@/shared/prize';
-import { broadcastLiveGame, subscribeGameControl, type LiveGameSnapshot, type CallingPhase } from '@/presentation/lib/live-game-sync';
+import { broadcastLiveGame, subscribeGameControl, type LiveGameSnapshot, type CallingPhase, type LiveGameAnnouncement } from '@/presentation/lib/live-game-sync';
 import { isElectron } from '@/shared/runtime';
 import { CallerDisplay } from '@/presentation/components/caller/caller-display';
 import Link from 'next/link';
@@ -50,6 +50,7 @@ interface ActiveGame {
   voiceType?: string;
   language?: string;
   winners?: GameWinner[];
+  bannedCartellas?: string[];
 }
 
 function buildLiveSnapshot(
@@ -58,6 +59,12 @@ function buildLiveSnapshot(
   callHistory: CallHistoryEntry[],
   commissionRate: number,
   callingPhase: CallingPhase,
+  extras?: {
+    bingoClaimActive?: boolean;
+    bannedCartellas?: string[];
+    winners?: GameWinner[];
+    announcement?: LiveGameAnnouncement | null;
+  },
 ): LiveGameSnapshot {
   const playerCount = game.playerCount ?? game.selectedNumbers?.length ?? 0;
   const { prize } = calculateWinnerPrize(game.betAmount, playerCount, commissionRate);
@@ -78,6 +85,10 @@ function buildLiveSnapshot(
     commissionRate,
     startedAt: Math.floor(Date.now() / 1000),
     callingPhase,
+    bingoClaimActive: extras?.bingoClaimActive,
+    bannedCartellas: extras?.bannedCartellas ?? game.bannedCartellas,
+    winners: extras?.winners ?? game.winners,
+    announcement: extras?.announcement,
   };
 }
 
@@ -123,6 +134,8 @@ export default function GameBoardPage() {
   const [showWebCallerPreview, setShowWebCallerPreview] = useState(false);
   const [availableCartellas, setAvailableCartellas] = useState<number[]>([]);
   const [callingPhase, setCallingPhase] = useState<CallingPhase>('ready');
+  const [bannedCartellas, setBannedCartellas] = useState<string[]>([]);
+  const [liveAnnouncement, setLiveAnnouncement] = useState<LiveGameAnnouncement | null>(null);
   const inBrowser = !isElectron();
 
   const syncManagerRef = useRef(new AudioSyncManager({
@@ -145,6 +158,7 @@ export default function GameBoardPage() {
   const languageRef = useRef(language);
   const callingPhaseRef = useRef<CallingPhase>('ready');
   const announcingRef = useRef(false);
+  const bingoClaimActiveRef = useRef(false);
 
   const playerCount = activeGame?.playerCount ?? activeGame?.selectedNumbers?.length ?? selected.length;
   const totalPot = activeGame?.totalPot ?? calculateTotalPot(parseFloat(betAmount || '0') || 0, playerCount);
@@ -165,6 +179,9 @@ export default function GameBoardPage() {
 
   const remainingCount = callerEngine.remainingNumbers.length;
   const selectedSet = useMemo(() => new Set(selected), [selected]);
+  const bannedSet = useMemo(() => new Set(bannedCartellas.map(String)), [bannedCartellas]);
+
+  useEffect(() => { bingoClaimActiveRef.current = bingoClaimActive; }, [bingoClaimActive]);
 
   useEffect(() => { loadVoices(); preloadBallCallClips(); }, []);
   useEffect(() => {
@@ -192,9 +209,14 @@ export default function GameBoardPage() {
     const rate = parseFloat(commissionPercent) || 20;
     broadcastLiveGame({
       type: 'game-update',
-      payload: buildLiveSnapshot(activeGame, called, callHistory, rate, callingPhaseRef.current),
+      payload: buildLiveSnapshot(activeGame, called, callHistory, rate, callingPhaseRef.current, {
+        bingoClaimActive,
+        bannedCartellas,
+        winners: gameWinners,
+        announcement: liveAnnouncement,
+      }),
     });
-  }, [activeGame, called, callHistory, commissionPercent, callingPhase]);
+  }, [activeGame, called, callHistory, commissionPercent, callingPhase, bingoClaimActive, bannedCartellas, gameWinners, liveAnnouncement]);
 
   const handleLanguageChange = (lang: string) => {
     setLanguage(lang);
@@ -228,6 +250,7 @@ export default function GameBoardPage() {
         if (game.language) setLanguage(game.language);
         if (game.drawSpeedMs != null) setInterval_(game.drawSpeedMs);
         setGameWinners(game.winners ?? []);
+        setBannedCartellas((game.bannedCartellas ?? []).map(String));
         const drawnCount = game.drawnNumbers?.length ?? 0;
         const max = game.maxBalls ?? DRAW_BALL_COUNT;
         autoDrawRef.current = false;
@@ -377,8 +400,14 @@ export default function GameBoardPage() {
     setCallerTabBlocked(false);
     setCreating(true);
 
-    // Open hall tab immediately (web) so the browser does not block popups after async IPC.
-    const callerTab = inBrowser ? window.open('/agent/caller-display/', '_blank', 'noopener,noreferrer') : null;
+    // Open hall display immediately on user click (before async create) — web + Electron.
+    const callerTab = inBrowser
+      ? window.open('/agent/caller-display/', '_blank', 'noopener,noreferrer')
+      : null;
+    if (!inBrowser) {
+      void ipc('window:open-caller-display');
+    }
+    if (inBrowser) setShowWebCallerPreview(true);
 
     const result = await ipc<{
       success: boolean;
@@ -416,18 +445,26 @@ export default function GameBoardPage() {
       autoDrawRef.current = false;
       setAutoDraw(false);
       setCallingPhase('ready');
+      setBannedCartellas([]);
+      setLiveAnnouncement(null);
+      setBingoClaimActive(false);
       await refreshBalance();
       const rate = parseFloat(commissionPercent) || 20;
-      const snapshot = buildLiveSnapshot(game, [], [], rate, 'ready');
+      const snapshot = buildLiveSnapshot(game, [], [], rate, 'ready', {
+        bingoClaimActive: false,
+        bannedCartellas: [],
+        winners: [],
+        announcement: null,
+      });
       broadcastLiveGame({ type: 'game-started', payload: snapshot });
       broadcastLiveGame({ type: 'game-update', payload: snapshot });
-      const opened = await openCallerDisplayWindow(callerTab);
       if (inBrowser) {
-        setShowWebCallerPreview(true);
-        if (!opened) setCallerTabBlocked(true);
+        if (!callerTab || callerTab.closed) setCallerTabBlocked(true);
       }
     } else {
       setBetError(result.error ?? 'Failed to create game');
+      if (inBrowser && callerTab && !callerTab.closed) callerTab.close();
+      if (!inBrowser) await ipc('window:close-caller-display').catch(() => {});
     }
   };
 
@@ -484,12 +521,27 @@ export default function GameBoardPage() {
   }, [autoDraw, activeGame?.id, isPaused, bingoClaimActive, drawFromServer, applyDrawResult]);
 
   const handleBingoClaim = async () => {
-    if (!activeGame) return;
-
+    if (!activeGame || bingoClaimActive) return;
     await stopCalling(true);
     setBingoClaimActive(true);
+    setCheckModalOpen(false);
+  };
+
+  const handleCheckCards = () => {
+    if (!activeGame || !bingoClaimActive) return;
     setCheckModalOpen(true);
   };
+
+  const continueAfterClaim = useCallback(async () => {
+    setCheckModalOpen(false);
+    setBingoClaimActive(false);
+    if (!activeGameRef.current) return;
+    if (called.length > 0) {
+      await startCalling(true);
+    } else {
+      await beginCalling();
+    }
+  }, [beginCalling, startCalling, called.length]);
 
   const handleValidateCard = async (cardNumber: string) => {
     if (!activeGame) return { valid: false, message: 'No active game' };
@@ -506,13 +558,17 @@ export default function GameBoardPage() {
       winningPattern?: string;
       grid?: number[][] | null;
       calledNumbers?: number[];
+      banned?: boolean;
+      eliminated?: boolean;
     }>('games:validate-winner', activeGame.id, cardNumber);
+
+    const normalizedCard = result.cardNumber ?? cardNumber;
 
     if (result.valid && result.prizeAmount) {
       setBingoClaimActive(false);
       setActiveGame((g) => g ? { ...g, status: 'PAUSED' } : g);
       const winner: GameWinner = {
-        cardNumber: result.cardNumber ?? cardNumber,
+        cardNumber: normalizedCard,
         prizeAmount: result.prizeAmount,
         pattern: result.winningPattern,
         calledCountAtWin: result.calledCountAtWin,
@@ -521,11 +577,34 @@ export default function GameBoardPage() {
         if (prev.some((w) => w.cardNumber === winner.cardNumber)) return prev;
         return [...prev, winner];
       });
+      const ann: LiveGameAnnouncement = {
+        type: 'winner',
+        cardNumber: normalizedCard,
+        prizeAmount: result.prizeAmount,
+        message: `Cartella #${normalizedCard} wins ${result.prizeAmount.toFixed(0)} ETB!`,
+        at: Date.now(),
+      };
+      setLiveAnnouncement(ann);
+      window.setTimeout(() => setLiveAnnouncement(null), 8000);
+    } else if (result.banned || result.eliminated) {
+      setBannedCartellas((prev) => (
+        prev.includes(normalizedCard) ? prev : [...prev, normalizedCard]
+      ));
+      const ann: LiveGameAnnouncement = {
+        type: 'eliminated',
+        cardNumber: normalizedCard,
+        message: result.message,
+        at: Date.now(),
+      };
+      setLiveAnnouncement(ann);
+      window.setTimeout(() => setLiveAnnouncement(null), 5000);
+      window.setTimeout(() => { void continueAfterClaim(); }, 2500);
     }
+
     return {
       valid: result.valid,
       message: result.message,
-      cardNumber: result.cardNumber ?? cardNumber,
+      cardNumber: normalizedCard,
       prizeAmount: result.prizeAmount,
       playerCount: result.playerCount ?? playerCount,
       betAmount: result.betAmount ?? activeGame.betAmount,
@@ -534,10 +613,13 @@ export default function GameBoardPage() {
       winningPattern: result.winningPattern,
       grid: result.grid,
       calledNumbers: result.calledNumbers ?? called,
+      banned: result.banned,
+      eliminated: result.eliminated,
     };
   };
 
-  const handleInvalidBingoClaim = () => {
+  const handleInvalidBingoClaim = (result?: { banned?: boolean; eliminated?: boolean }) => {
+    if (result?.banned || result?.eliminated) return;
     setBingoClaimActive(false);
   };
 
@@ -565,6 +647,9 @@ export default function GameBoardPage() {
       setCallHistory([]);
       setLastDrawn(null);
       setGameWinners([]);
+      setBannedCartellas([]);
+      setBingoClaimActive(false);
+      setLiveAnnouncement(null);
       setCheckModalOpen(false);
       setCalledModalOpen(false);
       broadcastLiveGame({ type: 'game-ended' });
@@ -579,6 +664,8 @@ export default function GameBoardPage() {
       if (msg.type === 'pause') void stopCalling(true);
       if (msg.type === 'resume') void handleResume();
       if (msg.type === 'end-game') void handleEndGame();
+      if (msg.type === 'bingo-claim') void handleBingoClaim();
+      if (msg.type === 'check-cards') handleCheckCards();
     });
   }, [beginCalling, stopCalling, handleResume, handleEndGame]);
 
@@ -746,7 +833,7 @@ export default function GameBoardPage() {
         {!activeGame ? (
           <button onClick={handleCreateGame} disabled={creating || selected.length === 0}
             className="rounded-lg bg-green-600 px-6 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-50">
-            {creating ? 'Preparing...' : `Prepare Game (${selected.length} cards)`}
+            {creating ? 'Starting...' : `Start Game (${selected.length} cards)`}
           </button>
         ) : (
           <div className="flex flex-wrap items-center gap-2">
@@ -786,10 +873,16 @@ export default function GameBoardPage() {
                 <Play className="h-4 w-4" /> Resume
               </button>
             ) : null}
-            <button onClick={handleBingoClaim}
-              className="inline-flex items-center gap-1 rounded-lg bg-yellow-500 px-4 py-2 text-sm font-bold text-white hover:bg-yellow-600">
+            <button onClick={handleBingoClaim} disabled={bingoClaimActive || drawCount === 0}
+              className="inline-flex items-center gap-1 rounded-lg bg-yellow-500 px-4 py-2 text-sm font-bold text-white hover:bg-yellow-600 disabled:opacity-50">
               <Megaphone className="h-4 w-4" /> BINGO!
             </button>
+            {bingoClaimActive && (
+              <button onClick={handleCheckCards}
+                className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-5 py-2 text-sm font-bold text-white shadow-md hover:bg-blue-700">
+                <Search className="h-4 w-4" /> CHECK CARDS
+              </button>
+            )}
             <button onClick={handleEndGame}
               className="rounded-lg bg-red-500 px-4 py-2 text-sm font-semibold text-white">End Game</button>
           </div>
@@ -844,9 +937,21 @@ export default function GameBoardPage() {
         </div>
       )}
 
+      {activeGame && bannedCartellas.length > 0 && (
+        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
+          <p className="flex items-center gap-2 font-semibold">
+            <Ban className="h-4 w-4" /> Eliminated cartellas (false BINGO)
+          </p>
+          <p className="mt-1 text-xs">
+            Locked for this game: {bannedCartellas.map((n) => `#${n}`).join(', ')}
+          </p>
+        </div>
+      )}
+
       <NumberGrid
-        availableNumbers={availableCartellas}
-        selectedSet={selectedSet}
+        availableNumbers={activeGame ? (activeGame.selectedNumbers ?? []) : availableCartellas}
+        selectedSet={activeGame ? new Set(activeGame.selectedNumbers ?? []) : selectedSet}
+        lockedSet={activeGame ? bannedSet : undefined}
         onToggle={toggleNumber}
         onClear={() => setSelected([])}
         disabled={!!activeGame}
@@ -871,7 +976,7 @@ export default function GameBoardPage() {
         }}
         calledNumbers={called}
         onValidate={handleValidateCard}
-        onInvalidClaim={handleInvalidBingoClaim}
+        onInvalidClaim={(result) => handleInvalidBingoClaim(result)}
       />
     </div>
   );
