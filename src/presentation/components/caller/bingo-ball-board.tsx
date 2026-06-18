@@ -7,6 +7,7 @@ interface BingoBallBoardProps {
   calledSet: Set<number>;
   lastDrawn: number | null;
   maxBalls?: number;
+  large?: boolean;
 }
 
 function columnNumbers(col: keyof typeof COLUMN_RANGES): number[] {
@@ -15,18 +16,21 @@ function columnNumbers(col: keyof typeof COLUMN_RANGES): number[] {
 }
 
 /** Minch-style 75-ball board — 5×15 grid with B-I-N-G-O row labels */
-export function BingoBallBoard({ calledSet, lastDrawn, maxBalls = 75 }: BingoBallBoardProps) {
+export function BingoBallBoard({ calledSet, lastDrawn, maxBalls = 75, large }: BingoBallBoardProps) {
   return (
-    <div className="flex h-full w-full flex-col justify-center gap-1">
+    <div className="flex h-full w-full flex-col justify-center gap-1.5 lg:gap-2">
       {BINGO_COLUMNS.map((letter) => {
         const nums = columnNumbers(letter as keyof typeof COLUMN_RANGES).filter((n) => n <= maxBalls);
         return (
           <div
             key={letter}
-            className="grid gap-[3px]"
-            style={{ gridTemplateColumns: '2rem repeat(15, minmax(0, 1fr))' }}
+            className="grid gap-1 lg:gap-1.5"
+            style={{ gridTemplateColumns: large ? '4.5rem repeat(15, minmax(0, 1fr))' : '2rem repeat(15, minmax(0, 1fr))' }}
           >
-            <div className="flex items-center justify-center text-base font-black text-white/90 sm:text-lg">
+            <div className={cn(
+              'flex items-center justify-center font-black text-white',
+              large ? 'text-4xl lg:text-5xl xl:text-6xl' : 'text-base sm:text-lg',
+            )}>
               {letter}
             </div>
             {nums.map((n) => {
@@ -36,12 +40,13 @@ export function BingoBallBoard({ calledSet, lastDrawn, maxBalls = 75 }: BingoBal
                 <div
                   key={n}
                   className={cn(
-                    'flex aspect-square min-h-[1.75rem] items-center justify-center rounded-md text-[11px] font-bold sm:text-xs',
+                    'flex items-center justify-center rounded-md font-bold',
+                    large ? 'min-h-[2.5rem] text-lg sm:min-h-[2.75rem] sm:text-xl lg:min-h-[3.25rem] lg:text-2xl xl:min-h-[3.5rem] xl:text-3xl' : 'aspect-square min-h-[1.75rem] text-[11px] sm:text-xs',
                     isLatest
                       ? 'bg-[#facc15] text-[#111827] ring-2 ring-[#fde047]'
                       : isCalled
                         ? 'bg-[#facc15] text-[#111827]'
-                        : 'bg-[#5a5a5a] text-[#f3f4f6]',
+                        : 'bg-[#5a5a5a] text-white',
                   )}
                 >
                   {n}
