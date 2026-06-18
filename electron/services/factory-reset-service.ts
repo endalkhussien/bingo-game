@@ -42,9 +42,9 @@ export async function factoryReset(adminId: string) {
   const now = Math.floor(Date.now() / 1000);
   await updateSettings({
     operator_wallet_balance: '0',
-    operator_license_until: '0',
+    shop_admin_activated: '0',
     operator_license_shop: '',
-    operator_license_period: '',
+    used_tak_hashes: '[]',
     vendor_commission_rate: '20',
   });
 

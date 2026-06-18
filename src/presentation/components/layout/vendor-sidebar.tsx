@@ -10,7 +10,7 @@ import {
 
 const nav = [
   { href: VENDOR_HOME, label: 'Dashboard', icon: LayoutDashboard },
-  { href: VENDOR_TOL, label: 'TOL Licenses', icon: KeyRound },
+  { href: VENDOR_TOL, label: 'Admin Activation (TAK)', icon: KeyRound },
   { href: VENDOR_TOPUP, label: 'Shop Top-up (TVP)', icon: Wallet },
   { href: VENDOR_REPORTS, label: 'Revenue & Reports', icon: BarChart3 },
 ];

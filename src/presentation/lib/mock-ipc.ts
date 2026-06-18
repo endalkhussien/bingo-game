@@ -3,7 +3,7 @@
 import { CARTELLA_MAX, DEFAULT_CALL_COOLDOWN_MS } from '@/shared/constants';
 import { INITIAL_CARTELLA_COUNT } from '@/shared/brand';
 import { readPersistedLiveGame } from '@/presentation/lib/live-game-sync';
-import { generateOperatorLicenseCode } from '@/shared/voucher/operator-license-code';
+import { generateAdminActivationCode, hashAdminActivationCode, parseAdminActivationCode } from '@/shared/voucher/admin-activation-code';
 import { generateVendorTopupCode, parseVendorTopupCode, hashVendorTopupCode } from '@/shared/voucher/vendor-topup-code';
 
 const SESSION_KEY = 'bingo_mock_session';
@@ -93,7 +93,21 @@ const mockSettings: Record<string, string> = {
   currency: 'ETB', timezone: 'Africa/Addis_Ababa', default_voice: 'AMHARIC_MALE', default_language: 'en', number_range_max: '75',
 };
 const mockTxs: Array<Record<string, unknown>> = [];
-let mockLicenseUntil = 0;
+const MOCK_ACTIVATED_KEY = 'bingo_mock_admin_activated';
+
+function loadMockAdminActivated(): boolean {
+  if (typeof localStorage === 'undefined') return false;
+  return localStorage.getItem(MOCK_ACTIVATED_KEY) === '1';
+}
+
+function saveMockAdminActivated(active: boolean) {
+  if (typeof localStorage === 'undefined') return;
+  if (active) localStorage.setItem(MOCK_ACTIVATED_KEY, '1');
+  else localStorage.removeItem(MOCK_ACTIVATED_KEY);
+}
+
+let mockAdminActivated = loadMockAdminActivated();
+const mockUsedTakHashes = new Set<string>();
 let mockOperatorWalletBalance = 0;
 const mockUsedTopupHashes = new Set<string>();
 const mockVendorTopups: Array<{ id: string; code: string; amount: number; shopName: string; expiresAt: number; status: string; issuedAt: number }> = [];
@@ -141,8 +155,7 @@ function requireShopAdminRoleOnly() {
 
 function requireShopAdminSession() {
   const session = requireShopAdminRoleOnly();
-  const now = Math.floor(Date.now() / 1000);
-  if (mockLicenseUntil <= now) throw new Error('OPERATOR_LICENSE_EXPIRED');
+  if (!mockAdminActivated) throw new Error('OPERATOR_LICENSE_EXPIRED');
   return session;
 }
 
@@ -630,31 +643,48 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
 
   'audit:list': async () => mockAuditLogs,
 
-  'license:status': async () => {
-    const now = Math.floor(Date.now() / 1000);
-    return {
-      active: mockLicenseUntil > now,
-      validUntil: mockLicenseUntil,
-      shopName: 'Demo Shop',
-      period: 'WEEKLY',
-      vendorCommissionRate: 20,
-      daysRemaining: mockLicenseUntil > now ? Math.ceil((mockLicenseUntil - now) / 86400) : 0,
-    };
-  },
+  'license:status': async () => ({
+    active: mockAdminActivated,
+    shopName: mockAdminActivated ? 'Demo Shop' : '',
+    vendorCommissionRate: 20,
+    walletBalance: mockOperatorWalletBalance,
+    validUntil: mockAdminActivated ? Math.floor(Date.now() / 1000) + 86400 * 365 : 0,
+    period: '',
+    daysRemaining: mockAdminActivated ? 365 : 0,
+  }),
   'license:activate': async (code: unknown) => {
     requireShopAdminRoleOnly();
-    const c = String(code ?? '').trim();
-    const { parseOperatorLicenseCode } = await import('@/shared/voucher/operator-license-code');
-    const parsed = parseOperatorLicenseCode(c);
-    if (!parsed.valid || !parsed.payload) {
-      return { success: false, error: parsed.error ?? 'Invalid TOL code' };
+    if (mockAdminActivated) {
+      return { success: false, error: 'Shop admin is already activated on this browser.' };
     }
-    mockLicenseUntil = parsed.payload.validUntil;
+    const c = String(code ?? '').replace(/\s+/g, '');
+    const parsed = parseAdminActivationCode(c);
+    if (!parsed.valid || !parsed.payload) {
+      return { success: false, error: parsed.error ?? 'Invalid activation key' };
+    }
+    const hash = hashAdminActivationCode(c);
+    if (mockUsedTakHashes.has(hash)) {
+      return { success: false, error: 'This activation key was already used.' };
+    }
+    mockUsedTakHashes.add(hash);
+    mockAdminActivated = true;
+    saveMockAdminActivated(true);
+    mockOperatorWalletBalance += parsed.payload.amount;
+    mockOperatorWalletTxs.unshift({
+      id: `optx-${mockOperatorWalletTxs.length}`,
+      amount: parsed.payload.amount,
+      transactionType: 'TOPUP',
+      description: `Vendor activation — ${parsed.payload.shopName}`,
+      balanceAfter: mockOperatorWalletBalance,
+      createdAt: Math.floor(Date.now() / 1000),
+    });
     return {
       success: true,
       data: {
-        validUntil: mockLicenseUntil,
-        message: `License active until ${new Date(mockLicenseUntil * 1000).toLocaleDateString()}`,
+        shopName: parsed.payload.shopName,
+        amount: parsed.payload.amount,
+        walletBalance: mockOperatorWalletBalance,
+        message: `Activated! ${parsed.payload.amount.toFixed(0)} ETB added to shop balance.`,
       },
     };
   },
@@ -665,21 +695,19 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
     vendorCommissionDue: mockGames.length * 20,
     shopName: 'Demo Shop',
     vendorCommissionRate: 20,
-    licenseActive: mockLicenseUntil > Math.floor(Date.now() / 1000),
+    licenseActive: mockAdminActivated,
   }),
-  'license:generate': async (shopName: unknown, validDays: unknown, rate: unknown) => {
+  'license:generate': async (shopName: unknown, amount: unknown, rate: unknown) => {
     requireVendorSession();
-    const days = Number(validDays) === 30 ? 30 : 7;
-    const generated = generateOperatorLicenseCode(String(shopName || 'Shop'), days, Number(rate) || 20);
+    const parsedAmount = Number(amount) || 1000;
+    const generated = generateAdminActivationCode(String(shopName || 'Shop'), parsedAmount, Number(rate) || 20);
     return {
       success: true,
       data: {
         code: generated.code,
-        validUntil: generated.validUntil,
+        amount: generated.amount,
         shopName: generated.shopName,
-        period: generated.period,
-        validDays: days,
-        vendorCommissionRate: Number(rate) || 20,
+        vendorCommissionRate: generated.vendorCommissionRate,
       },
     };
   },
@@ -769,11 +797,13 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
     mockOperatorWalletTxs.length = 0;
     mockUsedTopupHashes.clear();
     mockVendorTopups.length = 0;
-    mockLicenseUntil = 0;
+    mockAdminActivated = false;
+    saveMockAdminActivated(false);
+    mockUsedTakHashes.clear();
     mockBalance = 0;
     return {
       success: true,
-      message: 'All data cleared. Paste TOL and TVP from vendor to start fresh.',
+      message: 'All data cleared. Paste a new TAK key from vendor to start fresh.',
     };
   },
 

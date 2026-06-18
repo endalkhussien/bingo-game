@@ -131,8 +131,8 @@ export function registerIpcHandlers() {
         return {
           success: false,
           error: session.user.role === 'SUPER_ADMIN'
-            ? 'You are logged in as vendor. Log out and login as shop admin (admin) to paste TOL.'
-            : 'Only shop admin can activate TOL. Login as admin.',
+            ? 'You are logged in as vendor. Log out and login as shop admin (admin) to paste the activation key.'
+            : 'Only shop admin can activate. Login as admin.',
         };
       }
       return await operatorLicense.activateOperatorLicense(
@@ -162,10 +162,9 @@ export function registerIpcHandlers() {
       throw err;
     }
   });
-  ipcMain.handle('license:generate', async (event, shopName: string, validDays: number, commissionRate: number) => {
+  ipcMain.handle('license:generate', async (event, shopName: string, amount: number, commissionRate: number) => {
     await requireVendor(event);
-    const days = validDays === 30 ? 30 : 7;
-    return operatorLicense.generateVendorLicenseCode(shopName, days as 7 | 30, commissionRate);
+    return operatorLicense.generateVendorActivationKey(shopName, Number(amount) || 0, Number(commissionRate) || 20);
   });
 
   // ── Shop admin wallet (TVP from vendor) ──

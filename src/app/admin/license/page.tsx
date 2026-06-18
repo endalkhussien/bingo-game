@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { invokeIpc } from '@/presentation/lib/ipc';
 import { runFactoryReset } from '@/presentation/lib/factory-reset';
 import { SHOP_ADMIN_HOME, TOL_JUST_ACTIVATED_KEY } from '@/shared/admin-routes';
-import { normalizeOperatorLicenseCodeInput } from '@/shared/voucher/operator-license-code';
+import { normalizeAdminActivationCodeInput } from '@/shared/voucher/admin-activation-code';
 import { isElectron } from '@/shared/runtime';
 
 export default function AdminLicensePage() {
@@ -21,25 +21,28 @@ export default function AdminLicensePage() {
     setError('');
     setLoading(true);
     try {
-      const normalized = normalizeOperatorLicenseCodeInput(code);
+      const normalized = normalizeAdminActivationCodeInput(code);
       if (!normalized) {
-        setError('Paste the full TOL- code from your vendor.');
+        setError('Paste the full TAK- activation key from your vendor.');
         return;
       }
 
-      const r = await invokeIpc<{ success: boolean; error?: string }>('license:activate', normalized);
+      const r = await invokeIpc<{ success: boolean; error?: string; data?: { message?: string; walletBalance?: number } }>(
+        'license:activate',
+        normalized,
+      );
       if (r?.success) {
         sessionStorage.setItem(TOL_JUST_ACTIVATED_KEY, '1');
         const status = await invokeIpc<{ active: boolean }>('license:status');
         if (!status?.active) {
           sessionStorage.removeItem(TOL_JUST_ACTIVATED_KEY);
-          setError('License was saved but could not be verified. Refresh the page and try again.');
+          setError('Activation was saved but could not be verified. Refresh and try again.');
           return;
         }
         router.replace(SHOP_ADMIN_HOME);
         router.refresh();
       } else {
-        setError(r?.error ?? 'Invalid license code');
+        setError(r?.error ?? 'Invalid activation key');
       }
     } catch {
       setError('Activation failed');
@@ -51,7 +54,7 @@ export default function AdminLicensePage() {
   const handleClearAll = async () => {
     if (
       !confirm(
-        'Delete ALL data?\n\nThis removes the SQLite database (agents, games, wallet, license) and cannot be undone.'
+        'Delete ALL data?\n\nThis removes the SQLite database (agents, games, wallet) and cannot be undone.'
       )
     ) {
       return;
@@ -73,42 +76,33 @@ export default function AdminLicensePage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-100 p-4">
       <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-8 shadow-lg">
-        <h1 className="text-2xl font-bold text-slate-900">Shop Admin — License</h1>
+        <h1 className="text-2xl font-bold text-slate-900">Shop Admin — Activation</h1>
         <p className="mt-2 text-sm text-slate-600">
-          Paste a <strong>TOL</strong> code from your vendor. After activation you can issue TAS and TBG codes to agents.
+          Paste the <strong>TAK</strong> activation key from your vendor. One key unlocks the admin portal and adds your starting <strong>TVP balance</strong>.
         </p>
         <ul className="mt-3 list-inside list-disc space-y-1 text-xs text-slate-600">
           <li>
-            Log in as <strong>shop admin</strong> (<code className="rounded bg-slate-100 px-1">admin</code>), not vendor (
-            <code className="rounded bg-slate-100 px-1">vendor</code>).
+            Log in as <strong>shop admin</strong> (<code className="rounded bg-slate-100 px-1">admin</code>), not vendor.
           </li>
-          <li>Paste the full <strong>TOL-…</strong> code. Line breaks from Telegram or email are OK.</li>
+          <li>Each <strong>TAK-…</strong> key works once and includes ETB balance for TBG vouchers.</li>
         </ul>
 
-        <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
-          <p className="font-medium text-slate-800">Database</p>
-          {isElectron() ? (
-            <p className="mt-1">
-              This app stores all data in a local <strong>SQLite</strong> file on your PC (inside the app user folder).
-              Use <strong>Clear All Data</strong> below to wipe it and start fresh.
-            </p>
-          ) : (
-            <p className="mt-1">
-              You are in <strong>browser preview</strong> — there is no real database here (mock data only). Install and run the{' '}
-              <strong>Windows .exe</strong> for the real SQLite database and full offline use.
-            </p>
-          )}
-        </div>
+        {!isElectron() && (
+          <div className="mt-4 rounded-lg border border-indigo-200 bg-indigo-50 p-3 text-xs text-indigo-900">
+            <p className="font-semibold">Browser preview</p>
+            <p className="mt-1">Login as <strong>vendor</strong> → <strong>Admin Activation</strong> → generate TAK → login as <strong>admin</strong> → paste here.</p>
+          </div>
+        )}
 
         <form onSubmit={handleActivate} className="mt-6 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700">TOL license code</label>
+            <label className="block text-sm font-medium text-slate-700">Vendor activation key (TAK)</label>
             <textarea
               value={code}
               onChange={(e) => setCode(e.target.value)}
               rows={4}
               className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-sm"
-              placeholder="Paste TOL code from vendor portal"
+              placeholder="Paste TAK- code from vendor"
             />
           </div>
           {error && <p className="text-sm text-red-600">{error}</p>}
@@ -117,14 +111,14 @@ export default function AdminLicensePage() {
             disabled={loading || !code.trim()}
             className="w-full rounded-lg bg-emerald-600 py-2.5 font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
           >
-            {loading ? 'Activating…' : 'Activate license'}
+            {loading ? 'Activating…' : 'Activate shop admin'}
           </button>
         </form>
 
         <div className="mt-8 border-t border-slate-200 pt-6">
           <p className="text-sm font-medium text-slate-800">Clear All Data</p>
           <p className="mt-1 text-xs text-slate-500">
-            Removes every table in the database. You will need a new TOL from the vendor and must recreate agents.
+            Wipes agents, games, and wallet. You will need a new TAK key from the vendor.
           </p>
           {resetMsg && (
             <p className={`mt-2 text-sm ${resetMsg.startsWith('All') || resetMsg.includes('cleared') ? 'text-emerald-700' : 'text-red-600'}`}>

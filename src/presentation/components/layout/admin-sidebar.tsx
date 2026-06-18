@@ -27,7 +27,7 @@ const shopAdminNav: Array<{
   { href: '/admin/recharge', label: 'Recharge Requests', icon: Wallet, badge: true },
   { href: '/admin/games', label: 'Games', icon: Gamepad2 },
   { href: '/admin/reports', label: 'Reports', icon: BarChart3 },
-  { href: '/admin/license', label: 'Shop License (TOL)', icon: KeyRound },
+  { href: '/admin/license', label: 'Shop Activation (TAK)', icon: KeyRound },
   { href: '/admin/settings', label: 'Settings', icon: Settings },
 ];
 
