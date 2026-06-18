@@ -29,9 +29,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }, [pathname]);
 
   const checkLicense = useCallback((showSpinner = false) => {
-    if (!user || !isShopAdminRole(user.role)) return;
     if (showSpinner) setLicenseReady(false);
     setLicenseChecking(true);
+
+    if (!user || !isShopAdminRole(user.role)) {
+      setLicenseOk(null);
+      setLicenseReady(true);
+      setLicenseChecking(false);
+      return;
+    }
+
     ipc<{ active: boolean }>('license:status')
       .then((s) => setLicenseOk(s.active))
       .catch(() => setLicenseOk(false))
@@ -42,9 +49,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }, [user]);
 
   useEffect(() => {
-    if (!isLoading && !user) router.replace('/login');
+    if (!isLoading && !user) router.replace('/login/');
     if (!isLoading && user && isVendorRole(user.role)) router.replace(VENDOR_HOME);
-    if (!isLoading && user && user.role === 'AGENT') router.replace('/agent/dashboard');
+    if (!isLoading && user && user.role === 'AGENT') router.replace('/agent/dashboard/');
   }, [user, isLoading, router]);
 
   useEffect(() => {
@@ -70,54 +77,72 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     if (licenseOk === false && isShopAdminRole(user?.role ?? '') && !onSetupPage) {
       router.replace('/admin/license/');
     }
-  }, [licenseOk, licenseReady, licenseChecking, onSetupPage, router, user, checkLicense, tolJustActivated]);
+  }, [licenseOk, licenseReady, licenseChecking, onSetupPage, router, user, tolJustActivated]);
 
-  if (isLoading || (isShopAdminRole(user?.role ?? '') && !licenseReady)) {
-    return <div className="flex h-screen items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" /></div>;
-  }
-
-  if (!user || !isShopAdminRole(user.role)) {
-    return null;
-  }
-
-  if (onSetupPage) {
+  if (isLoading || (user && isShopAdminRole(user.role) && !licenseReady)) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <header className="border-b border-gray-200 bg-white px-6 py-4 shadow-sm">
-          <div className="mx-auto flex max-w-3xl items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <AppLogo size={36} />
-              <div>
-                <p className="font-bold text-gray-900">{APP_NAME}</p>
-                <p className="text-xs text-gray-500">Shop admin setup</p>
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-3 text-sm">
-              <Link href="/admin/license/" className="font-medium text-indigo-700 hover:underline">Activation</Link>
-              <Link href="/admin/settings/backup/" className="font-medium text-gray-700 hover:underline">Backup & Data</Link>
-              {licenseOk && (
-                <Link href={SHOP_ADMIN_HOME} className="font-medium text-gray-700 hover:underline">Dashboard</Link>
-              )}
-              <button
-                type="button"
-                onClick={() => logout()}
-                className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-gray-700 hover:bg-gray-50"
-              >
-                <LogOut className="h-4 w-4" /> Logout
-              </button>
-            </div>
-          </div>
-        </header>
-        <main className="mx-auto max-w-3xl p-6">{children}</main>
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-slate-100">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
+        <p className="text-lg font-medium text-slate-700">Loading…</p>
       </div>
     );
   }
 
-  if (licenseOk === false && !onSetupPage) {
-    if (licenseChecking || tolJustActivated) {
-      return <div className="flex h-screen items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" /></div>;
-    }
-    return null;
+  if (!user || !isShopAdminRole(user.role)) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-slate-100 p-6 text-center">
+        <AppLogo size={64} />
+        <p className="text-xl font-bold text-slate-900">Please sign in first</p>
+        <p className="max-w-sm text-slate-600">Use username <strong>admin</strong> on the login page, then come back here.</p>
+        <Link
+          href="/login/"
+          className="rounded-xl bg-emerald-600 px-8 py-3 text-lg font-bold text-white hover:bg-emerald-700"
+        >
+          Go to Login
+        </Link>
+      </div>
+    );
+  }
+
+  if (onSetupPage) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-slate-100 to-white">
+        <header className="border-b border-slate-200 bg-white px-6 py-4 shadow-sm">
+          <div className="mx-auto flex max-w-2xl items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <AppLogo size={40} />
+              <div>
+                <p className="text-lg font-bold text-slate-900">{APP_NAME}</p>
+                <p className="text-sm text-slate-500">Shop Admin Setup</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => logout()}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              <LogOut className="h-4 w-4" /> Logout
+            </button>
+          </div>
+        </header>
+        <main>{children}</main>
+      </div>
+    );
+  }
+
+  if (licenseOk === false) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-slate-100 p-6 text-center">
+        <p className="text-xl font-bold text-slate-900">Activation required</p>
+        <p className="text-slate-600">Ask your vendor for an activation key, then paste it on the next screen.</p>
+        <Link
+          href="/admin/license/"
+          className="rounded-xl bg-emerald-600 px-8 py-3 text-lg font-bold text-white hover:bg-emerald-700"
+        >
+          Enter Activation Key
+        </Link>
+      </div>
+    );
   }
 
   return (
