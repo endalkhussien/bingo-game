@@ -148,6 +148,9 @@ export default function GameBoardPage() {
   const announcingRef = useRef(false);
   const bingoClaimActiveRef = useRef(false);
   const calledRef = useRef<number[]>([]);
+  const gameWinnersRef = useRef<GameWinner[]>([]);
+
+  const hasWinner = gameWinners.length > 0;
 
   const playerCount = activeGame?.playerCount ?? activeGame?.selectedNumbers?.length ?? selected.length;
   const totalPot = activeGame?.totalPot ?? calculateTotalPot(parseFloat(betAmount || '0') || 0, playerCount);
@@ -182,6 +185,7 @@ export default function GameBoardPage() {
   }, [activeGame, called, callHistory, commissionPercent, callingPhase, bingoClaimActive, bannedCartellas, gameWinners, liveAnnouncement]);
 
   useEffect(() => { bingoClaimActiveRef.current = bingoClaimActive; }, [bingoClaimActive]);
+  useEffect(() => { gameWinnersRef.current = gameWinners; }, [gameWinners]);
 
   useEffect(() => { loadVoices(); preloadBallCallClips(); }, []);
   useEffect(() => {
@@ -320,7 +324,7 @@ export default function GameBoardPage() {
   }, []);
 
   const startCalling = useCallback(async (resumeOnServer = false) => {
-    if (!activeGameRef.current || bingoClaimActive || announcingRef.current) return;
+    if (!activeGameRef.current || bingoClaimActive || announcingRef.current || gameWinnersRef.current.length > 0) return;
 
     if (resumeOnServer) {
       await ipc('games:resume', activeGameRef.current.id);
@@ -335,7 +339,7 @@ export default function GameBoardPage() {
   }, [bingoClaimActive]);
 
   const beginCalling = useCallback(async () => {
-    if (!activeGameRef.current || autoDrawRef.current || bingoClaimActive || announcingRef.current) return;
+    if (!activeGameRef.current || autoDrawRef.current || bingoClaimActive || announcingRef.current || gameWinnersRef.current.length > 0) return;
 
     announcingRef.current = true;
     setCallingPhase('announcing');
@@ -490,7 +494,7 @@ export default function GameBoardPage() {
   }, [activeGame, isPaused, drawFromServer, applyDrawResult, voice, language, interval]);
 
   useEffect(() => {
-    if (!autoDraw || !activeGame?.id || isPaused || bingoClaimActive) return;
+    if (!autoDraw || !activeGame?.id || isPaused || bingoClaimActive || hasWinner) return;
 
     const loopId = ++callingLoopIdRef.current;
     let cancelled = false;
@@ -500,14 +504,15 @@ export default function GameBoardPage() {
       cooldownMs: intervalRef.current,
       voiceType: voiceRef.current,
       language: languageRef.current,
-      isPaused: () => isPausedRef.current || bingoClaimActive,
+      isPaused: () => isPausedRef.current || bingoClaimActiveRef.current || gameWinnersRef.current.length > 0,
       shouldContinue: () =>
         !cancelled
         && callingLoopIdRef.current === loopId
         && autoDrawRef.current
         && !!activeGameRef.current
         && !isPausedRef.current
-        && !announcingRef.current,
+        && !announcingRef.current
+        && gameWinnersRef.current.length === 0,
       drawNumber: drawFromServer,
       onDraw: (data) => {
         applyDrawResult({
@@ -525,7 +530,7 @@ export default function GameBoardPage() {
       manager.abort();
       stopCurrentAudio();
     };
-  }, [autoDraw, activeGame?.id, isPaused, bingoClaimActive, drawFromServer, applyDrawResult]);
+  }, [autoDraw, activeGame?.id, isPaused, bingoClaimActive, hasWinner, drawFromServer, applyDrawResult]);
 
   const handleBingoClaim = async () => {
     if (!activeGame || bingoClaimActive) return;
@@ -564,7 +569,17 @@ export default function GameBoardPage() {
     const normalizedCard = result.cardNumber ?? cardNumber;
 
     if (result.valid && result.prizeAmount) {
+      autoDrawRef.current = false;
+      setAutoDraw(false);
+      isPausedRef.current = true;
+      setIsPaused(true);
+      announcingRef.current = false;
+      callingLoopIdRef.current += 1;
+      syncManagerRef.current.abort();
+      stopCurrentAudio();
+      setCallingPhase('paused');
       setBingoClaimActive(false);
+      setCheckModalOpen(false);
       setActiveGame((g) => g ? { ...g, status: 'PAUSED' } : g);
       const winner: GameWinner = {
         cardNumber: normalizedCard,
@@ -585,6 +600,7 @@ export default function GameBoardPage() {
       };
       setLiveAnnouncement(ann);
       window.setTimeout(() => setLiveAnnouncement(null), 8000);
+      await refreshBalance();
     } else if (result.banned || result.eliminated) {
       setBannedCartellas((prev) => (
         prev.includes(normalizedCard) ? prev : [...prev, normalizedCard]
@@ -624,7 +640,7 @@ export default function GameBoardPage() {
   };
 
   const handleResume = useCallback(async () => {
-    if (!activeGameRef.current || bingoClaimActive) return;
+    if (!activeGameRef.current || bingoClaimActive || gameWinnersRef.current.length > 0) return;
     setCheckModalOpen(false);
     if (getEffectiveDrawCount() === 0) {
       await beginCalling();
@@ -662,11 +678,10 @@ export default function GameBoardPage() {
   }, [stopCalling, refreshBalance]);
 
   const handleHallPlay = useCallback(() => {
+    if (gameWinnersRef.current.length > 0) return;
+
     if (autoDrawRef.current && !isPausedRef.current) {
       void stopCalling(true);
-      if (getEffectiveDrawCount() > 0) {
-        setBingoClaimActive(true);
-      }
       return;
     }
     if (getEffectiveDrawCount() === 0) {
@@ -680,9 +695,7 @@ export default function GameBoardPage() {
     return subscribeGameControl((msg) => {
       if (msg.type === 'start-calling') void beginCalling();
       if (msg.type === 'pause') {
-        void stopCalling(true).then(() => {
-          if (getEffectiveDrawCount() > 0) setBingoClaimActive(true);
-        });
+        void stopCalling(true);
       }
       if (msg.type === 'resume') void handleResume();
       if (msg.type === 'end-game') void handleEndGame();

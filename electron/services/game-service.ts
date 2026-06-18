@@ -225,6 +225,11 @@ export async function drawNumber(gameId: string, agentId: string) {
     return { success: false, error: game?.status === 'PAUSED' ? 'Game is paused' : 'Game not running' };
   }
 
+  const winnerRows = await db.select().from(winners).where(eq(winners.gameId, gameId)).all();
+  if (winnerRows.length > 0) {
+    return { success: false, error: 'Winner declared — end the game before drawing more numbers' };
+  }
+
   const drawn = await db.select().from(drawnNumbers).where(eq(drawnNumbers.gameId, gameId)).all();
   const engine = new CallingEngine(game.numberRangeMax);
   engine.loadFromHistory(
@@ -281,6 +286,12 @@ export async function resumeGame(gameId: string, agentId: string) {
   if (!game || game.agentId !== agentId || game.status !== 'PAUSED') {
     return { success: false, error: 'Game not paused' };
   }
+
+  const winnerRows = await db.select().from(winners).where(eq(winners.gameId, gameId)).all();
+  if (winnerRows.length > 0) {
+    return { success: false, error: 'Winner declared — press End Game to finish' };
+  }
+
   const now = Math.floor(Date.now() / 1000);
   await db.update(games).set({ status: 'RUNNING', updatedAt: now }).where(eq(games.id, gameId));
   return { success: true };

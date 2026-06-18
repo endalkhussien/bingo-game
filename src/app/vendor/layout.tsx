@@ -42,7 +42,7 @@ export default function VendorLayout({ children }: { children: React.ReactNode }
         <header className="border-b border-white/10 bg-violet-950/80 px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <AppLogo size={56} className="rounded-2xl shadow-md ring-2 ring-amber-500/20" />
+              <AppLogo size={72} className="rounded-2xl shadow-md ring-2 ring-amber-500/20" />
               <div>
                 <p className="text-lg font-bold">{APP_NAME}</p>
                 <p className="text-xs text-violet-300">Vendor portal — TAK activation & TVP top-ups</p>
