@@ -93,7 +93,27 @@ const mockSettings: Record<string, string> = {
   currency: 'ETB', timezone: 'Africa/Addis_Ababa', default_voice: 'AMHARIC_MALE', default_language: 'en', number_range_max: '75',
 };
 const mockTxs: Array<Record<string, unknown>> = [];
-let mockLicenseUntil = 0;
+const MOCK_LICENSE_KEY = 'bingo_mock_license_until';
+
+function loadMockLicenseUntil(): number {
+  if (typeof localStorage === 'undefined') return 0;
+  try {
+    const value = parseInt(localStorage.getItem(MOCK_LICENSE_KEY) ?? '0', 10);
+    return Number.isFinite(value) ? value : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function saveMockLicenseUntil(until: number) {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    if (until > 0) localStorage.setItem(MOCK_LICENSE_KEY, String(until));
+    else localStorage.removeItem(MOCK_LICENSE_KEY);
+  } catch { /* ignore */ }
+}
+
+let mockLicenseUntil = loadMockLicenseUntil();
 let mockOperatorWalletBalance = 0;
 const mockUsedTopupHashes = new Set<string>();
 const mockVendorTopups: Array<{ id: string; code: string; amount: number; shopName: string; expiresAt: number; status: string; issuedAt: number }> = [];
@@ -623,6 +643,15 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
   'backup:list': async () => [{ filename: 'bingo-backup-demo.db', size: 102400, createdAt: new Date().toISOString() }],
   'backup:restore': async () => ({ success: true, message: 'Backup restored' }),
 
+  'database:export': async () => {
+    requireShopAdminSession();
+    return { success: true, path: 'browser-preview/bingo-backup-demo.db' };
+  },
+  'database:import': async () => {
+    requireShopAdminSession();
+    return { success: false, error: 'Database import requires the installed Windows .exe app.' };
+  },
+
   'notifications:list': async () => mockNotifications,
   'notifications:unread-count': async () => mockNotifications.filter(n => !n.isRead).length,
   'notifications:mark-read': async () => ({}),
@@ -650,6 +679,7 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
       return { success: false, error: parsed.error ?? 'Invalid TOL code' };
     }
     mockLicenseUntil = parsed.payload.validUntil;
+    saveMockLicenseUntil(mockLicenseUntil);
     return {
       success: true,
       data: {
@@ -770,6 +800,7 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
     mockUsedTopupHashes.clear();
     mockVendorTopups.length = 0;
     mockLicenseUntil = 0;
+    saveMockLicenseUntil(0);
     mockBalance = 0;
     return {
       success: true,

@@ -65,10 +65,9 @@ async function createWindow() {
   });
 
   try {
-    await Promise.all([
-      initDatabase().then(() => registerIpcHandlers()),
-      uiReady,
-    ]);
+    await initDatabase();
+    await registerIpcHandlers();
+    await uiReady;
   } catch (err) {
     dialog.showErrorBox('Startup Error', `Database failed to initialize:\n${err}`);
     app.quit();

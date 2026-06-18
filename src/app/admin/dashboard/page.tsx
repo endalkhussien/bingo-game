@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { ipc } from '@/presentation/lib/ipc';
+import Link from 'next/link';
+import { useIpcData } from '@/presentation/hooks/use-ipc-data';
 import { StatCard } from '@/presentation/components/shared/stat-card';
 import { PageHeader } from '@/presentation/components/shared/page-header';
+import { SHOP_ADMIN_LICENSE } from '@/shared/admin-routes';
 
 interface AdminDash {
   totalAgents: number; activeAgents: number; totalWalletBalance: number;
@@ -12,11 +13,34 @@ interface AdminDash {
 }
 
 export default function AdminDashboardPage() {
-  const [data, setData] = useState<AdminDash | null>(null);
+  const { data, error, loading } = useIpcData<AdminDash>('dashboard:admin');
 
-  useEffect(() => { ipc<AdminDash>('dashboard:admin').then(setData).catch(console.error); }, []);
+  if (loading) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" />
+      </div>
+    );
+  }
 
-  if (!data) return <div className="flex h-64 items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" /></div>;
+  if (error || !data) {
+    const needsLicense = error?.includes('OPERATOR_LICENSE_EXPIRED');
+    return (
+      <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-amber-950">
+        <p className="font-semibold">{needsLicense ? 'TOL license required' : 'Could not load dashboard'}</p>
+        <p className="mt-2 text-sm">
+          {needsLicense
+            ? 'Activate a TOL code from your vendor before using the admin portal.'
+            : (error ?? 'Unknown error')}
+        </p>
+        {needsLicense && (
+          <Link href={SHOP_ADMIN_LICENSE} className="mt-4 inline-block rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">
+            Go to License page
+          </Link>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div>
