@@ -1,9 +1,11 @@
 import { eq } from 'drizzle-orm';
 import { getDb } from './database-service';
 import { agents, games, gameRevenue, rechargeRequests } from '../../src/infrastructure/database/schema';
+import { getOperatorWalletBalance } from './operator-wallet-service';
 
 export async function getAdminDashboard() {
   const db = getDb();
+  const shopOperatorBalance = await getOperatorWalletBalance();
   const allAgents = await db.select().from(agents).all();
   const activeAgents = allAgents.filter((a) => a.status === 'ACTIVE');
   const totalWallet = allAgents.reduce((s, a) => s + a.walletBalance, 0);
@@ -19,7 +21,6 @@ export async function getAdminDashboard() {
     totalProfit += r.platformRevenue;
   }
 
-  // Last 7 days revenue trend
   const now = Math.floor(Date.now() / 1000);
   const trend = [];
   for (let i = 6; i >= 0; i--) {
@@ -36,6 +37,7 @@ export async function getAdminDashboard() {
   }
 
   return {
+    shopOperatorBalance,
     totalAgents: allAgents.length,
     activeAgents: activeAgents.length,
     totalWalletBalance: totalWallet,

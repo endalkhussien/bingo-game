@@ -39,8 +39,7 @@ export function getShopAdminEntryPath(status: {
     return status ? SHOP_ADMIN_HOME : SHOP_ADMIN_LICENSE;
   }
   if (status.needsActivation || status.activated === false) return SHOP_ADMIN_LICENSE;
-  if (status.needsTopup) return '/admin/wallet/';
-  if (status.active) return SHOP_ADMIN_HOME;
+  if (status.activated || status.active) return SHOP_ADMIN_HOME;
   return SHOP_ADMIN_LICENSE;
 }
 

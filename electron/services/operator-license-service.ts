@@ -104,13 +104,15 @@ export async function activateOperatorLicense(code: string) {
   });
   await markTakUsed(codeHash);
 
+  const walletBalance = await getOperatorWalletBalance();
+
   return {
     success: true,
     data: {
       shopName: parsed.payload.shopName,
       amount: parsed.payload.amount,
-      walletBalance: credit.data.newBalance,
-      message: `Activated! ${parsed.payload.amount.toFixed(0)} ETB added to your balance.`,
+      walletBalance,
+      message: `Activated! ${parsed.payload.amount.toFixed(0)} ETB added — balance is now ${walletBalance.toFixed(0)} ETB.`,
     },
   };
 }

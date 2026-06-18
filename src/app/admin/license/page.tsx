@@ -64,9 +64,10 @@ export default function AdminLicensePage() {
         const balance = r.data?.walletBalance ?? r.data?.amount;
         setSuccess(
           balance != null
-            ? `Success! Your shop is ready. Balance: ${balance.toFixed(0)} ETB`
+            ? `Success! Balance: ${balance.toFixed(0)} ETB`
             : 'Success! Your shop admin is now active.',
         );
+        window.dispatchEvent(new CustomEvent('waliya:balance-updated', { detail: balance ?? 0 }));
         window.setTimeout(() => {
           window.location.assign(SHOP_ADMIN_HOME);
         }, 1500);

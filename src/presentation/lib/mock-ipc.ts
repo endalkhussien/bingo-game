@@ -200,8 +200,9 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
   'auth:change-password': async () => ({ success: true }),
 
   'dashboard:admin': async () => {
-    requireShopAdminSession();
+    requireShopAdminActivatedOnly();
     return {
+    shopOperatorBalance: mockOperatorWalletBalance,
     totalAgents: mockAgents.length, activeAgents: mockAgents.filter(a => a.status === 'ACTIVE').length,
     totalWalletBalance: mockBalance, totalRevenue: 5000, totalProfit: 1000,
     runningGames: mockGames.filter(g => g.status === 'RUNNING').length,
@@ -227,9 +228,9 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
     return { success: true, data: { commissionRate: r } };
   },
 
-  'agents:list': async () => { requireShopAdminSession(); return mockAgents.map(a => ({ ...a, walletBalance: mockBalance })); },
+  'agents:list': async () => { requireShopAdminActivatedOnly(); return mockAgents.map(a => ({ ...a, walletBalance: mockBalance })); },
   'agents:create': async (data: unknown) => {
-    requireShopAdminSession();
+    requireShopAdminActivatedOnly();
     const d = data as { fullName: string; username: string; password: string; phone?: string; adminCommissionRate?: number };
     const username = d.username.trim().toLowerCase();
     const id = `agent-${mockAgents.length + 1}`;
@@ -343,7 +344,7 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
     mockIssuedCodes.unshift(row);
     return { success: true, data: { code, amount: amt, expiresAt: row.expiresAt, forUsername: user } };
   },
-  'vouchers:list-issued': async () => { requireShopAdminSession(); return mockIssuedCodes; },
+  'vouchers:list-issued': async () => { requireShopAdminActivatedOnly(); return mockIssuedCodes; },
   'vouchers:org-key': async () => 'mock-org-key-for-browser-preview-only-32chars',
   'vouchers:revoke': async (id: unknown) => {
     const r = mockIssuedCodes.find((x) => x.id === id);
@@ -693,7 +694,7 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
         shopName: parsed.payload.shopName,
         amount: parsed.payload.amount,
         walletBalance: mockOperatorWalletBalance,
-        message: `Activated! ${parsed.payload.amount.toFixed(0)} ETB added to shop balance.`,
+        message: `Activated! ${parsed.payload.amount.toFixed(0)} ETB added — balance is now ${mockOperatorWalletBalance.toFixed(0)} ETB.`,
       },
     };
   },
@@ -731,11 +732,12 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
   },
   'operator-wallet:redeem': async (code: unknown) => {
     requireShopAdminActivatedOnly();
-    const parsed = parseVendorTopupCode(String(code ?? ''));
+    const normalized = String(code ?? '').replace(/\s+/g, '');
+    const parsed = parseVendorTopupCode(normalized);
     if (!parsed.valid || !parsed.payload) {
       return { success: false, error: parsed.error ?? 'Invalid TVP code' };
     }
-    const hash = hashVendorTopupCode(String(code));
+    const hash = hashVendorTopupCode(normalized);
     if (mockUsedTopupHashes.has(hash)) {
       return { success: false, error: 'This top-up code was already used' };
     }
@@ -749,7 +751,7 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
       balanceAfter: mockOperatorWalletBalance,
       createdAt: Math.floor(Date.now() / 1000),
     });
-    const topup = mockVendorTopups.find((t) => t.code === String(code).trim());
+    const topup = mockVendorTopups.find((t) => t.code === normalized);
     if (topup) topup.status = 'REDEEMED';
     return {
       success: true,
@@ -757,7 +759,7 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
         amount: parsed.payload.amount,
         newBalance: mockOperatorWalletBalance,
         shopName: parsed.payload.shopName,
-        message: `${parsed.payload.amount} ETB added to shop admin balance`,
+        message: `${parsed.payload.amount.toFixed(0)} ETB added — balance is now ${mockOperatorWalletBalance.toFixed(0)} ETB`,
       },
     };
   },

@@ -14,7 +14,7 @@ export const SHOP_ADMIN_WALLET = '/admin/wallet/';
 export const SHOP_ADMIN_BACKUP = '/admin/settings/backup/';
 
 /** Pages reachable before shop admin is fully operational (activation / top-up). */
-export const SHOP_ADMIN_SETUP_PATHS = [SHOP_ADMIN_LICENSE, SHOP_ADMIN_WALLET, SHOP_ADMIN_BACKUP] as const;
+export const SHOP_ADMIN_SETUP_PATHS = [SHOP_ADMIN_LICENSE, SHOP_ADMIN_BACKUP] as const;
 
 /** Next.js uses trailingSlash — normalize before comparing route paths. */
 export function normalizePathname(pathname: string): string {

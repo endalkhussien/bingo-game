@@ -8,6 +8,7 @@ import { CopyButton } from '@/presentation/components/shared/copy-button';
 import { TextInput } from '@/presentation/components/shared/text-input';
 import { formatDate } from '@/presentation/lib/utils';
 import { copyToClipboard } from '@/presentation/lib/copy-to-clipboard';
+import { BALANCE_UPDATED_EVENT } from '@/presentation/components/layout/admin-header';
 
 interface AgentOption {
   id: string;
@@ -49,6 +50,12 @@ export default function AdminVouchersPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  useEffect(() => {
+    const refresh = () => load();
+    window.addEventListener(BALANCE_UPDATED_EVENT, refresh);
+    return () => window.removeEventListener(BALANCE_UPDATED_EVENT, refresh);
+  }, [load]);
+
   const handleGenerate = async () => {
     if (!forUsername) {
       setError('Select an agent — each code is unique and bound to that agent only');
@@ -67,6 +74,9 @@ export default function AdminVouchersPage() {
     if (result.success && result.data) {
       setGenerated(result.data);
       load();
+      if (result.data) {
+        window.dispatchEvent(new CustomEvent(BALANCE_UPDATED_EVENT));
+      }
       const copied = await copyToClipboard(result.data.code);
       if (copied) {
         setAutoCopied(true);
