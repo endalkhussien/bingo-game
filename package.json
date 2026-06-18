@@ -19,6 +19,7 @@
     "build": "npm run build:next && npm run build:electron",
     "build:next": "cross-env NODE_ENV=production next build",
     "build:electron": "tsc -p tsconfig.electron.json",
+    "clean:build": "node scripts/clean-build.mjs",
     "desktop": "npm run build && cross-env NODE_ENV=production electron .",
     "dist:win": "node scripts/pack-win.mjs",
     "pack:win": "node scripts/pack-win.mjs",

@@ -5,7 +5,7 @@
  *
  *   npm run pack:win
  *
- * Output: release/TEBIB-Bingo-<version>-win-x64.exe (installer + portable)
+ * Output: release/Waliya-Setup-<version>.exe (installer + portable)
  */
 import fs from 'fs';
 import path from 'path';
@@ -17,13 +17,18 @@ const root = path.join(__dirname, '..');
 const soundsDir = path.join(root, 'public', 'sounds', 'am');
 const ballCallDir = path.join(root, 'public', 'audio');
 
+const buildEnv = {
+  NODE_ENV: 'production',
+  NEXT_TELEMETRY_DISABLED: '1',
+};
+
 function loadBrand() {
   const configPath = path.join(root, 'brand.config.json');
   return JSON.parse(fs.readFileSync(configPath, 'utf8'));
 }
 
 function run(cmd, env = {}) {
-  execSync(cmd, { cwd: root, stdio: 'inherit', env: { ...process.env, ...env } });
+  execSync(cmd, { cwd: root, stdio: 'inherit', env: { ...process.env, ...buildEnv, ...env } });
 }
 
 function ensureAmharicAudio() {
@@ -52,8 +57,10 @@ ensureAmharicAudio();
 console.log('→ Rebuilding native modules for Electron...\n');
 run('npx electron-builder install-app-deps');
 
+run('node scripts/clean-build.mjs');
+
 console.log('\n→ Building production app (Next.js + Electron)...\n');
-run('npm run build', { NODE_ENV: 'production' });
+run('npm run build');
 
 console.log('\n→ Running release validation...\n');
 run('node scripts/validate-release.mjs');
@@ -62,7 +69,6 @@ console.log('\n→ Creating Windows installer + portable...\n');
 const productName = brand.appName.replace(/"/g, '\\"');
 run(
   `npx electron-builder --win --config electron-builder.yml --config.productName="${productName}" --config.nsis.shortcutName="${productName}" --config.nsis.uninstallDisplayName="${productName}"`,
-  { NODE_ENV: 'production' },
 );
 
 const releaseDir = path.join(root, 'release');
