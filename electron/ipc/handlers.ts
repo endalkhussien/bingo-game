@@ -21,6 +21,7 @@ import * as factoryReset from '../services/factory-reset-service';
 import { isAdminRole, isVendorRole } from '../../src/shared/roles';
 import { speakNumber, speakBallCall, speakPlainText, listInstalledVoices } from '../tts/tts-engine';
 import { closeCallerDisplayWindow, openCallerDisplayWindow } from '../utils/caller-display-window';
+import { normalizeVendorTopupCodeInput } from '../../src/shared/voucher/vendor-topup-code';
 
 const sessions = new Map<number, string>();
 
@@ -183,7 +184,9 @@ export function registerIpcHandlers() {
   });
   ipcMain.handle('operator-wallet:redeem', async (event, code: string) => {
     await requireShopAdminActivated(event);
-    return operatorWallet.redeemVendorTopupCode(code.trim());
+    return operatorWallet.redeemVendorTopupCode(
+      normalizeVendorTopupCodeInput(String(code ?? '')),
+    );
   });
 
   // ── Vendor top-up codes (TVP) for shop admin balance ──
@@ -201,14 +204,14 @@ export function registerIpcHandlers() {
   });
 
   // ── Dashboard ──
-  ipcMain.handle('dashboard:admin', async (event) => requireShopAdmin(event).then(() => dashboard.getAdminDashboard()));
+  ipcMain.handle('dashboard:admin', async (event) => requireShopAdminActivated(event).then(() => dashboard.getAdminDashboard()));
   ipcMain.handle('dashboard:agent', async (event) => requireAgent(event).then((s) => dashboard.getAgentDashboard(s.agent!.id)));
 
   // ── Agents (admin) ──
-  ipcMain.handle('agents:list', async (event) => { await requireShopAdmin(event); return agentAdmin.listAgents(); });
+  ipcMain.handle('agents:list', async (event) => { await requireShopAdminActivated(event); return agentAdmin.listAgents(); });
   ipcMain.handle('agents:create', async (event, data) => {
     try {
-      const s = await requireShopAdmin(event);
+      const s = await requireShopAdminActivated(event);
       return await agentAdmin.createAgent(s.user.id, data);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to create agent';
@@ -219,31 +222,31 @@ export function registerIpcHandlers() {
     return agentAdmin.activateAgentFromSetup(setupCode);
   });
   ipcMain.handle('agents:regenerate-setup', async (event, agentId: string, password: string) => {
-    const s = await requireShopAdmin(event);
+    const s = await requireShopAdminActivated(event);
     return agentAdmin.regenerateAgentSetupCode(s.user.id, agentId, password);
   });
   ipcMain.handle('agents:update', async (event, id: string, data) => {
-    const s = await requireShopAdmin(event);
+    const s = await requireShopAdminActivated(event);
     return agentAdmin.updateAgent(s.user.id, id, data);
   });
   ipcMain.handle('agents:suspend', async (event, id: string) => {
-    const s = await requireShopAdmin(event);
+    const s = await requireShopAdminActivated(event);
     return agentAdmin.setAgentStatus(s.user.id, id, 'SUSPENDED');
   });
   ipcMain.handle('agents:activate', async (event, id: string) => {
-    const s = await requireShopAdmin(event);
+    const s = await requireShopAdminActivated(event);
     return agentAdmin.setAgentStatus(s.user.id, id, 'ACTIVE');
   });
   ipcMain.handle('agents:delete', async (event, id: string) => {
-    const s = await requireShopAdmin(event);
+    const s = await requireShopAdminActivated(event);
     return agentAdmin.deleteAgent(s.user.id, id);
   });
   ipcMain.handle('agents:reset-password', async (event, id: string, pw: string) => {
-    const s = await requireShopAdmin(event);
+    const s = await requireShopAdminActivated(event);
     return agentAdmin.resetAgentPassword(s.user.id, id, pw);
   });
   ipcMain.handle('agents:detail', async (event, id: string) => {
-    await requireShopAdmin(event);
+    await requireShopAdminActivated(event);
     return agentAdmin.getAgentDetail(id);
   });
   ipcMain.handle('agents:update-own-commission', async (event, commissionRate: number) => {
@@ -262,19 +265,19 @@ export function registerIpcHandlers() {
   ipcMain.handle('vouchers:generate', async (event, amount: number, forUsername: string) =>
     requireShopAdmin(event).then((s) => wallet.createOfflineRechargeCode(s.user.id, amount, forUsername)));
   ipcMain.handle('vouchers:list-issued', async (event) => {
-    await requireShopAdmin(event);
+    await requireShopAdminActivated(event);
     return wallet.listIssuedOfflineCodes();
   });
   ipcMain.handle('vouchers:revoke', async (event, id: string) => {
-    await requireShopAdmin(event);
+    await requireShopAdminActivated(event);
     return wallet.revokeOfflineCode(id);
   });
   ipcMain.handle('vouchers:delete', async (event, id: string) => {
-    await requireShopAdmin(event);
+    await requireShopAdminActivated(event);
     return wallet.deleteIssuedOfflineCode(id);
   });
   ipcMain.handle('vouchers:org-key', async (event) => {
-    await requireShopAdmin(event);
+    await requireShopAdminActivated(event);
     return getOrganizationKeyForDisplay();
   });
   ipcMain.handle('settings:set-org-recharge-key', async (event, key: string) => {
@@ -286,7 +289,7 @@ export function registerIpcHandlers() {
     return wallet.adminDeposit(agentId, amount, desc);
   });
   ipcMain.handle('wallet:withdraw', async (event, agentId: string, amount: number, desc: string) => {
-    await requireShopAdmin(event);
+    await requireShopAdminActivated(event);
     return wallet.adminWithdraw(agentId, amount, desc);
   });
 
@@ -295,12 +298,12 @@ export function registerIpcHandlers() {
   ipcMain.handle('recharge:list', async (event, filters) => {
     const s = await requireAuth(event);
     if (s.user.role === 'AGENT') return recharge.listRechargeRequests({ ...filters, agentId: s.agent!.id });
-    await requireShopAdmin(event);
+    await requireShopAdminActivated(event);
     return recharge.listRechargeRequests(filters);
   });
-  ipcMain.handle('recharge:approve', async (event, id: string) => requireShopAdmin(event).then((s) => recharge.approveRecharge(s.user.id, id)));
-  ipcMain.handle('recharge:reject', async (event, id: string, reason?: string) => requireShopAdmin(event).then((s) => recharge.rejectRecharge(s.user.id, id, reason)));
-  ipcMain.handle('recharge:pending-count', async (event) => { await requireShopAdmin(event); return recharge.countPendingRecharges(); });
+  ipcMain.handle('recharge:approve', async (event, id: string) => requireShopAdminActivated(event).then((s) => recharge.approveRecharge(s.user.id, id)));
+  ipcMain.handle('recharge:reject', async (event, id: string, reason?: string) => requireShopAdminActivated(event).then((s) => recharge.rejectRecharge(s.user.id, id, reason)));
+  ipcMain.handle('recharge:pending-count', async (event) => { await requireShopAdminActivated(event); return recharge.countPendingRecharges(); });
 
   // ── Pricing ──
   ipcMain.handle('pricing:list', async (event) => { await requireAuth(event); return pricing.listPricingPlans(); });
@@ -349,11 +352,11 @@ export function registerIpcHandlers() {
   });
 
   // ── Reports ──
-  ipcMain.handle('reports:revenue', async (event, filters) => { await requireShopAdmin(event); return reports.getRevenueReport(filters); });
-  ipcMain.handle('reports:profit', async (event, filters) => { await requireShopAdmin(event); return reports.getProfitReport(filters); });
-  ipcMain.handle('reports:agents', async (event) => { await requireShopAdmin(event); return reports.getAgentPerformanceReport(); });
-  ipcMain.handle('reports:recharge', async (event) => { await requireShopAdmin(event); return reports.getRechargeReport(); });
-  ipcMain.handle('reports:games', async (event, filters) => { await requireShopAdmin(event); return reports.getGameHistoryReport(filters); });
+  ipcMain.handle('reports:revenue', async (event, filters) => { await requireShopAdminActivated(event); return reports.getRevenueReport(filters); });
+  ipcMain.handle('reports:profit', async (event, filters) => { await requireShopAdminActivated(event); return reports.getProfitReport(filters); });
+  ipcMain.handle('reports:agents', async (event) => { await requireShopAdminActivated(event); return reports.getAgentPerformanceReport(); });
+  ipcMain.handle('reports:recharge', async (event) => { await requireShopAdminActivated(event); return reports.getRechargeReport(); });
+  ipcMain.handle('reports:games', async (event, filters) => { await requireShopAdminActivated(event); return reports.getGameHistoryReport(filters); });
   ipcMain.handle('reports:wallet', async (event) => requireAgent(event).then((s) => reports.getAgentWalletHistory(s.agent!.id)));
 
   // ── Settings ──
@@ -367,7 +370,7 @@ export function registerIpcHandlers() {
 
   // ── Backup ──
   ipcMain.handle('backup:create', async (event) => { await requireShopAdmin(event); return backup.createBackup(); });
-  ipcMain.handle('backup:list', async (event) => { await requireShopAdmin(event); return backup.listBackups(); });
+  ipcMain.handle('backup:list', async (event) => { await requireShopAdminActivated(event); return backup.listBackups(); });
   ipcMain.handle('backup:restore', async (event, filename: string) => { await requireShopAdmin(event); return backup.restoreBackup(filename); });
   ipcMain.handle('database:factory-reset', async (event) => {
     const session = await requireAuth(event);
@@ -409,5 +412,5 @@ export function registerIpcHandlers() {
   });
 
   // ── Audit ──
-  ipcMain.handle('audit:list', async (event, filters) => { await requireShopAdmin(event); return audit.listAuditLogs(filters); });
+  ipcMain.handle('audit:list', async (event, filters) => { await requireShopAdminActivated(event); return audit.listAuditLogs(filters); });
 }

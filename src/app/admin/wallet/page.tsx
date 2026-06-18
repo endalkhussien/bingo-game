@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { ipc } from '@/presentation/lib/ipc';
 import { PageHeader } from '@/presentation/components/shared/page-header';
 import { TextArea } from '@/presentation/components/shared/text-area';
 import { formatDate } from '@/presentation/lib/utils';
 import { AlertTriangle, Wallet } from 'lucide-react';
-import { AppLogo } from '@/presentation/components/shared/app-logo';
+import { BALANCE_UPDATED_EVENT } from '@/presentation/components/layout/admin-header';
+import { normalizeVendorTopupCodeInput } from '@/shared/voucher/vendor-topup-code';
 
 interface WalletTx {
   id: string;
@@ -25,16 +26,31 @@ export default function AdminWalletPage() {
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const load = () => {
-    ipc<number>('operator-wallet:balance').then(setBalance).catch(() => {});
-    ipc<WalletTx[]>('operator-wallet:transactions').then(setTxs).catch(() => {});
-  };
+  const loadBalance = useCallback(async () => {
+    const b = await ipc<number>('operator-wallet:balance');
+    const safe = Number.isFinite(b) ? b : 0;
+    setBalance(safe);
+    return safe;
+  }, []);
 
-  useEffect(() => { load(); }, []);
+  const loadTransactions = useCallback(async () => {
+    const rows = await ipc<WalletTx[]>('operator-wallet:transactions');
+    setTxs(Array.isArray(rows) ? rows : []);
+  }, []);
+
+  const load = useCallback(async () => {
+    try {
+      await Promise.all([loadBalance(), loadTransactions()]);
+    } catch {
+      /* balance IPC requires activation */
+    }
+  }, [loadBalance, loadTransactions]);
+
+  useEffect(() => { void load(); }, [load]);
 
   const handleRedeem = async () => {
-    const trimmed = code.trim();
-    if (!trimmed) {
+    const normalized = normalizeVendorTopupCodeInput(code);
+    if (!normalized) {
       setError('Paste the TVP code from your vendor');
       return;
     }
@@ -46,17 +62,23 @@ export default function AdminWalletPage() {
         success: boolean;
         data?: { message: string; newBalance: number; amount: number };
         error?: string;
-      }>('operator-wallet:redeem', trimmed);
+      }>('operator-wallet:redeem', normalized);
+
       if (result?.success && result.data) {
+        const verified = Number.isFinite(result.data.newBalance) ? result.data.newBalance : 0;
+        const reRead = await loadBalance();
+        const finalBalance = reRead > 0 ? reRead : verified;
+
+        if (finalBalance <= 0 && result.data.amount > 0) {
+          setError('Top-up was accepted but balance still shows 0. Restart the app and try again, or contact support.');
+          return;
+        }
+
+        setBalance(finalBalance);
+        await loadTransactions();
         setSuccess(result.data.message);
         setCode('');
-        setBalance(result.data.newBalance);
-        load();
-        if (result.data.newBalance > 0) {
-          window.setTimeout(() => {
-            window.location.assign('/admin/dashboard/');
-          }, 1500);
-        }
+        window.dispatchEvent(new CustomEvent(BALANCE_UPDATED_EVENT, { detail: finalBalance }));
       } else {
         setError(result?.error ?? 'Redemption failed');
       }
@@ -71,24 +93,21 @@ export default function AdminWalletPage() {
 
   return (
     <div>
-      {!isEmpty && (
-        <PageHeader title="Shop Admin Balance" backHref="/admin/dashboard" backLabel="Back to Dashboard" />
-      )}
+      <PageHeader title="Shop Admin Balance" backHref="/admin/dashboard" backLabel="Back to Dashboard" />
 
       {isEmpty && (
-        <div className="mb-6 rounded-2xl border-2 border-amber-400 bg-amber-50 p-6 text-center">
-          <AppLogo size={72} className="mx-auto rounded-2xl shadow-md ring-2 ring-amber-300" />
-          <p className="mt-4 flex items-center justify-center gap-2 text-lg font-bold text-amber-900">
-            <AlertTriangle className="h-6 w-6" /> Balance is 0 — cannot operate
+        <div className="mb-6 rounded-2xl border-2 border-amber-400 bg-amber-50 p-6">
+          <p className="flex items-center gap-2 text-lg font-bold text-amber-900">
+            <AlertTriangle className="h-6 w-6" /> Balance is 0 — cannot issue TBG codes
           </p>
           <p className="mt-2 text-sm text-amber-800">
-            Contact your vendor for a <strong>TVP</strong> top-up code. Paste it below to restore your shop balance.
+            Contact your vendor for a <strong>TVP</strong> top-up code. Paste it below — your balance will update immediately.
           </p>
           <p className="mt-1 text-sm text-amber-700">የቀሪ ሂሳብ 0 ነው — ለመሥራት TVP ኮድ ያስፈልጋል</p>
         </div>
       )}
 
-      <div className={`mb-6 rounded-xl border-2 p-5 ${isEmpty ? 'border-amber-300 bg-white' : 'border-amber-200 bg-amber-50'}`}>
+      <div className={`mb-6 rounded-xl border-2 p-5 ${isEmpty ? 'border-red-300 bg-white' : 'border-amber-200 bg-amber-50'}`}>
         <p className="flex items-center gap-2 text-sm font-semibold text-amber-900">
           <Wallet className="h-5 w-5" /> Prepaid balance (TVP)
         </p>
@@ -96,7 +115,7 @@ export default function AdminWalletPage() {
           {balance.toFixed(0)} ETB
         </p>
         <p className="mt-2 text-sm text-amber-800">
-          Redeem <strong>TVP</strong> codes from your vendor. This balance is used when you generate <strong>TBG</strong> recharge codes for agents.
+          Redeem <strong>TVP</strong> codes from your vendor. This balance is deducted when you generate <strong>TBG</strong> recharge codes for agents.
         </p>
       </div>
 
@@ -104,7 +123,7 @@ export default function AdminWalletPage() {
         <TextArea
           label="Paste TVP top-up code from vendor"
           value={code}
-          onChange={(e) => { setCode(e.target.value); setError(''); }}
+          onChange={(e) => { setCode(e.target.value); setError(''); setSuccess(''); }}
           placeholder="TVP-xxxxxxxx…"
           rows={4}
           className="font-mono text-xs"
@@ -138,7 +157,7 @@ export default function AdminWalletPage() {
                 <td className={`px-4 py-3 font-medium ${tx.amount >= 0 ? 'text-amber-700' : 'text-red-600'}`}>
                   {tx.amount >= 0 ? '+' : ''}{tx.amount.toFixed(0)} ETB
                 </td>
-                <td className="px-4 py-3">{tx.balanceAfter.toFixed(0)} ETB</td>
+                <td className="px-4 py-3 font-semibold">{tx.balanceAfter.toFixed(0)} ETB</td>
                 <td className="px-4 py-3 text-gray-600">{tx.description}</td>
               </tr>
             ))}

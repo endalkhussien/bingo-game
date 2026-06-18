@@ -74,12 +74,16 @@ export function generateVendorTopupCode(
   };
 }
 
+export function normalizeVendorTopupCodeInput(code: string): string {
+  return code.replace(/\s+/g, '');
+}
+
 export function parseVendorTopupCode(code: string): {
   valid: boolean;
   error?: string;
   payload?: VendorTopupPayload;
 } {
-  const normalized = code.trim();
+  const normalized = normalizeVendorTopupCodeInput(code);
   if (!normalized.startsWith('TVP-')) {
     return { valid: false, error: 'Invalid top-up code. Ask your vendor for a TVP- code.' };
   }
@@ -106,5 +110,5 @@ export function parseVendorTopupCode(code: string): {
 }
 
 export function hashVendorTopupCode(code: string): string {
-  return crypto.createHash('sha256').update(code.trim().toUpperCase()).digest('hex');
+  return crypto.createHash('sha256').update(normalizeVendorTopupCodeInput(code).toUpperCase()).digest('hex');
 }

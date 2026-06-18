@@ -7,6 +7,7 @@ import { LogOut } from 'lucide-react';
 import { useAuth } from '@/presentation/providers/auth-provider';
 import { AdminSidebar } from '@/presentation/components/layout/admin-sidebar';
 import { AdminHeader } from '@/presentation/components/layout/admin-header';
+import { AdminBalanceBanner } from '@/presentation/components/layout/admin-balance-banner';
 import { ipc } from '@/presentation/lib/ipc';
 import { APP_NAME } from '@/shared/brand';
 import { AppLogo } from '@/presentation/components/shared/app-logo';
@@ -14,9 +15,7 @@ import { isShopAdminRole, isVendorRole, type ShopLicenseStatus } from '@/shared/
 import {
   isAdminLicensePath,
   isAdminSetupPath,
-  isAdminWalletPath,
   SHOP_ADMIN_LICENSE,
-  SHOP_ADMIN_WALLET,
   TOL_JUST_ACTIVATED_KEY,
   VENDOR_HOME,
 } from '@/shared/admin-routes';
@@ -80,7 +79,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     if (licenseChecking || !licenseReady || !licenseStatus) return;
 
     if (justActivated) {
-      if (licenseStatus.active) {
+      if (licenseStatus.activated) {
         sessionStorage.removeItem(TOL_JUST_ACTIVATED_KEY);
         setJustActivated(false);
       }
@@ -91,13 +90,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
     if (licenseStatus.needsActivation && !isAdminLicensePath(pathname)) {
       router.replace(SHOP_ADMIN_LICENSE);
-      return;
     }
+  }, [licenseStatus, licenseReady, licenseChecking, pathname, router, user, justActivated]);
 
-    if (licenseStatus.needsTopup && !isAdminWalletPath(pathname) && !onSetupPage) {
-      router.replace(SHOP_ADMIN_WALLET);
-    }
-  }, [licenseStatus, licenseReady, licenseChecking, onSetupPage, pathname, router, user, justActivated]);
+  useEffect(() => {
+    const refresh = () => checkLicense(false);
+    window.addEventListener('waliya:balance-updated', refresh);
+    return () => window.removeEventListener('waliya:balance-updated', refresh);
+  }, [checkLicense]);
 
   if (isLoading || (user && isShopAdminRole(user.role) && !licenseReady)) {
     return (
@@ -167,29 +167,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     );
   }
 
-  if (licenseStatus?.needsTopup) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[#1a1410] p-6 text-center">
-        <AppLogo size={80} className="rounded-2xl shadow-lg" />
-        <p className="text-xl font-bold text-white">Balance is 0 — top-up required</p>
-        <p className="max-w-md text-amber-100/70">
-          Your shop is activated but has no TVP balance. Contact your vendor for a TVP code before you can operate or issue agent recharge codes.
-        </p>
-        <Link
-          href={SHOP_ADMIN_WALLET}
-          className="rounded-xl bg-amber-600 px-8 py-3 text-lg font-bold text-white hover:bg-amber-700"
-        >
-          Redeem TVP Top-up
-        </Link>
-      </div>
-    );
-  }
+  const shopBalance = licenseStatus?.walletBalance ?? 0;
 
   return (
     <div className="flex h-screen overflow-hidden">
       <AdminSidebar />
       <div className="flex flex-1 flex-col overflow-hidden">
         <AdminHeader />
+        <AdminBalanceBanner balance={shopBalance} />
         <main className="flex-1 overflow-auto bg-gray-50 p-6">{children}</main>
       </div>
     </div>
