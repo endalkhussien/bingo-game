@@ -8,7 +8,7 @@ import { NumberGrid } from '@/presentation/components/bingo/number-grid';
 import { CalledNumbersModal } from '@/presentation/components/bingo/called-numbers-modal';
 import { CalledNumbersStrip } from '@/presentation/components/bingo/called-numbers-strip';
 import { CheckCardModal } from '@/presentation/components/bingo/check-card-modal';
-import { WINNING_PATTERNS, DRAW_INTERVALS, VOICE_TYPES, MIN_BET, DEFAULT_JACKPOT_MAX_CALLS, DEFAULT_CALL_COOLDOWN_MS, GAME_START_DELAY_MS } from '@/shared/constants';
+import { WINNING_PATTERNS, DRAW_INTERVALS, VOICE_TYPES, MIN_BET, DEFAULT_JACKPOT_MAX_CALLS, DEFAULT_CALL_COOLDOWN_MS, GAME_START_DELAY_MS, GAME_COMMISSION_OPTIONS } from '@/shared/constants';
 import { DRAW_BALL_COUNT } from '@/shared/brand';
 import { speakBallCall, speakCartella, speakGameStarted, loadVoices } from '@/presentation/lib/tts';
 import { stopCurrentAudio, preloadBallCallClips } from '@/presentation/lib/amharic-audio';
@@ -94,7 +94,7 @@ function buildLiveSnapshot(
 export default function GameBoardPage() {
   const { agent, refreshBalance } = useAuth();
   const [betAmount, setBetAmount] = useState('10');
-  const [interval, setInterval_] = useState(5000);
+  const [interval, setInterval_] = useState(3000);
   const [pattern, setPattern] = useState('FIRST_LINE');
   const [jackpotMaxCalls, setJackpotMaxCalls] = useState(String(DEFAULT_JACKPOT_MAX_CALLS));
   const [voice, setVoice] = useState('AMHARIC_MALE');
@@ -780,26 +780,26 @@ export default function GameBoardPage() {
             </div>
 
             <div className="group flex flex-col gap-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-transparent transition-colors group-hover:text-amber-700">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-transparent transition-colors group-hover:text-amber-700 group-focus-within:text-amber-700">
                 Commission %
               </span>
-              <div className="relative h-14 w-[4.5rem]">
-                <input
-                  type="number"
-                  min={0}
-                  max={100}
-                  step={1}
+              <div className="relative h-14 w-[5.5rem]">
+                <select
                   value={commissionPercent}
                   onChange={(e) => setCommissionPercent(e.target.value)}
                   disabled={!!activeGame}
-                  className="absolute inset-0 h-full w-full rounded-lg border-2 border-transparent bg-transparent text-center text-2xl font-black text-transparent opacity-0 transition-all group-hover:border-amber-400 group-hover:bg-amber-50 group-hover:text-amber-900 group-hover:opacity-100 focus:border-amber-500 focus:bg-amber-50 focus:text-amber-900 focus:opacity-100 disabled:group-hover:opacity-50"
-                  title="Game commission % (hover to edit)"
-                />
+                  className="absolute inset-0 h-full w-full cursor-pointer appearance-none rounded-lg border-2 border-transparent bg-transparent text-center text-2xl font-black text-transparent opacity-0 transition-all group-hover:border-amber-400 group-hover:bg-amber-50 group-hover:text-amber-900 group-hover:opacity-100 focus:border-amber-500 focus:bg-amber-50 focus:text-amber-900 focus:opacity-100 disabled:opacity-50"
+                  title="Game commission % (hover to change)"
+                >
+                  {GAME_COMMISSION_OPTIONS.map((pct) => (
+                    <option key={pct} value={String(pct)}>{pct}%</option>
+                  ))}
+                </select>
                 <div
-                  className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-lg border-2 border-dashed border-gray-100 bg-gray-50/50 transition-all group-hover:border-transparent group-hover:bg-transparent group-hover:opacity-0"
+                  className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-lg border-2 border-dashed border-gray-100 bg-gray-50/50 transition-all group-hover:opacity-0 group-focus-within:opacity-0"
                   aria-hidden
                 />
-                <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-xl font-black text-gray-300 transition-all group-hover:opacity-0">
+                <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-xl font-black text-gray-300 transition-all group-hover:opacity-0 group-focus-within:opacity-0">
                   ·
                 </div>
               </div>
