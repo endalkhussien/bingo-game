@@ -3,6 +3,7 @@
 import { useMemo } from 'react';
 import Link from 'next/link';
 import { cn } from '@/presentation/lib/utils';
+import { Lock } from 'lucide-react';
 
 interface NumberGridProps {
   availableNumbers: number[];
@@ -10,9 +11,10 @@ interface NumberGridProps {
   onToggle: (num: number) => void;
   onClear: () => void;
   disabled?: boolean;
+  lockedSet?: Set<string | number>;
 }
 
-export function NumberGrid({ availableNumbers, selectedSet, onToggle, onClear, disabled }: NumberGridProps) {
+export function NumberGrid({ availableNumbers, selectedSet, onToggle, onClear, disabled, lockedSet }: NumberGridProps) {
   const numbers = useMemo(
     () => [...availableNumbers].sort((a, b) => a - b),
     [availableNumbers],
@@ -22,12 +24,14 @@ export function NumberGrid({ availableNumbers, selectedSet, onToggle, onClear, d
     <div>
       <div className="mb-2 flex items-center justify-between">
         <h2 className="text-sm font-semibold text-gray-800">
-          Your cartellas ({numbers.length} in deck)
+          {disabled ? `Game cartellas (${numbers.length})` : `Your cartellas (${numbers.length} in deck)`}
         </h2>
-        <button onClick={onClear} disabled={disabled || selectedSet.size === 0}
-          className="text-sm font-medium text-red-500 hover:text-red-700 disabled:opacity-40">
-          Clear selection
-        </button>
+        {!disabled && (
+          <button onClick={onClear} disabled={selectedSet.size === 0}
+            className="text-sm font-medium text-red-500 hover:text-red-700 disabled:opacity-40">
+            Clear selection
+          </button>
+        )}
       </div>
 
       {numbers.length === 0 ? (
@@ -46,14 +50,22 @@ export function NumberGrid({ availableNumbers, selectedSet, onToggle, onClear, d
           <div className="grid gap-1.5" style={{ gridTemplateColumns: 'repeat(15, minmax(0, 1fr))' }}>
             {numbers.map((num) => {
               const isSelected = selectedSet.has(num);
+              const isLocked = lockedSet?.has(num) || lockedSet?.has(String(num));
               return (
-                <button key={num} onClick={() => !disabled && onToggle(num)} disabled={disabled}
+                <button
+                  key={num}
+                  onClick={() => !disabled && !isLocked && onToggle(num)}
+                  disabled={disabled || isLocked}
                   className={cn(
-                    'flex h-10 items-center justify-center rounded-md text-sm font-bold transition-colors',
-                    isSelected
-                      ? 'bg-blue-500 text-white ring-2 ring-blue-300'
-                      : 'bg-gray-100 text-gray-800 hover:bg-gray-200',
-                  )}>
+                    'relative flex h-10 items-center justify-center rounded-md text-sm font-bold transition-colors',
+                    isLocked
+                      ? 'cursor-not-allowed bg-red-100 text-red-700 ring-2 ring-red-300 line-through'
+                      : isSelected
+                        ? 'bg-blue-500 text-white ring-2 ring-blue-300'
+                        : 'bg-gray-100 text-gray-800 hover:bg-gray-200',
+                  )}
+                >
+                  {isLocked ? <Lock className="absolute right-0.5 top-0.5 h-3 w-3 text-red-500" /> : null}
                   {num}
                 </button>
               );
@@ -64,7 +76,7 @@ export function NumberGrid({ availableNumbers, selectedSet, onToggle, onClear, d
 
       <p className="mt-2 text-sm text-gray-500">
         {disabled
-          ? 'Cartellas locked for this game'
+          ? 'Blue = in this game · Red locked = eliminated (false BINGO)'
           : 'Blue = in this game · tap to select · add more on Bingo Cards page'}
       </p>
     </div>

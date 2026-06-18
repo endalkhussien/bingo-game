@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Pause, Play, Square, Maximize2, Minimize2 } from 'lucide-react';
+import { Pause, Play, Square, Maximize2, Minimize2, Search, Megaphone, Trophy, Ban } from 'lucide-react';
 import { BingoBallBoard } from '@/presentation/components/caller/bingo-ball-board';
 import { BingoCardView } from '@/presentation/components/bingo/bingo-card-view';
 import { useLiveGame } from '@/presentation/hooks/use-live-game';
@@ -34,8 +34,10 @@ export function CallerDisplay() {
   const isAnnouncing = callingPhase === 'announcing';
   const isCalling = callingPhase === 'calling';
   const isPaused = callingPhase === 'paused' || (game?.status === 'PAUSED' && !isCalling);
-  const canStart = game && (callingPhase === 'ready' || (isPaused && drawCount === 0));
+  const bingoClaimActive = !!game?.bingoClaimActive;
+  const canStart = game && !bingoClaimActive && (callingPhase === 'ready' || (isPaused && drawCount === 0));
   const showGameStarted = isAnnouncing || (callingPhase === 'calling' && drawCount === 0);
+  const announcement = game?.announcement;
 
   useEffect(() => {
     if (lastDrawn !== null) setStickyBall(lastDrawn);
@@ -84,6 +86,14 @@ export function CallerDisplay() {
     broadcastGameControl({ type: 'end-game' });
   };
 
+  const handleBingoClaim = () => {
+    broadcastGameControl({ type: 'bingo-claim' });
+  };
+
+  const handleCheckCards = () => {
+    broadcastGameControl({ type: 'check-cards' });
+  };
+
   if (loading && !game && !readPersistedLiveGame()) {
     return (
       <div className="flex h-screen items-center justify-center overflow-hidden bg-[#0b0f1f] text-white">
@@ -107,16 +117,40 @@ export function CallerDisplay() {
     );
   }
 
-  const statusLabel = isAnnouncing
-    ? (game.language === 'am' ? 'ጨዋታ ጀመረች' : 'Game has started')
-    : isCalling
-      ? 'Calling…'
-      : isPaused
-        ? 'Paused'
-        : 'Ready';
+  const statusLabel = bingoClaimActive
+    ? 'BINGO CLAIM'
+    : isAnnouncing
+      ? (game.language === 'am' ? 'ጨዋታ ጀመረች' : 'Game has started')
+      : isCalling
+        ? 'Calling…'
+        : isPaused
+          ? 'Paused'
+          : 'Ready';
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-[#0b0f1f] text-white select-none">
+    <div className="relative flex h-screen flex-col overflow-hidden bg-[#0b0f1f] text-white select-none">
+      {announcement && (
+        <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/70 p-6">
+          <div className={cn(
+            'max-w-lg rounded-2xl px-8 py-10 text-center shadow-2xl',
+            announcement.type === 'winner' ? 'bg-green-600 text-white' : 'bg-red-700 text-white',
+          )}>
+            {announcement.type === 'winner' ? (
+              <Trophy className="mx-auto mb-4 h-16 w-16" />
+            ) : (
+              <Ban className="mx-auto mb-4 h-16 w-16" />
+            )}
+            <p className="text-3xl font-black uppercase">
+              {announcement.type === 'winner' ? 'Winner!' : 'Eliminated'}
+            </p>
+            <p className="mt-3 text-4xl font-black">#{announcement.cardNumber}</p>
+            {announcement.prizeAmount != null && (
+              <p className="mt-4 text-3xl font-bold">{announcement.prizeAmount.toFixed(0)} {CURRENCY_LABEL}</p>
+            )}
+            <p className="mt-4 text-sm opacity-90">{announcement.message}</p>
+          </div>
+        </div>
+      )}
       <header className="flex shrink-0 items-center justify-between border-b border-white/10 px-5 py-2">
         <span className="text-sm font-semibold tracking-wide text-white/80">{APP_NAME}</span>
         <div className="flex items-center gap-4 text-sm">
@@ -200,6 +234,24 @@ export function CallerDisplay() {
         </div>
 
         <div className="flex flex-wrap items-center justify-end gap-2">
+          {isCalling && (
+            <button
+              type="button"
+              onClick={handleBingoClaim}
+              className="inline-flex min-w-[6.5rem] items-center justify-center gap-2 rounded-xl bg-[#eab308] px-4 py-2.5 text-sm font-bold text-[#111827] shadow-md hover:bg-[#ca8a04]"
+            >
+              <Megaphone className="h-5 w-5" /> BINGO!
+            </button>
+          )}
+          {bingoClaimActive && (
+            <button
+              type="button"
+              onClick={handleCheckCards}
+              className="inline-flex min-w-[7rem] items-center justify-center gap-2 rounded-xl bg-[#2563eb] px-4 py-2.5 text-sm font-bold text-white shadow-md hover:bg-[#1d4ed8]"
+            >
+              <Search className="h-5 w-5" /> CHECK CARDS
+            </button>
+          )}
           {canStart && (
             <button
               type="button"
@@ -210,7 +262,7 @@ export function CallerDisplay() {
               <Play className="h-5 w-5 fill-white" /> Start
             </button>
           )}
-          {isCalling && (
+          {isCalling && !bingoClaimActive && (
             <button
               type="button"
               onClick={handlePause}
@@ -219,7 +271,7 @@ export function CallerDisplay() {
               <Pause className="h-5 w-5" /> Pause
             </button>
           )}
-          {isPaused && drawCount > 0 && !canStart && (
+          {isPaused && drawCount > 0 && !canStart && !bingoClaimActive && (
             <button
               type="button"
               onClick={handleResume}

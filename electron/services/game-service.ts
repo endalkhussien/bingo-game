@@ -154,10 +154,22 @@ async function formatActiveGame(game: typeof games.$inferSelect) {
     .orderBy(drawnNumbers.drawOrder)
     .all();
   const gameCardRows = await db.select().from(gameCards).where(eq(gameCards.gameId, game.id)).all();
+  const activeTickets = gameCardRows.filter((t) => t.status !== 'CANCELLED');
   const playerCount = gameCardRows.length;
-  const totalPot = calculateTotalPot(game.betAmount, playerCount);
+  const activePlayerCount = activeTickets.length;
+  const totalPot = calculateTotalPot(game.betAmount, activePlayerCount);
   const commissionRate = game.commissionRate ?? 20;
-  const { prize } = calculateWinnerPrize(game.betAmount, playerCount, commissionRate);
+  const { prize } = calculateWinnerPrize(game.betAmount, activePlayerCount, commissionRate);
+
+  const cardIds = gameCardRows.map((gc) => gc.cardId);
+  const cards = cardIds.length
+    ? await db.select().from(bingoCards).where(inArray(bingoCards.id, cardIds)).all()
+    : [];
+  const cardMap = new Map(cards.map((c) => [c.id, c]));
+  const bannedCartellas = gameCardRows
+    .filter((t) => t.status === 'CANCELLED')
+    .map((t) => cardMap.get(t.cardId)?.cardNumber)
+    .filter((n): n is string => !!n);
 
   return {
     id: game.id,
@@ -178,11 +190,12 @@ async function formatActiveGame(game: typeof games.$inferSelect) {
     })),
     totalPot,
     prize,
-    playerCount,
+    playerCount: activePlayerCount,
     maxBalls: game.numberRangeMax,
     drawCount: drawn.length,
     startedAt: game.startedAt ?? game.createdAt,
     winners: await loadGameWinners(game.id),
+    bannedCartellas,
   };
 }
 
@@ -276,18 +289,27 @@ export async function validateWinner(gameId: string, agentId: string, cardNumber
     return { success: false, valid: false, error: 'Game already ended' };
   }
 
-  const { card, verification, pattern, existing, calledNumbers } = await verifyTicketForGame(game, agentId, cardNumber);
+  const { card, ticket, verification, pattern, existing, calledNumbers } = await verifyTicketForGame(game, agentId, cardNumber);
   const grid = card ? parseCardData(card.cardData) : null;
 
   if (!verification.valid) {
+    let banned = false;
+    if (card && ticket && ticket.status !== 'CANCELLED' && verification.message.includes('do not match')) {
+      await db.update(gameCards).set({ status: 'CANCELLED' }).where(eq(gameCards.id, ticket.id));
+      banned = true;
+    }
     return {
       success: true,
       valid: false,
-      message: `Cartella #${cardNumber}: ${verification.message}`,
+      message: banned
+        ? `Cartella #${cardNumber} eliminated — false BINGO claim. Player banned and cartella locked for this game.`
+        : `Cartella #${cardNumber}: ${verification.message}`,
       cardNumber,
       calledNumbers,
       grid,
       verificationResult: 'INVALID',
+      banned,
+      eliminated: banned,
     };
   }
 

@@ -8,6 +8,7 @@ import {
   readPersistedLiveGame,
   subscribeLiveGame,
   type CallingPhase,
+  type GameWinnerSnapshot,
   type LiveGameSnapshot,
 } from '@/presentation/lib/live-game-sync';
 
@@ -27,10 +28,12 @@ interface ActiveGameRow {
   commissionRate?: number;
   startedAt?: number;
   callingPhase?: CallingPhase;
+  bannedCartellas?: string[];
+  winners?: GameWinnerSnapshot[];
   prize?: number;
 }
 
-function toSnapshot(game: ActiveGameRow | null): LiveGameSnapshot | null {
+function toSnapshot(game: ActiveGameRow | null, prev?: LiveGameSnapshot | null): LiveGameSnapshot | null {
   if (!game) return null;
   const commissionRate = game.commissionRate ?? 20;
   const prize = game.prize ?? calculateWinnerPrize(game.betAmount, game.playerCount, commissionRate).prize;
@@ -50,7 +53,11 @@ function toSnapshot(game: ActiveGameRow | null): LiveGameSnapshot | null {
     selectedNumbers: game.selectedNumbers,
     commissionRate,
     startedAt: game.startedAt,
-    callingPhase: game.callingPhase,
+    callingPhase: game.callingPhase ?? prev?.callingPhase,
+    bannedCartellas: game.bannedCartellas ?? prev?.bannedCartellas,
+    winners: game.winners ?? prev?.winners,
+    bingoClaimActive: prev?.bingoClaimActive,
+    announcement: prev?.announcement,
   };
 }
 
@@ -73,7 +80,7 @@ export function useLiveGame(pollMs = 2000) {
 
   const refresh = useCallback(async () => {
     const row = await ipc<ActiveGameRow | null>('games:active');
-    const snapshot = toSnapshot(row);
+    const snapshot = toSnapshot(row, gameRef.current);
 
     if (snapshot) {
       endedRef.current = false;
