@@ -1,6 +1,7 @@
 /** Cross-window live game updates (control panel ↔ caller display). */
 
 export const LIVE_GAME_CHANNEL = 'tebib-live-game';
+export const LIVE_GAME_STORAGE_KEY = 'tebib_live_game_snapshot';
 
 export interface LiveGameSnapshot {
   id: string;
@@ -25,7 +26,50 @@ export type LiveGameMessage =
   | { type: 'game-started'; payload: LiveGameSnapshot }
   | { type: 'game-ended' };
 
+export function persistLiveGameSnapshot(snapshot: LiveGameSnapshot | null): void {
+  if (typeof sessionStorage === 'undefined') return;
+  try {
+    if (!snapshot) sessionStorage.removeItem(LIVE_GAME_STORAGE_KEY);
+    else sessionStorage.setItem(LIVE_GAME_STORAGE_KEY, JSON.stringify(snapshot));
+  } catch {
+    /* ignore */
+  }
+}
+
+export function readPersistedLiveGame(): LiveGameSnapshot | null {
+  if (typeof sessionStorage === 'undefined') return null;
+  try {
+    const raw = sessionStorage.getItem(LIVE_GAME_STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as LiveGameSnapshot;
+  } catch {
+    return null;
+  }
+}
+
+/** Keep the fullest draw history when merging poll + broadcast snapshots. */
+export function mergeLiveGameSnapshots(
+  current: LiveGameSnapshot | null,
+  incoming: LiveGameSnapshot | null,
+): LiveGameSnapshot | null {
+  if (!incoming) return current;
+  if (!current || current.id !== incoming.id) return incoming;
+  if (incoming.drawnNumbers.length >= current.drawnNumbers.length) return incoming;
+  return {
+    ...incoming,
+    drawnNumbers: current.drawnNumbers,
+    callHistory: current.callHistory,
+    status: incoming.status || current.status,
+  };
+}
+
 export function broadcastLiveGame(message: LiveGameMessage): void {
+  if (message.type === 'game-ended') {
+    persistLiveGameSnapshot(null);
+  } else if (message.type === 'game-started' || message.type === 'game-update') {
+    if (message.payload) persistLiveGameSnapshot(message.payload);
+  }
+
   if (typeof window === 'undefined' || typeof BroadcastChannel === 'undefined') return;
   try {
     const channel = new BroadcastChannel(LIVE_GAME_CHANNEL);

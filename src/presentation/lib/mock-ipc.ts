@@ -6,6 +6,50 @@ import { generateOperatorLicenseCode } from '@/shared/voucher/operator-license-c
 import { generateVendorTopupCode, parseVendorTopupCode, hashVendorTopupCode } from '@/shared/voucher/vendor-topup-code';
 
 const SESSION_KEY = 'bingo_mock_session';
+const MOCK_ACTIVE_GAME_KEY = 'bingo_mock_active_game';
+
+type MockActiveGame = Record<string, unknown> & {
+  id: string;
+  status: string;
+  drawnNumbers?: number[];
+  callHistory?: { number: number; drawOrder: number; drawnAt: number }[];
+};
+
+function saveMockActiveGame(game: MockActiveGame | null) {
+  if (typeof sessionStorage === 'undefined') return;
+  try {
+    if (!game) sessionStorage.removeItem(MOCK_ACTIVE_GAME_KEY);
+    else sessionStorage.setItem(MOCK_ACTIVE_GAME_KEY, JSON.stringify(game));
+  } catch { /* ignore */ }
+}
+
+function loadMockActiveGame(): MockActiveGame | null {
+  if (typeof sessionStorage === 'undefined') return null;
+  try {
+    const raw = sessionStorage.getItem(MOCK_ACTIVE_GAME_KEY);
+    return raw ? JSON.parse(raw) as MockActiveGame : null;
+  } catch { return null; }
+}
+
+function syncMockActiveGameFromStorage() {
+  const stored = loadMockActiveGame();
+  if (!stored || !['RUNNING', 'PAUSED'].includes(stored.status)) return;
+  const existing = mockGames.find((g) => g.id === stored.id);
+  if (existing) {
+    Object.assign(existing, stored);
+    return;
+  }
+  mockGames.push(stored);
+}
+
+function getMockActiveGame(): MockActiveGame | undefined {
+  syncMockActiveGameFromStorage();
+  return mockGames.find((g) => g.status === 'RUNNING' || g.status === 'PAUSED') as MockActiveGame | undefined;
+}
+
+function touchMockActiveGame(game: MockActiveGame) {
+  saveMockActiveGame(game);
+}
 
 function saveSession(session: Session | null) {
   if (typeof localStorage === 'undefined') return;
@@ -83,6 +127,7 @@ function initMockDeck() {
 }
 
 initMockDeck();
+syncMockActiveGameFromStorage();
 
 function requireShopAdminRoleOnly() {
   const session = requireSession();
@@ -403,12 +448,13 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
       startedAt: Math.floor(Date.now() / 1000),
     };
     mockGames.push(game);
+    touchMockActiveGame(game as MockActiveGame);
     mockBalance += pot;
     if (currentSession?.agent) currentSession.agent.walletBalance = mockBalance;
     return { success: true, data: game };
   },
   'games:active': async () => {
-    const g = mockGames.find(x => x.status === 'RUNNING' || x.status === 'PAUSED') as {
+    const g = getMockActiveGame() as {
       drawnNumbers?: number[];
       betAmount: number;
       playerCount: number;
@@ -432,7 +478,7 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
     };
   },
   'games:draw': async (_id: unknown) => {
-    const g = mockGames.find(x => x.status === 'RUNNING');
+    const g = getMockActiveGame();
     const drawn = g ? ((g as { drawnNumbers?: number[] }).drawnNumbers ?? []) : [];
     const available = Array.from({ length: 75 }, (_, i) => i + 1).filter((n) => !drawn.includes(n));
     if (available.length === 0) return { success: false, error: 'All numbers drawn' };
@@ -443,12 +489,21 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
       const hist = (g as { callHistory?: { number: number; drawOrder: number; drawnAt: number }[] }).callHistory ?? [];
       hist.push({ number: n, drawOrder: drawn.length, drawnAt: Math.floor(Date.now() / 1000) });
       (g as { callHistory: typeof hist }).callHistory = hist;
+      touchMockActiveGame(g as MockActiveGame);
       return { success: true, data: { number: n, drawOrder: drawn.length, drawCount: drawn.length, drawnAt: Math.floor(Date.now() / 1000), maxBalls: 75, voiceType: (g as { voiceType?: string }).voiceType ?? 'AMHARIC_MALE', language: (g as { language?: string }).language ?? 'am', winners: [] } };
     }
     return { success: true, data: { number: n, drawOrder: 1, drawCount: 1, drawnAt: Math.floor(Date.now() / 1000), maxBalls: 75, voiceType: 'AMHARIC_MALE', language: 'am', winners: [] } };
   },
-  'games:pause': async (id: unknown) => { const g = mockGames.find(x => x.id === id); if (g) g.status = 'PAUSED'; return { success: true }; },
-  'games:resume': async (id: unknown) => { const g = mockGames.find(x => x.id === id); if (g) g.status = 'RUNNING'; return { success: true }; },
+  'games:pause': async (id: unknown) => {
+    const g = mockGames.find((x) => x.id === id) as MockActiveGame | undefined;
+    if (g) { g.status = 'PAUSED'; touchMockActiveGame(g); }
+    return { success: true };
+  },
+  'games:resume': async (id: unknown) => {
+    const g = mockGames.find((x) => x.id === id) as MockActiveGame | undefined;
+    if (g) { g.status = 'RUNNING'; touchMockActiveGame(g); }
+    return { success: true };
+  },
   'games:validate-winner': async (_id: unknown, cardNumber: unknown) => {
     const num = String(cardNumber);
     const card = mockCards.find(c => c.cardNumber === num);
@@ -486,7 +541,12 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
       calledCountAtWin: drawn.length, winningPattern: g.winningPattern,
     };
   },
-  'games:end': async () => ({ success: true, data: { totalBets: 100, agentRevenue: 80, totalPayouts: 0, commissionRevenue: 20, commissionRate: 20 } }),
+  'games:end': async (id: unknown) => {
+    const g = mockGames.find((x) => x.id === id);
+    if (g) g.status = 'COMPLETED';
+    saveMockActiveGame(null);
+    return { success: true, data: { totalBets: 100, agentRevenue: 80, totalPayouts: 0, commissionRevenue: 20, commissionRate: 20 } };
+  },
   'games:list': async () => mockGames.map((g, i) => ({ id: g.id, gameCode: g.gameCode, date: Date.now() / 1000 - i * 86400, betAmount: g.betAmount || 10, playersNumber: (g as { playerCount?: number }).playerCount || 0, commissionPercent: 20, profit: 80, status: g.status || 'COMPLETED', agentName: 'Demo Agent' })),
 
   'reports:revenue': async () => mockGames.map(g => ({ gameCode: g.gameCode, agentName: 'Demo Agent', date: Date.now() / 1000, totalBets: 100, platformRevenue: 20, agentRevenue: 80 })),

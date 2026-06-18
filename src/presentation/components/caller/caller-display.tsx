@@ -8,6 +8,7 @@ import { useLiveGame } from '@/presentation/hooks/use-live-game';
 import { ipc } from '@/presentation/lib/ipc';
 import { APP_NAME } from '@/shared/brand';
 import { CURRENCY_LABEL } from '@/shared/constants';
+import { readPersistedLiveGame } from '@/presentation/lib/live-game-sync';
 import { cn } from '@/presentation/lib/utils';
 
 interface PreviewCard {
@@ -17,20 +18,30 @@ interface PreviewCard {
 
 /** Hall / projector screen — Minch Bingo style layout */
 export function CallerDisplay() {
-  const { game, loading } = useLiveGame(800);
+  const { game, loading } = useLiveGame(2000);
   const [showStarted, setShowStarted] = useState(false);
   const [previewCard, setPreviewCard] = useState<PreviewCard | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
+  const [stickyBall, setStickyBall] = useState<number | null>(null);
 
   const called = useMemo(() => game?.drawnNumbers ?? [], [game?.drawnNumbers]);
   const calledSet = useMemo(() => new Set(called), [called]);
   const lastDrawn = called.length ? called[called.length - 1] : null;
+  const displayBall = lastDrawn ?? stickyBall;
   const drawCount = called.length;
   const maxBalls = game?.maxBalls ?? 75;
   const recent = [...called].slice(-4).reverse();
   const isPaused = game?.status === 'PAUSED';
   const isRunning = game?.status === 'RUNNING';
   const waitingForFirstBall = isRunning && drawCount === 0;
+
+  useEffect(() => {
+    if (lastDrawn !== null) setStickyBall(lastDrawn);
+  }, [lastDrawn]);
+
+  useEffect(() => {
+    if (!game) setStickyBall(null);
+  }, [game]);
 
   useEffect(() => {
     if (!game || drawCount > 0) return;
@@ -72,7 +83,7 @@ export function CallerDisplay() {
     await ipc('games:end', game.id);
   };
 
-  if (loading) {
+  if (loading && !game && !readPersistedLiveGame()) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#0b0f1f] text-white">
         <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#facc15] border-t-transparent" />
@@ -140,9 +151,9 @@ export function CallerDisplay() {
               <div className="rounded-full border-2 border-[#111827] px-8 py-3 text-lg font-semibold text-[#6b7280]">
                 Loading
               </div>
-            ) : lastDrawn !== null ? (
+            ) : displayBall !== null ? (
               <div className="flex h-24 w-24 items-center justify-center rounded-full border-[3px] border-[#111827] bg-white sm:h-28 sm:w-28">
-                <span className="text-5xl font-black sm:text-6xl">{lastDrawn}</span>
+                <span className="text-5xl font-black sm:text-6xl">{displayBall}</span>
               </div>
             ) : (
               <div className="rounded-full border-2 border-[#111827] px-8 py-3 text-lg font-semibold text-[#6b7280]">
@@ -164,7 +175,7 @@ export function CallerDisplay() {
 
         {/* 75-number grid */}
         <div className="min-h-0 flex-1 rounded-lg bg-[#0f1428] px-2 py-3 sm:px-3">
-          <BingoBallBoard calledSet={calledSet} lastDrawn={lastDrawn} maxBalls={maxBalls} />
+          <BingoBallBoard calledSet={calledSet} lastDrawn={displayBall} maxBalls={maxBalls} />
         </div>
       </div>
 
