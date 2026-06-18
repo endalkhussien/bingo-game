@@ -57,33 +57,38 @@ async function speakBrowser(text: string, lang: string, preferFemale: boolean): 
   });
 }
 
-/** Play ball call — MP3 first (sharp sync), then Electron TTS, then browser speech. */
-export async function speakBallCall(number: number, voiceType: string, language: string): Promise<void> {
+/** Play ball call — Electron engine first in desktop app, then browser MP3, then speech. */
+export async function speakBallCall(number: number, voiceType: string, language: string): Promise<boolean> {
   const preferFemale = voiceType.includes('FEMALE');
   const { letter, numberText } = getBallCallSpeechParts(number, language);
 
-  if (await playBallCallAudio(number, language)) return;
-
   if (isElectron()) {
-    const result = await ipc<{ success: boolean }>('tts:speak-ball-call', number, language, voiceType);
-    if (result?.success) return;
+    try {
+      const result = await ipc<{ success: boolean }>('tts:speak-ball-call', number, language, voiceType);
+      if (result?.success) return true;
+    } catch {
+      // fall through to renderer audio
+    }
   }
+
+  if (await playBallCallAudio(number, language)) return true;
 
   if (language === 'am') {
     await speakBrowser(formatAmharicBallCall(number), 'am-ET', preferFemale);
-    return;
+    return false;
   }
 
   if (letter) {
     await speakBrowser(`${letter} ${numberText}`, 'en-US', preferFemale);
-    return;
+    return false;
   }
 
   await speakBrowser(numberText, 'en-US', preferFemale);
+  return false;
 }
 
 export function speakBall(number: number, voiceType: string, language: string): void {
-  queue = queue.then(() => speakBallCall(number, voiceType, language));
+  queue = queue.then(() => speakBallCall(number, voiceType, language).then(() => undefined));
 }
 
 export function speakCartella(number: number, voiceType: string, language: string): void {

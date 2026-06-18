@@ -391,12 +391,10 @@ export function registerIpcHandlers() {
     await requireAuth(event);
     return speakNumber(number, voiceType, language, mode ?? 'cartella');
   });
-  ipcMain.handle('tts:speak-ball-call', async (event, number: number, language: string, voiceType: string) => {
-    await requireAuth(event);
+  ipcMain.handle('tts:speak-ball-call', async (_event, number: number, language: string, voiceType: string) => {
     return speakBallCall(number, language, voiceType);
   });
-  ipcMain.handle('tts:speak-text', async (event, text: string, lang: string, voiceType: string) => {
-    await requireAuth(event);
+  ipcMain.handle('tts:speak-text', async (_event, text: string, lang: string, voiceType: string) => {
     return speakPlainText(text, lang, voiceType);
   });
   ipcMain.handle('tts:test', async (event, voiceType: string, language: string, sample?: number) => {

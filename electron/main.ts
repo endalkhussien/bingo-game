@@ -52,6 +52,8 @@ async function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       spellcheck: false,
+      // Ball-call audio runs from async game loop — must not require a fresh click each ball.
+      autoplayPolicy: 'no-user-gesture-required',
     },
   });
 

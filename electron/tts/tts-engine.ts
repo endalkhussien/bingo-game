@@ -19,22 +19,39 @@ export interface SpeakResult {
 }
 
 function resolveSoundPath(folder: 'am' | 'en' | 'audio', ...parts: string[]): string | undefined {
-  const bases = [
-    path.join(app.getAppPath(), 'out', 'sounds', folder),
-    path.join(process.resourcesPath, 'app.asar.unpacked', 'out', 'sounds', folder),
-    path.join(process.cwd(), 'out', 'sounds', folder),
-    path.join(process.cwd(), 'public', 'sounds', folder),
-    path.join(app.getAppPath(), 'public', 'sounds', folder),
-  ];
+  const bases: string[] = [];
+  const appPath = app.getAppPath();
   if (folder === 'audio') {
-    bases.unshift(
-      path.join(app.getAppPath(), 'out', 'audio'),
-      path.join(process.resourcesPath, 'app.asar.unpacked', 'out', 'audio'),
+    bases.push(
+      path.join(appPath, 'out', 'audio'),
       path.join(process.cwd(), 'out', 'audio'),
       path.join(process.cwd(), 'public', 'audio'),
-      path.join(app.getAppPath(), 'public', 'audio'),
     );
   }
+  bases.push(
+    path.join(appPath, 'out', 'sounds', folder),
+    path.join(process.cwd(), 'out', 'sounds', folder),
+    path.join(process.cwd(), 'public', 'sounds', folder),
+    path.join(appPath, 'public', 'sounds', folder),
+  );
+
+  if (app.isPackaged) {
+    const unpackedOut = path.join(process.resourcesPath, 'app.asar.unpacked', 'out');
+    if (folder === 'audio') {
+      bases.unshift(path.join(unpackedOut, 'audio'));
+    }
+    bases.unshift(path.join(unpackedOut, 'sounds', folder));
+    if (appPath.endsWith('.asar')) {
+      const siblingUnpacked = path.join(path.dirname(appPath), 'app.asar.unpacked', 'out');
+      if (folder === 'audio') {
+        bases.unshift(path.join(siblingUnpacked, 'audio'));
+      }
+      bases.unshift(path.join(siblingUnpacked, 'sounds', folder));
+    }
+  } else if (folder === 'audio') {
+    bases.unshift(path.join(appPath, 'public', 'audio'));
+  }
+
   for (const base of bases) {
     const full = path.join(base, ...parts);
     if (fs.existsSync(full)) return full;
@@ -54,27 +71,32 @@ async function playBundledBallCall(number: number): Promise<boolean> {
 }
 
 async function playAudioFile(audioPath: string): Promise<boolean> {
+  if (!fs.existsSync(audioPath)) return false;
+
   if (process.platform === 'win32') {
-    const uri = audioPath.replace(/\\/g, '/');
     const ps = `
+$ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName presentationCore
+$path = [System.Environment]::GetEnvironmentVariable('WALIYA_AUDIO_PATH')
+if (-not $path -or -not (Test-Path -LiteralPath $path)) { exit 1 }
 $media = New-Object System.Windows.Media.MediaPlayer
 $media.Volume = 1.0
-$media.Open([uri]::new('file:///${uri}'))
+$media.Open([uri]::new($path))
 $media.Play()
-$deadline = (Get-Date).AddSeconds(12)
+$deadline = (Get-Date).AddSeconds(4)
 while (-not $media.NaturalDuration.HasTimeSpan -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 40 }
 if ($media.NaturalDuration.HasTimeSpan) {
-  $ms = [int]$media.NaturalDuration.TimeSpan.TotalMilliseconds + 200
+  $ms = [Math]::Min(6000, [int]$media.NaturalDuration.TimeSpan.TotalMilliseconds + 150)
   Start-Sleep -Milliseconds $ms
-} else { Start-Sleep -Seconds 2 }
+} else { Start-Sleep -Milliseconds 900 }
 $media.Stop()
 $media.Close()
 `;
     try {
       await execFileAsync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', ps], {
-        timeout: 12000,
+        timeout: 8000,
         windowsHide: true,
+        env: { ...process.env, WALIYA_AUDIO_PATH: path.resolve(audioPath) },
       });
       return true;
     } catch {

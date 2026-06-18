@@ -53,7 +53,7 @@ function playUrl(url: string): Promise<boolean> {
       resolve(ok);
     };
 
-    const safetyTimer = window.setTimeout(() => settle(false), 15000);
+    const safetyTimer = window.setTimeout(() => settle(false), 8000);
 
     try {
       if (currentAudio) {
