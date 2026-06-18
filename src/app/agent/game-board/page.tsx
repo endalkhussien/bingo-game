@@ -20,7 +20,6 @@ import { calculateTotalPot, calculateGameEconomics, calculateWinnerPrize } from 
 import { broadcastLiveGame, subscribeGameControl, type LiveGameSnapshot, type CallingPhase, type LiveGameAnnouncement } from '@/presentation/lib/live-game-sync';
 import { isElectron } from '@/shared/runtime';
 import { CallerDisplay } from '@/presentation/components/caller/caller-display';
-import Link from 'next/link';
 
 interface GameWinner {
   cardNumber: string;
@@ -51,6 +50,7 @@ interface ActiveGame {
   language?: string;
   winners?: GameWinner[];
   bannedCartellas?: string[];
+  winningPattern?: string;
 }
 
 function buildLiveSnapshot(
@@ -104,7 +104,7 @@ async function openCallerDisplayWindow(existingTab?: Window | null): Promise<boo
 export default function GameBoardPage() {
   const { agent, refreshBalance } = useAuth();
   const [betAmount, setBetAmount] = useState('10');
-  const [interval, setInterval_] = useState(DEFAULT_CALL_COOLDOWN_MS);
+  const [interval, setInterval_] = useState(3000);
   const [pattern, setPattern] = useState('FIRST_LINE');
   const [jackpotMaxCalls, setJackpotMaxCalls] = useState(String(DEFAULT_JACKPOT_MAX_CALLS));
   const [voice, setVoice] = useState('AMHARIC_MALE');
@@ -671,28 +671,9 @@ export default function GameBoardPage() {
 
   return (
     <div>
-      {inBrowser && activeGame && (
-        <div className="mb-4 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-950">
-          <p className="font-medium">Web preview — hall caller screen</p>
-          <p className="mt-1 text-xs text-indigo-800">
-            Keep this tab as the <strong>control panel</strong>. Open{' '}
-            <Link href="/agent/caller-display/" target="_blank" className="font-semibold underline">
-              Caller Display
-            </Link>{' '}
-            in a second tab (or use the button below) to mimic the projector window. Both stay in sync.
-          </p>
-          {callerTabBlocked && (
-            <p className="mt-2 text-xs font-medium text-amber-800">
-              Popup was blocked — allow popups for this site, or use <strong>Caller Display</strong> below / the link above.
-            </p>
-          )}
-          <button
-            type="button"
-            onClick={() => setShowWebCallerPreview((v) => !v)}
-            className="mt-2 rounded-lg border border-indigo-300 bg-white px-3 py-1.5 text-xs font-semibold text-indigo-800 hover:bg-indigo-100"
-          >
-            {showWebCallerPreview ? 'Hide inline hall preview' : 'Show inline hall preview (same page)'}
-          </button>
+      {inBrowser && activeGame && callerTabBlocked && (
+        <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          Popup blocked — allow popups or open Caller Display from the sidebar.
         </div>
       )}
 
@@ -746,104 +727,64 @@ export default function GameBoardPage() {
         />
       )}
 
-      <div className="mb-4 flex flex-wrap items-end gap-4 rounded-xl bg-white p-4 shadow-sm">
-        <div className="flex-1 min-w-[100px]">
-          <label className="mb-1 block text-sm font-medium text-gray-700">Bet (ETB)</label>
-          <input type="number" min={MIN_BET} step={1} value={betAmount} onChange={(e) => { setBetAmount(e.target.value); setBetError(''); }}
-            disabled={!!activeGame}
-            className="w-full rounded-lg border px-3 py-2 text-sm disabled:bg-gray-100" />
-          {betError && <p className="mt-1 text-xs text-red-500">{betError}</p>}
-        </div>
-        <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700">Call pace</label>
-          <select value={interval} onChange={(e) => setInterval_(Number(e.target.value))} disabled={!!activeGame}
-            className="rounded-lg border px-3 py-2 text-sm disabled:bg-gray-100">
-            {DRAW_INTERVALS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
-          </select>
-          {!activeGame && (
-            <p className="mt-1 text-xs text-gray-500">Time per ball (voice + gap). Default 4 sec standard.</p>
-          )}
-        </div>
-        <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700">Pattern</label>
-          <select value={pattern} onChange={(e) => setPattern(e.target.value)} disabled={!!activeGame}
-            className="rounded-lg border px-3 py-2 text-sm disabled:bg-gray-100">
-            {WINNING_PATTERNS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
-          </select>
-        </div>
-        {pattern === 'EARLY_JACKPOT' && (
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Jackpot max calls</label>
-            <input
-              type="number"
-              min={1}
-              max={75}
-              value={jackpotMaxCalls}
-              onChange={(e) => setJackpotMaxCalls(e.target.value)}
-              disabled={!!activeGame}
-              className="w-full rounded-lg border px-3 py-2 text-sm disabled:bg-gray-100"
-            />
-          </div>
-        )}
-        <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700">Voice</label>
-          <select value={voice} onChange={(e) => handleVoiceChange(e.target.value)} disabled={!!activeGame}
-            className="rounded-lg border px-3 py-2 text-sm disabled:bg-gray-100">
-            {VOICE_TYPES.map((v) => <option key={v.value} value={v.value}>{v.label}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700">Language</label>
-          <select value={language} onChange={(e) => handleLanguageChange(e.target.value)} disabled={!!activeGame}
-            className="rounded-lg border px-3 py-2 text-sm disabled:bg-gray-100">
-            <option value="am">Amharic</option>
-            <option value="en">English</option>
-          </select>
-        </div>
-        {!activeGame && selected.length > 0 && (
-          <>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">Your commission %</label>
-              <input
-                type="number"
-                min={0}
-                max={100}
-                value={commissionPercent}
-                onChange={(e) => setCommissionPercent(e.target.value)}
-                className="w-full rounded-lg border px-3 py-2 text-sm"
-              />
-              <p className="mt-1 text-xs text-gray-500">From pot — winner sees net prize only</p>
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">Winner prize</label>
-              <div className="rounded-lg border bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">
-                {gameEconomics.prize.toFixed(0)} ETB
-              </div>
-              <p className="mt-1 text-xs text-gray-500">{totalPot.toFixed(0)} ETB pot − {commissionPercent}% commission</p>
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">Your estimated cut</label>
-              <div className="rounded-lg border bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">
-                {gameEconomics.agentNetCommission.toFixed(0)} ETB
-              </div>
-              <p className="mt-1 text-xs text-gray-500">After admin share ({adminCommissionRate}%)</p>
-            </div>
-          </>
-        )}
+      <div className="mb-4 flex flex-wrap items-end gap-3 rounded-xl bg-white p-4 shadow-sm">
+        <input
+          type="number"
+          min={MIN_BET}
+          step={1}
+          value={betAmount}
+          onChange={(e) => { setBetAmount(e.target.value); setBetError(''); }}
+          disabled={!!activeGame}
+          className="w-20 rounded-lg border px-3 py-2 text-sm font-semibold disabled:bg-gray-100"
+          title="Bet amount"
+        />
+        <select
+          value={interval}
+          onChange={(e) => setInterval_(Number(e.target.value))}
+          disabled={!!activeGame}
+          className="rounded-lg border px-3 py-2 text-sm disabled:bg-gray-100"
+          title="Call delay"
+        >
+          {DRAW_INTERVALS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
+        </select>
+        <select
+          value={pattern}
+          onChange={(e) => setPattern(e.target.value)}
+          disabled={!!activeGame}
+          className="rounded-lg border px-3 py-2 text-sm disabled:bg-gray-100"
+          title="Game type"
+        >
+          {WINNING_PATTERNS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
+        </select>
+        <select
+          value={voice}
+          onChange={(e) => handleVoiceChange(e.target.value)}
+          disabled={!!activeGame}
+          className="rounded-lg border px-3 py-2 text-sm disabled:bg-gray-100"
+          title="Voice"
+        >
+          {VOICE_TYPES.map((v) => <option key={v.value} value={v.value}>{v.label}</option>)}
+        </select>
+        {betError && <p className="w-full text-xs text-red-500">{betError}</p>}
         {!activeGame ? (
-          <button onClick={handleCreateGame} disabled={creating || selected.length === 0}
-            className="rounded-lg bg-green-600 px-6 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-50">
-            {creating ? 'Starting...' : `Start Game (${selected.length} cards)`}
+          <button
+            type="button"
+            onClick={handleCreateGame}
+            disabled={creating || selected.length === 0}
+            className="ml-auto rounded-lg bg-[#22c55e] px-8 py-2.5 text-sm font-bold text-white shadow hover:bg-[#16a34a] disabled:opacity-50"
+          >
+            {creating ? 'Creating…' : 'Create Game'}
           </button>
         ) : (
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="ml-auto flex flex-wrap items-center gap-2">
             {isPaused && !bingoClaimActive && !autoDraw && (callingPhase === 'ready' || drawCount === 0) && (
               <button
+                type="button"
                 onClick={() => beginCalling()}
-                disabled={announcingRef.current || callingPhase === 'announcing'}
-                className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-6 py-2.5 text-sm font-bold text-white shadow-md hover:bg-green-700 disabled:opacity-50"
+                disabled={callingPhase === 'announcing'}
+                className="inline-flex items-center gap-2 rounded-lg bg-[#22c55e] px-5 py-2 text-sm font-bold text-white hover:bg-[#16a34a] disabled:opacity-50"
               >
-                <Play className="h-5 w-5" /> Start
+                <Play className="h-5 w-5 fill-white" /> Play
               </button>
             )}
             <button onClick={() => setCalledModalOpen(true)}
@@ -878,9 +819,9 @@ export default function GameBoardPage() {
               <Megaphone className="h-4 w-4" /> BINGO!
             </button>
             {bingoClaimActive && (
-              <button onClick={handleCheckCards}
-                className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-5 py-2 text-sm font-bold text-white shadow-md hover:bg-blue-700">
-                <Search className="h-4 w-4" /> CHECK CARDS
+              <button type="button" onClick={handleCheckCards}
+                className="inline-flex items-center gap-1 rounded-lg bg-[#f59e0b] px-5 py-2 text-sm font-bold text-[#111827] hover:bg-[#d97706]">
+                <Search className="h-4 w-4" /> Check Cards
               </button>
             )}
             <button onClick={handleEndGame}
@@ -908,17 +849,12 @@ export default function GameBoardPage() {
         </div>
       )}
 
-      <div className="mb-4 flex items-center gap-2 text-sm">
-        <span className="font-medium">Your earnings (game):</span>
-        <span className="font-semibold">{showProfit ? `${profit.toFixed(2)} ETB` : '****'}</span>
-        <button onClick={() => setShowProfit(!showProfit)} className="text-blue-500">
+      <div className="mb-3 flex items-center gap-2 text-sm">
+        <span className="font-medium text-gray-700">Profit:</span>
+        <span className="font-semibold">{showProfit ? `${profit.toFixed(2)} ETB` : '******'}</span>
+        <button type="button" onClick={() => setShowProfit(!showProfit)} className="text-blue-500">
           {showProfit ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
         </button>
-        {!activeGame && selected.length > 0 && (
-          <span className="ml-2 text-gray-500">
-            Pot: {totalPot.toFixed(0)} ETB · Winner: {gameEconomics.prize.toFixed(0)} ETB
-          </span>
-        )}
       </div>
 
       {!activeGame && walletBalance <= 0 && (
@@ -975,6 +911,7 @@ export default function GameBoardPage() {
           if (!gameWinners.length) setBingoClaimActive(false);
         }}
         calledNumbers={called}
+        gamePattern={activeGame?.winningPattern ?? pattern}
         onValidate={handleValidateCard}
         onInvalidClaim={(result) => handleInvalidBingoClaim(result)}
       />

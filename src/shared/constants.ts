@@ -7,8 +7,8 @@ export const CURRENCY = 'ETB';
 export const CURRENCY_LABEL = 'Birr';
 
 export const WINNING_PATTERNS = [
-  { value: 'FIRST_LINE', label: 'First line (1 row)' },
-  { value: 'TWO_LINES', label: 'Two lines (2 rows)' },
+  { value: 'FIRST_LINE', label: '1 line' },
+  { value: 'TWO_LINES', label: '2 lines' },
   { value: 'FULL_HOUSE', label: 'Full house' },
   { value: 'EARLY_JACKPOT', label: 'Early jackpot (full house before N calls)' },
   { value: 'SINGLE_LINE', label: '1 line (legacy)' },
@@ -26,11 +26,11 @@ export const DEFAULT_CALL_COOLDOWN_MS = 4000;
 export const GAME_START_DELAY_MS = 3000;
 
 export const DRAW_INTERVALS = [
-  { value: 2000, label: '2 sec (fast)' },
-  { value: 3000, label: '3 sec (normal)' },
-  { value: 4000, label: '4 sec (standard)' },
-  { value: 5000, label: '5 sec (relaxed)' },
-  { value: 6000, label: '6 sec (slow)' },
+  { value: 2000, label: '2 seconds' },
+  { value: 3000, label: '3 seconds' },
+  { value: 4000, label: '4 seconds' },
+  { value: 5000, label: '5 seconds' },
+  { value: 6000, label: '6 seconds' },
 ] as const;
 
 export const VOICE_TYPES = [
