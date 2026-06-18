@@ -27,7 +27,7 @@ export function NumberGrid({ selectedSet, onToggle, onClear, disabled }: NumberG
         </button>
       </div>
       <div className="number-grid-scroll max-h-[calc(100vh-320px)] overflow-y-auto rounded-lg border border-gray-200 bg-white p-3">
-        <div className="grid grid-cols-10 gap-1.5">
+        <div className="grid gap-1.5" style={{ gridTemplateColumns: 'repeat(15, minmax(0, 1fr))' }}>
           {numbers.map((num) => {
             const isSelected = selectedSet.has(num);
             return (

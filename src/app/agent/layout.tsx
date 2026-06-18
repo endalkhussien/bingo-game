@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/presentation/providers/auth-provider';
 import { isAdminRole } from '@/shared/roles';
 import { getPostLoginPath } from '@/shared/roles';
@@ -11,6 +11,8 @@ import { AgentHeader } from '@/presentation/components/layout/agent-header';
 export default function AgentLayout({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
+  const isCallerDisplay = pathname?.includes('/caller-display');
 
   useEffect(() => {
     if (!isLoading && !user) router.replace('/login');
@@ -19,6 +21,10 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
 
   if (isLoading) {
     return <div className="flex h-screen items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" /></div>;
+  }
+
+  if (isCallerDisplay) {
+    return <>{children}</>;
   }
 
   return (

@@ -2,6 +2,7 @@ import { app, BrowserWindow, Menu, dialog } from 'electron';
 import path from 'path';
 import { initDatabase } from './services/database-service';
 import { registerIpcHandlers } from './ipc/handlers';
+import { closeCallerDisplayWindow } from './utils/caller-display-window';
 import { startStaticServer } from './utils/static-server';
 import { APP_NAME } from '../src/shared/brand';
 
@@ -74,7 +75,10 @@ async function createWindow() {
     return;
   }
 
-  mainWindow.on('closed', () => { mainWindow = null; });
+  mainWindow.on('closed', () => {
+    closeCallerDisplayWindow();
+    mainWindow = null;
+  });
 }
 
 app.whenReady().then(createWindow);

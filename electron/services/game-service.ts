@@ -10,7 +10,7 @@ import { MIN_BET, CARTELLA_MAX } from '../../src/shared/constants';
 import { DRAW_BALL_COUNT } from '../../src/shared/brand';
 import { calculateTotalPot, calculateWinnerPrize, calculateGameEconomics } from '../../src/shared/prize';
 import { deductPrizePayout, creditGameStakes, deductAdminCommission, reverseGameStakes } from './wallet-service';
-import { ensureFullDeck } from './card-service';
+import { ensureCardsExist } from './card-service';
 import { parseCardData } from '../../src/domain/services/card-generator';
 import { verifyTicketForGame } from './winner-service';
 
@@ -86,7 +86,7 @@ export async function createGame(agentId: string, config: {
     updatedAt: now,
   });
 
-  await ensureFullDeck(agentId);
+  await ensureCardsExist(agentId, config.selectedNumbers);
   const allCards = await db.select().from(bingoCards).where(eq(bingoCards.agentId, agentId)).all();
   const cardByNumber = new Map(allCards.map((c) => [c.cardNumber, c]));
   const gameCardInserts = config.selectedNumbers
@@ -148,6 +148,8 @@ async function formatActiveGame(game: typeof games.$inferSelect) {
   const gameCardRows = await db.select().from(gameCards).where(eq(gameCards.gameId, game.id)).all();
   const playerCount = gameCardRows.length;
   const totalPot = calculateTotalPot(game.betAmount, playerCount);
+  const commissionRate = game.commissionRate ?? 20;
+  const { prize } = calculateWinnerPrize(game.betAmount, playerCount, commissionRate);
 
   return {
     id: game.id,
@@ -158,6 +160,7 @@ async function formatActiveGame(game: typeof games.$inferSelect) {
     drawSpeedMs: game.drawSpeedMs,
     voiceType: game.voiceType,
     language: game.language,
+    commissionRate,
     selectedNumbers: game.selectedNumbers ? JSON.parse(game.selectedNumbers) : [],
     drawnNumbers: drawn.map((d) => d.number),
     callHistory: drawn.map((d) => ({
@@ -166,9 +169,11 @@ async function formatActiveGame(game: typeof games.$inferSelect) {
       drawnAt: d.drawnAt,
     })),
     totalPot,
+    prize,
     playerCount,
     maxBalls: game.numberRangeMax,
     drawCount: drawn.length,
+    startedAt: game.startedAt ?? game.createdAt,
     winners: await loadGameWinners(game.id),
   };
 }
