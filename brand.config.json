@@ -1,7 +1,7 @@
 {
   "appName": "Waliya",
   "tagline": "Play · Win · Earn",
-  "logoFile": "logo.svg",
+  "logoFile": "logo.png",
   "iconFile": "icon.ico",
   "initialCartellaCount": 150,
   "cartellaCount": 300,
