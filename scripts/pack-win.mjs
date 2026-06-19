@@ -54,6 +54,8 @@ console.log('========================================\n');
 
 ensureAmharicAudio();
 
+run('node scripts/generate-app-icon.mjs');
+
 run('node scripts/clean-build.mjs');
 
 console.log('\n→ Building production app (Next.js + Electron)...\n');

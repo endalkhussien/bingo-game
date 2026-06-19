@@ -8,7 +8,7 @@ import { NumberGrid } from '@/presentation/components/bingo/number-grid';
 import { CalledNumbersModal } from '@/presentation/components/bingo/called-numbers-modal';
 import { CalledNumbersStrip } from '@/presentation/components/bingo/called-numbers-strip';
 import { CheckCardModal } from '@/presentation/components/bingo/check-card-modal';
-import { WINNING_PATTERNS, DRAW_INTERVALS, VOICE_TYPES, MIN_BET, DEFAULT_JACKPOT_MAX_CALLS, DEFAULT_CALL_COOLDOWN_MS, GAME_START_BREATH_MS, GAME_START_DELAY_MS, GAME_COMMISSION_OPTIONS } from '@/shared/constants';
+import { WINNING_PATTERNS, DRAW_INTERVALS, VOICE_TYPES, MIN_BET, DEFAULT_JACKPOT_MAX_CALLS, DEFAULT_CALL_COOLDOWN_MS, GAME_START_BREATH_MS, GAME_START_DELAY_MS, GAME_COMMISSION_OPTIONS, MIN_PLAYERS_TO_START } from '@/shared/constants';
 import { DRAW_BALL_COUNT } from '@/shared/brand';
 import { speakBallCall, speakCartella, speakGameStarted, loadVoices } from '@/presentation/lib/tts';
 import { stopCurrentAudio, preloadBallCallClips } from '@/presentation/lib/amharic-audio';
@@ -152,6 +152,8 @@ export default function GameBoardPage() {
   const gameEndedRef = useRef(false);
 
   const hasWinner = gameWinners.length > 0;
+  const canPickCartellas = !activeGame && walletBalance > 0;
+  const canCreateGame = canPickCartellas && selected.length >= MIN_PLAYERS_TO_START && !creating;
 
   const playerCount = activeGame?.playerCount ?? activeGame?.selectedNumbers?.length ?? selected.length;
   const totalPot = activeGame?.totalPot ?? calculateTotalPot(parseFloat(betAmount || '0') || 0, playerCount);
@@ -268,7 +270,7 @@ export default function GameBoardPage() {
   }, []);
 
   const toggleNumber = (num: number) => {
-    if (activeGame) return;
+    if (activeGame || walletBalance <= 0) return;
     setSelected((prev) => {
       if (prev.includes(num)) {
         return prev.filter((n) => n !== num);
@@ -418,6 +420,14 @@ export default function GameBoardPage() {
     const bet = parseFloat(betAmount);
     if (isNaN(bet) || bet < MIN_BET) {
       setBetError(`Bet must be at least ${MIN_BET} ETB.`);
+      return;
+    }
+    if (walletBalance <= 0) {
+      setBetError('Insufficient wallet balance. Ask your admin for a TBG top-up.');
+      return;
+    }
+    if (selected.length < MIN_PLAYERS_TO_START) {
+      setBetError(`Select at least ${MIN_PLAYERS_TO_START} cartellas to start a game.`);
       return;
     }
     if (selected.length === 0) {
@@ -822,37 +832,25 @@ export default function GameBoardPage() {
               </select>
             </div>
 
-            <div className="group flex flex-col gap-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-transparent transition-colors group-hover:text-amber-700 group-focus-within:text-amber-700">
-                Commission %
-              </span>
-              <div className="relative h-14 w-[5.5rem]">
-                <select
-                  value={commissionPercent}
-                  onChange={(e) => setCommissionPercent(e.target.value)}
-                  disabled={!!activeGame}
-                  className="absolute inset-0 h-full w-full cursor-pointer appearance-none rounded-lg border-2 border-transparent bg-transparent text-center text-2xl font-black text-transparent opacity-0 transition-all group-hover:border-amber-400 group-hover:bg-amber-50 group-hover:text-amber-900 group-hover:opacity-100 focus:border-amber-500 focus:bg-amber-50 focus:text-amber-900 focus:opacity-100 disabled:opacity-50"
-                  title="Game commission % (hover to change)"
-                >
-                  {GAME_COMMISSION_OPTIONS.map((pct) => (
-                    <option key={pct} value={String(pct)}>{pct}%</option>
-                  ))}
-                </select>
-                <div
-                  className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-lg border-2 border-dashed border-gray-100 bg-gray-50/50 transition-all group-hover:opacity-0 group-focus-within:opacity-0"
-                  aria-hidden
-                />
-                <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-xl font-black text-gray-300 transition-all group-hover:opacity-0 group-focus-within:opacity-0">
-                  ·
-                </div>
-              </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Commission %</span>
+              <select
+                value={commissionPercent}
+                onChange={(e) => setCommissionPercent(e.target.value)}
+                disabled={!!activeGame}
+                className="h-14 w-[5.5rem] rounded-lg border-2 border-gray-300 bg-white px-2 text-center text-lg font-bold text-gray-900 focus:border-amber-500 focus:outline-none disabled:bg-gray-100"
+              >
+                {GAME_COMMISSION_OPTIONS.map((pct) => (
+                  <option key={pct} value={String(pct)}>{pct}%</option>
+                ))}
+              </select>
             </div>
 
             {betError && <p className="w-full text-sm font-semibold text-red-600">{betError}</p>}
             <button
               type="button"
               onClick={handleCreateGame}
-              disabled={creating || selected.length === 0 || !!activeGame}
+              disabled={!canCreateGame || !!activeGame}
               className="ml-auto h-14 rounded-xl bg-[#22c55e] px-10 text-lg font-black uppercase tracking-wide text-white shadow-lg hover:bg-[#16a34a] disabled:opacity-50"
             >
               {creating ? 'Creating…' : 'Create Game'}
@@ -870,7 +868,13 @@ export default function GameBoardPage() {
           {!activeGame && walletBalance <= 0 && (
             <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
               <p className="font-medium">Wallet balance: 0 ETB</p>
-              <p className="mt-1">You can still run a game — player stakes are added when the game starts.</p>
+              <p className="mt-1">You cannot create a game or select cartellas until your admin adds TBG balance.</p>
+            </div>
+          )}
+
+          {!activeGame && walletBalance > 0 && selected.length > 0 && selected.length < MIN_PLAYERS_TO_START && (
+            <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-950">
+              <p className="font-medium">Select at least {MIN_PLAYERS_TO_START} cartellas to enable Create Game.</p>
             </div>
           )}
 
@@ -879,7 +883,7 @@ export default function GameBoardPage() {
             selectedSet={selectedSet}
             onToggle={toggleNumber}
             onClear={() => setSelected([])}
-            disabled={false}
+            disabled={!canPickCartellas}
           />
         </div>
       )}
