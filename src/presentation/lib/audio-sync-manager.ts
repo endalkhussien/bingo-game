@@ -78,15 +78,13 @@ export class AudioSyncManager {
 
       this.emit('audio-start');
       const paceMs = cooldownMs ?? this.cooldownMs;
-      const played = await playAudio(number);
+      const cycleStart = Date.now();
+      await playAudio(number);
       if (this.aborted) return;
       this.emit('audio-end');
 
-      // paceMs = pause after voice ends before the next ball (Speed dropdown).
-      let remaining = paceMs;
-      if (!played) {
-        remaining = Math.min(paceMs, 400);
-      }
+      // Fixed rhythm: each ball cycle takes exactly paceMs (voice + gap).
+      const remaining = Math.max(0, paceMs - (Date.now() - cycleStart));
       if (remaining > 0 && !this.aborted) {
         this.emit('cooldown-start');
         await abortableDelay(remaining, () => this.aborted);

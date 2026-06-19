@@ -8,7 +8,7 @@ import { NumberGrid } from '@/presentation/components/bingo/number-grid';
 import { CalledNumbersModal } from '@/presentation/components/bingo/called-numbers-modal';
 import { CalledNumbersStrip } from '@/presentation/components/bingo/called-numbers-strip';
 import { CheckCardModal } from '@/presentation/components/bingo/check-card-modal';
-import { WINNING_PATTERNS, DRAW_INTERVALS, VOICE_TYPES, MIN_BET, DEFAULT_JACKPOT_MAX_CALLS, DEFAULT_CALL_COOLDOWN_MS, GAME_START_DELAY_MS, GAME_COMMISSION_OPTIONS } from '@/shared/constants';
+import { WINNING_PATTERNS, DRAW_INTERVALS, VOICE_TYPES, MIN_BET, DEFAULT_JACKPOT_MAX_CALLS, DEFAULT_CALL_COOLDOWN_MS, GAME_START_BREATH_MS, GAME_START_DELAY_MS, GAME_COMMISSION_OPTIONS } from '@/shared/constants';
 import { DRAW_BALL_COUNT } from '@/shared/brand';
 import { speakBallCall, speakCartella, speakGameStarted, loadVoices } from '@/presentation/lib/tts';
 import { stopCurrentAudio, preloadBallCallClips } from '@/presentation/lib/amharic-audio';
@@ -94,7 +94,7 @@ function buildLiveSnapshot(
 export default function GameBoardPage() {
   const { agent, refreshBalance } = useAuth();
   const [betAmount, setBetAmount] = useState('10');
-  const [interval, setInterval_] = useState(3000);
+  const [interval, setInterval_] = useState(DEFAULT_CALL_COOLDOWN_MS);
   const [pattern, setPattern] = useState('FIRST_LINE');
   const [jackpotMaxCalls, setJackpotMaxCalls] = useState(String(DEFAULT_JACKPOT_MAX_CALLS));
   const [voice, setVoice] = useState('AMHARIC_MALE');
@@ -149,6 +149,7 @@ export default function GameBoardPage() {
   const bingoClaimActiveRef = useRef(false);
   const calledRef = useRef<number[]>([]);
   const gameWinnersRef = useRef<GameWinner[]>([]);
+  const gameEndedRef = useRef(false);
 
   const hasWinner = gameWinners.length > 0;
 
@@ -203,6 +204,7 @@ export default function GameBoardPage() {
   useEffect(() => { calledRef.current = called; }, [called]);
 
   useEffect(() => { callingPhaseRef.current = callingPhase; }, [callingPhase]);
+  useEffect(() => { gameEndedRef.current = callingPhase === 'ended'; }, [callingPhase]);
 
   useEffect(() => {
     if (!activeGame) return;
@@ -319,7 +321,7 @@ export default function GameBoardPage() {
   }, []);
 
   const startCalling = useCallback(async (resumeOnServer = false) => {
-    if (!activeGameRef.current || bingoClaimActiveRef.current || announcingRef.current || gameWinnersRef.current.length > 0) return;
+    if (!activeGameRef.current || bingoClaimActiveRef.current || announcingRef.current || gameWinnersRef.current.length > 0 || gameEndedRef.current) return;
 
     if (resumeOnServer) {
       await ipc('games:resume', activeGameRef.current.id);
@@ -334,7 +336,7 @@ export default function GameBoardPage() {
   }, [bingoClaimActive]);
 
   const beginCalling = useCallback(async () => {
-    if (!activeGameRef.current || autoDrawRef.current || bingoClaimActiveRef.current || announcingRef.current || gameWinnersRef.current.length > 0) return;
+    if (!activeGameRef.current || autoDrawRef.current || bingoClaimActiveRef.current || announcingRef.current || gameWinnersRef.current.length > 0 || gameEndedRef.current) return;
 
     announcingRef.current = true;
     setCallingPhase('announcing');
@@ -342,11 +344,25 @@ export default function GameBoardPage() {
     stopCurrentAudio();
 
     try {
+      const breathStart = Date.now();
+      while (Date.now() - breathStart < GAME_START_BREATH_MS) {
+        if (!activeGameRef.current || !announcingRef.current || gameEndedRef.current) {
+          setCallingPhase('paused');
+          return;
+        }
+        await new Promise((r) => setTimeout(r, 50));
+      }
+
+      if (!activeGameRef.current || !announcingRef.current || gameEndedRef.current) {
+        setCallingPhase('paused');
+        return;
+      }
+
       await speakGameStarted(voiceRef.current, languageRef.current);
+
       const delayStart = Date.now();
       while (Date.now() - delayStart < GAME_START_DELAY_MS) {
-        // Game starts PAUSED on server — only abort if user pressed Pause (stopCalling clears announcingRef).
-        if (!activeGameRef.current || !announcingRef.current) {
+        if (!activeGameRef.current || !announcingRef.current || gameEndedRef.current) {
           setCallingPhase('paused');
           return;
         }
@@ -356,7 +372,7 @@ export default function GameBoardPage() {
       announcingRef.current = false;
     }
 
-    if (!activeGameRef.current) {
+    if (!activeGameRef.current || gameEndedRef.current) {
       setCallingPhase('paused');
       return;
     }
@@ -365,7 +381,7 @@ export default function GameBoardPage() {
 
   const drawFromServer = useCallback(async () => {
     const game = activeGameRef.current;
-    if (!game || isPausedRef.current || !autoDrawRef.current || announcingRef.current || bingoClaimActiveRef.current || gameWinnersRef.current.length > 0) return null;
+    if (!game || isPausedRef.current || !autoDrawRef.current || announcingRef.current || bingoClaimActiveRef.current || gameWinnersRef.current.length > 0 || gameEndedRef.current) return null;
 
     const result = await ipc<{
       success: boolean;
@@ -455,6 +471,7 @@ export default function GameBoardPage() {
       autoDrawRef.current = false;
       setAutoDraw(false);
       setCallingPhase('ready');
+      gameEndedRef.current = false;
       setBannedCartellas([]);
       setLiveAnnouncement(null);
       setBingoClaimActive(false);
@@ -507,6 +524,8 @@ export default function GameBoardPage() {
         && !!activeGameRef.current
         && !isPausedRef.current
         && !announcingRef.current
+        && !gameEndedRef.current
+        && callingPhaseRef.current !== 'ended'
         && gameWinnersRef.current.length === 0,
       drawNumber: drawFromServer,
       onDraw: (data) => {
@@ -654,8 +673,19 @@ export default function GameBoardPage() {
     const game = activeGameRef.current;
     if (!game) return;
     if (!confirm('End this game and return to Game Board?')) return;
-    await stopCalling(false);
+
+    gameEndedRef.current = true;
+    autoDrawRef.current = false;
+    setAutoDraw(false);
+    callingLoopIdRef.current += 1;
+    announcingRef.current = false;
+    isPausedRef.current = true;
+    setIsPaused(true);
+    syncManagerRef.current.abort();
+    stopCurrentAudio();
     setCallingPhase('ended');
+    callingPhaseRef.current = 'ended';
+
     const result = await ipc<{ success: boolean; data?: { agentRevenue: number } }>('games:end', game.id);
     if (result.success && result.data) {
       setProfit(result.data.agentRevenue);
