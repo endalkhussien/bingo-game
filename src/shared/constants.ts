@@ -19,11 +19,14 @@ export const WINNING_PATTERNS = [
 
 export const DEFAULT_JACKPOT_MAX_CALLS = 45;
 
-/** Pause after each ball call before the next draw (Speed dropdown on game board). */
-export const DEFAULT_CALL_COOLDOWN_MS = 3000;
+/** Fixed gap between ball calls — voice + pause always equals this (default 4 sec). */
+export const DEFAULT_CALL_COOLDOWN_MS = 4000;
 
-/** Pause after \"Game has started\" announcement before first ball. */
-export const GAME_START_DELAY_MS = 3000;
+/** Short breath after Play, before \"Game has started\" is spoken. */
+export const GAME_START_BREATH_MS = 1500;
+
+/** Pause after \"Game has started\" before the first ball. */
+export const GAME_START_DELAY_MS = 1500;
 
 export const DRAW_INTERVALS = [
   { value: 2000, label: '2 seconds' },
