@@ -23,10 +23,13 @@ export const DEFAULT_JACKPOT_MAX_CALLS = 45;
 export const DEFAULT_CALL_COOLDOWN_MS = 4000;
 
 /** Short breath after Play, before \"Game has started\" is spoken. */
-export const GAME_START_BREATH_MS = 1500;
+export const GAME_START_BREATH_MS = 500;
 
 /** Pause after \"Game has started\" before the first ball. */
-export const GAME_START_DELAY_MS = 1500;
+export const GAME_START_DELAY_MS = 3000;
+
+/** Minimum cartellas required to create a game. */
+export const MIN_PLAYERS_TO_START = 3;
 
 export const DRAW_INTERVALS = [
   { value: 2000, label: '2 seconds' },
@@ -36,7 +39,7 @@ export const DRAW_INTERVALS = [
   { value: 6000, label: '6 seconds' },
 ] as const;
 
-/** Agent game commission % — hidden on board until hover; default 10 */
+/** Agent game commission % options on game board. */
 export const GAME_COMMISSION_OPTIONS = [10, 20, 25, 30, 35] as const;
 
 export const VOICE_TYPES = [
