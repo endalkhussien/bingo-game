@@ -64,7 +64,7 @@ export class AudioSyncManager {
 
   async callNumber(
     number: number,
-    playAudio: (n: number) => Promise<void>,
+    playAudio: (n: number) => Promise<boolean>,
     cooldownMs?: number,
   ): Promise<void> {
     if (this.locked) return;
@@ -78,13 +78,15 @@ export class AudioSyncManager {
 
       this.emit('audio-start');
       const paceMs = cooldownMs ?? this.cooldownMs;
-      const cycleStart = Date.now();
-      await playAudio(number);
+      const played = await playAudio(number);
       if (this.aborted) return;
       this.emit('audio-end');
 
-      // Pace = total time per ball (voice + gap). e.g. 4 sec standard ≈ 1.5s voice + 2.5s gap.
-      const remaining = Math.max(0, paceMs - (Date.now() - cycleStart));
+      // paceMs = pause after voice ends before the next ball (Speed dropdown).
+      let remaining = paceMs;
+      if (!played) {
+        remaining = Math.min(paceMs, 400);
+      }
       if (remaining > 0 && !this.aborted) {
         this.emit('cooldown-start');
         await abortableDelay(remaining, () => this.aborted);
@@ -113,7 +115,7 @@ export interface GameCallerOptions {
   shouldContinue: () => boolean;
   drawNumber: () => Promise<DrawResult | null>;
   onDraw: (result: DrawResult) => void;
-  playAudio: (number: number, voiceType: string, language: string) => Promise<void>;
+  playAudio: (number: number, voiceType: string, language: string) => Promise<boolean>;
 }
 
 export async function runAutoCallLoop(

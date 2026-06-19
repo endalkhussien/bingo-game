@@ -2,6 +2,7 @@ import http from 'http';
 import path from 'path';
 import fs from 'fs';
 import { AddressInfo } from 'net';
+import { app } from 'electron';
 
 const MIME: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
@@ -19,6 +20,7 @@ const MIME: Record<string, string> = {
 };
 
 function resolveFile(root: string, urlPath: string): string | null {
+  const resolvedRoot = path.resolve(root);
   let normalized = urlPath.startsWith('/') ? urlPath.slice(1) : urlPath;
 
   // Fix broken relative ./_next requests from nested routes (e.g. /login/_next/...)
@@ -27,37 +29,58 @@ function resolveFile(root: string, urlPath: string): string | null {
     normalized = normalized.slice(nestedNext);
   }
 
-  let filePath = path.join(root, normalized);
+  let filePath = path.join(resolvedRoot, normalized);
+  const resolvedFile = path.resolve(filePath);
 
-  if (!filePath.startsWith(root)) return null;
+  if (!resolvedFile.startsWith(resolvedRoot)) return null;
 
-  if (fs.existsSync(filePath)) {
-    if (fs.statSync(filePath).isDirectory()) {
-      const indexHtml = path.join(filePath, 'index.html');
+  if (fs.existsSync(resolvedFile)) {
+    if (fs.statSync(resolvedFile).isDirectory()) {
+      const indexHtml = path.join(resolvedFile, 'index.html');
       if (fs.existsSync(indexHtml)) return indexHtml;
     }
-    return filePath;
+    return resolvedFile;
   }
 
   if (urlPath.endsWith('/')) {
-    const indexHtml = path.join(filePath, 'index.html');
+    const indexHtml = path.join(resolvedFile, 'index.html');
     if (fs.existsSync(indexHtml)) return indexHtml;
   }
 
-  const withHtml = path.join(filePath, 'index.html');
+  const withHtml = path.join(resolvedFile, 'index.html');
   if (fs.existsSync(withHtml)) return withHtml;
 
-  const spaFallback = path.join(root, 'index.html');
+  const spaFallback = path.join(resolvedRoot, 'index.html');
   return fs.existsSync(spaFallback) ? spaFallback : null;
 }
 
+function getStaticRoots(primaryRoot: string): string[] {
+  const roots = [path.resolve(primaryRoot)];
+  if (app.isPackaged) {
+    roots.push(path.join(process.resourcesPath, 'app.asar.unpacked', 'out'));
+    const appPath = app.getAppPath();
+    if (appPath.endsWith('.asar')) {
+      roots.push(path.join(path.dirname(appPath), 'app.asar.unpacked', 'out'));
+    }
+  }
+  return [...new Set(roots)];
+}
+
+function resolveFromRoots(roots: string[], urlPath: string): string | null {
+  for (const root of roots) {
+    const file = resolveFile(root, urlPath);
+    if (file) return file;
+  }
+  return null;
+}
+
 export function startStaticServer(rootDir: string): Promise<{ url: string; close: () => void }> {
-  const root = path.resolve(rootDir);
+  const roots = getStaticRoots(rootDir);
 
   const server = http.createServer((req, res) => {
     try {
       const urlPath = decodeURIComponent(req.url?.split('?')[0] ?? '/');
-      const filePath = resolveFile(root, urlPath);
+      const filePath = resolveFromRoots(roots, urlPath);
 
       if (!filePath) {
         res.writeHead(403);

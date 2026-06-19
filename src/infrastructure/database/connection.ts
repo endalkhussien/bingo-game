@@ -29,7 +29,14 @@ export function createDatabase(dbPath?: string): BetterSQLite3Database<typeof sc
   const dir = path.dirname(finalPath);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
-  const sqlite = new Database(finalPath);
+  let sqlite: Database.Database;
+  try {
+    sqlite = new Database(finalPath);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new Error(`Could not open database at ${finalPath}: ${message}`);
+  }
+
   sqlite.pragma('journal_mode = WAL');
   sqlite.pragma('foreign_keys = ON');
   sqlite.pragma('busy_timeout = 5000');

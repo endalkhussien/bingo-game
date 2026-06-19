@@ -26,6 +26,9 @@ check('package.json version', pkg.version === '1.0.0', `got ${pkg.version}`);
 check('Electron 22 (Windows 8+)', pkg.devDependencies?.electron === '22.3.27', `got ${pkg.devDependencies?.electron}`);
 check('better-sqlite3 9.6 (Electron 22 ABI)', pkg.dependencies?.['better-sqlite3'] === '9.6.0', `got ${pkg.dependencies?.['better-sqlite3']}`);
 
+const browserslist = JSON.stringify(pkg.browserslist ?? []);
+check('Chromium 108 target (Electron 22 / Win 8+)', browserslist.includes('108'), browserslist);
+
 const audioCount = fs.existsSync(path.join(root, 'public/audio'))
   ? fs.readdirSync(path.join(root, 'public/audio')).filter((f) => f.endsWith('.mp3')).length
   : 0;
@@ -38,7 +41,12 @@ check('Amharic fallback audio (75)', fallbackCount >= 75, `${fallbackCount}/75`)
 
 check('dist-electron/main.js', fs.existsSync(path.join(root, 'dist-electron/electron/main.js')));
 check('out/index.html', fs.existsSync(path.join(root, 'out/index.html')));
+check('out/login page', fs.existsSync(path.join(root, 'out/login/index.html')));
 check('out/audio in export', fs.existsSync(path.join(root, 'out/audio/B1.mp3')));
+check(
+  'better_sqlite3.node (Electron)',
+  fs.existsSync(path.join(root, 'node_modules/better-sqlite3/build/Release/better_sqlite3.node')),
+);
 
 check('AGENTS-QUICK-GUIDE.txt', fs.existsSync(path.join(root, 'AGENTS-QUICK-GUIDE.txt')));
 check('electron-builder config', fs.existsSync(path.join(root, 'electron-builder.yml')));

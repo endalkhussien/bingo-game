@@ -14,10 +14,15 @@ files:
   - node_modules/file-uri-to-path/**/*
 extraResources: []
 asarUnpack:
+  - "**/*.node"
   - node_modules/better-sqlite3/**/*
   - out/sounds/**
   - out/audio/**
+
+npmRebuild: true
+buildDependenciesFromSource: false
 win:
+  # 64-bit only — Windows 8, 8.1, 10, and 11 (Electron 22 does not support 32-bit shops)
   target:
     - target: nsis
       arch:

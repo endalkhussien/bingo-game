@@ -1,41 +1,66 @@
 import { getBallLetter } from '@/domain/services/bingo-engine';
-import { formatAmharicBallCall, getBallCallAudioUrl } from '@/shared/tts/amharic-ball-call';
+import { formatAmharicBallCall, getBallCallAudioKey } from '@/shared/tts/amharic-ball-call';
+import { isElectron } from '@/shared/runtime';
 
 let currentAudio: HTMLAudioElement | null = null;
-const audioCache = new Map<string, HTMLAudioElement>();
+
+function buildMediaUrl(relativePath: string): string {
+  const clean = relativePath.replace(/^\/+/, '');
+  if (isElectron()) {
+    return `waliya-media://${clean}`;
+  }
+  if (typeof window !== 'undefined') {
+    const origin = window.location?.origin;
+    if (origin && origin !== 'null' && origin.startsWith('http')) {
+      return `${origin}/${clean}`;
+    }
+  }
+  return `/${clean}`;
+}
 
 export function amharicAudioUrl(number: number): string {
-  return `/sounds/am/${number}.mp3`;
+  return buildMediaUrl(`sounds/am/${number}.mp3`);
 }
 
 export function ballCallAudioUrl(number: number): string {
-  return getBallCallAudioUrl(number);
+  return buildMediaUrl(`audio/${getBallCallAudioKey(number)}.mp3`);
 }
 
 function englishLetterUrl(letter: string): string {
-  return `/sounds/en/letters/${letter}.mp3`;
+  return buildMediaUrl(`sounds/en/letters/${letter}.mp3`);
 }
 
 function legacyLetterUrl(letter: string): string {
-  return `/sounds/am/letters/${letter}.mp3`;
+  return buildMediaUrl(`sounds/am/letters/${letter}.mp3`);
 }
 
-function getCachedAudio(url: string): HTMLAudioElement {
-  let audio = audioCache.get(url);
-  if (!audio) {
-    audio = new Audio(url);
-    audio.preload = 'auto';
-    audioCache.set(url, audio);
-  }
-  return audio;
-}
+function waitForCanPlay(audio: HTMLAudioElement, timeoutMs: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (audio.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) {
+      resolve(true);
+      return;
+    }
 
-/** Warm browser cache for all 75 ball-call clips (call once when game board loads). */
-export function preloadBallCallClips(): void {
-  if (typeof window === 'undefined') return;
-  for (let n = 1; n <= 75; n++) {
-    getCachedAudio(ballCallAudioUrl(n));
-  }
+    let settled = false;
+    const finish = (ok: boolean) => {
+      if (settled) return;
+      settled = true;
+      audio.removeEventListener('canplaythrough', onReady);
+      audio.removeEventListener('loadeddata', onReady);
+      audio.removeEventListener('error', onError);
+      window.clearTimeout(timer);
+      resolve(ok);
+    };
+
+    const onReady = () => finish(true);
+    const onError = () => finish(false);
+    const timer = window.setTimeout(() => finish(false), timeoutMs);
+
+    audio.addEventListener('canplaythrough', onReady, { once: true });
+    audio.addEventListener('loadeddata', onReady, { once: true });
+    audio.addEventListener('error', onError, { once: true });
+    audio.load();
+  });
 }
 
 function playUrl(url: string): Promise<boolean> {
@@ -43,40 +68,55 @@ function playUrl(url: string): Promise<boolean> {
 
   return new Promise((resolve) => {
     let settled = false;
-    let audio: HTMLAudioElement | null = null;
+    const audio = new Audio(url);
+    audio.preload = 'auto';
 
     const settle = (ok: boolean) => {
       if (settled) return;
       settled = true;
       window.clearTimeout(safetyTimer);
-      if (audio && currentAudio === audio) currentAudio = null;
+      if (currentAudio === audio) currentAudio = null;
       resolve(ok);
     };
 
-    const safetyTimer = window.setTimeout(() => settle(false), 15000);
-
-    try {
-      if (currentAudio) {
-        currentAudio.pause();
-        currentAudio.currentTime = 0;
-        currentAudio = null;
-      }
-
-      audio = getCachedAudio(url);
-      audio.currentTime = 0;
-      currentAudio = audio;
-
-      audio.onended = () => settle(true);
-      audio.onerror = () => settle(false);
-
-      const started = audio.play();
-      if (started) {
-        started.catch(() => settle(false));
-      }
-    } catch {
+    const safetyTimer = window.setTimeout(() => {
+      audio.pause();
       settle(false);
-    }
+    }, 10000);
+
+    void (async () => {
+      try {
+        if (currentAudio) {
+          currentAudio.pause();
+          currentAudio.currentTime = 0;
+        }
+        currentAudio = audio;
+
+        const ready = await waitForCanPlay(audio, 2500);
+        if (!ready) {
+          settle(false);
+          return;
+        }
+
+        audio.onended = () => settle(true);
+        audio.onerror = () => settle(false);
+
+        await audio.play();
+      } catch {
+        settle(false);
+      }
+    })();
   });
+}
+
+/** Warm browser cache for all 75 ball-call clips (call once when game board loads). */
+export function preloadBallCallClips(): void {
+  if (typeof window === 'undefined') return;
+  for (let n = 1; n <= 75; n++) {
+    const audio = new Audio(ballCallAudioUrl(n));
+    audio.preload = 'auto';
+    audio.load();
+  }
 }
 
 export function stopCurrentAudio(): void {
