@@ -11,6 +11,7 @@ import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
+import { ensureBrandLogoImported, getBrandLogoPath } from './brand-logo.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, '..');
@@ -47,25 +48,34 @@ function ensureAmharicAudio() {
 }
 
 function ensureAppIcon() {
-  const logoSvg = path.join(root, 'public', 'brand', 'logo.svg');
+  ensureBrandLogoImported(root);
+  const logoPath = getBrandLogoPath(root);
   const iconIco = path.join(root, 'public', 'brand', 'icon.ico');
   const iconPng = path.join(root, 'public', 'brand', 'icon.png');
+  const iconsExist = fs.existsSync(iconIco) && fs.existsSync(iconPng);
 
-  if (!fs.existsSync(logoSvg)) {
-    console.error('\nMissing public/brand/logo.svg — cannot build Windows icon.\n');
+  if (!fs.existsSync(logoPath)) {
+    if (iconsExist) {
+      console.log(
+        '→ App icon: public/brand/icon.ico OK (drop Waliya logo-01.png in project root to update logo)\n',
+      );
+      return;
+    }
+    console.error(
+      '\nMissing brand logo — place Waliya logo-01.png in the project root, then run pack:win again.\n',
+    );
     process.exit(1);
   }
 
-  const iconsExist = fs.existsSync(iconIco) && fs.existsSync(iconPng);
   const logoChanged =
-    iconsExist && fs.statSync(logoSvg).mtimeMs > fs.statSync(iconIco).mtimeMs;
+    iconsExist && fs.statSync(logoPath).mtimeMs > fs.statSync(iconIco).mtimeMs;
 
   if (iconsExist && !logoChanged) {
     console.log('→ App icon: public/brand/icon.ico OK\n');
     return;
   }
 
-  console.log('→ App icon: generating from logo.svg...\n');
+  console.log(`→ App icon: generating from ${path.basename(logoPath)}...\n`);
   run('node scripts/generate-app-icon.mjs');
 }
 
