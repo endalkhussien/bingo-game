@@ -19,8 +19,8 @@ export const WINNING_PATTERNS = [
 
 export const DEFAULT_JACKPOT_MAX_CALLS = 45;
 
-/** Target time between ball calls (voice + gap) — 4 sec is standard hall pace. */
-export const DEFAULT_CALL_COOLDOWN_MS = 4000;
+/** Pause after each ball call before the next draw (Speed dropdown on game board). */
+export const DEFAULT_CALL_COOLDOWN_MS = 3000;
 
 /** Pause after \"Game has started\" announcement before first ball. */
 export const GAME_START_DELAY_MS = 3000;

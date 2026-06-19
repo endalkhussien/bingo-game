@@ -78,15 +78,14 @@ export class AudioSyncManager {
 
       this.emit('audio-start');
       const paceMs = cooldownMs ?? this.cooldownMs;
-      const cycleStart = Date.now();
       const played = await playAudio(number);
       if (this.aborted) return;
       this.emit('audio-end');
 
-      // Pace = total time per ball (voice + gap). Shorter gap when voice failed so draws don't feel stuck.
-      let remaining = Math.max(0, paceMs - (Date.now() - cycleStart));
+      // paceMs = pause after voice ends before the next ball (Speed dropdown).
+      let remaining = paceMs;
       if (!played) {
-        remaining = Math.min(remaining, 700);
+        remaining = Math.min(paceMs, 400);
       }
       if (remaining > 0 && !this.aborted) {
         this.emit('cooldown-start');

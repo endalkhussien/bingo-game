@@ -1,13 +1,16 @@
-import { app, BrowserWindow, Menu, dialog } from 'electron';
+import { app, BrowserWindow, Menu, dialog, protocol } from 'electron';
 import path from 'path';
 import fs from 'fs';
 import { initDatabase } from './services/database-service';
 import { registerIpcHandlers } from './ipc/handlers';
 import { closeCallerDisplayWindow } from './utils/caller-display-window';
 import { startStaticServer } from './utils/static-server';
+import { registerWaliyaMediaProtocol, registerWaliyaMediaScheme } from './utils/media-protocol';
 import { checkWindowsSupport } from './utils/windows-support';
 import { formatStartupError } from './utils/startup-error';
 import { APP_NAME } from '../src/shared/brand';
+
+registerWaliyaMediaScheme();
 
 let mainWindow: BrowserWindow | null = null;
 let closeStaticServer: (() => void) | null = null;
@@ -106,7 +109,10 @@ if (!windowsSupport.supported) {
     app.quit();
   });
 } else {
-  app.whenReady().then(createWindow);
+  app.whenReady().then(async () => {
+    registerWaliyaMediaProtocol();
+    await createWindow();
+  });
 }
 
 app.on('window-all-closed', () => {

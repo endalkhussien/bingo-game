@@ -6,7 +6,7 @@ import { promisify } from 'util';
 import { app } from 'electron';
 import { buildCartellaAnnouncement } from '../../src/shared/tts/voice-map';
 import { getBallCallSpeechParts } from '../../src/shared/tts/ball-call';
-import { formatAmharicBallCall, getBallCallAudioKey } from '../../src/shared/tts/amharic-ball-call';
+import { formatAmharicBallCall } from '../../src/shared/tts/amharic-ball-call';
 import { DRAW_BALL_COUNT } from '../../src/shared/brand';
 import { getBallLetter } from '../../src/domain/services/bingo-engine';
 
@@ -61,14 +61,6 @@ function resolveSoundPath(folder: 'am' | 'en' | 'audio', ...parts: string[]): st
 
 const resolveAmharicPath = (...parts: string[]) => resolveSoundPath('am', ...parts);
 const resolveEnglishPath = (...parts: string[]) => resolveSoundPath('en', ...parts);
-const resolveBallCallPath = (key: string) => resolveSoundPath('audio', `${key}.mp3`);
-
-async function playBundledBallCall(number: number): Promise<boolean> {
-  const key = getBallCallAudioKey(number);
-  const audioPath = resolveBallCallPath(key);
-  if (!audioPath) return false;
-  return playAudioFile(audioPath);
-}
 
 async function playAudioFile(audioPath: string): Promise<boolean> {
   if (!fs.existsSync(audioPath)) return false;
@@ -88,7 +80,7 @@ while (-not $media.NaturalDuration.HasTimeSpan -and (Get-Date) -lt $deadline) { 
 if ($media.NaturalDuration.HasTimeSpan) {
   $ms = [Math]::Min(6000, [int]$media.NaturalDuration.TimeSpan.TotalMilliseconds + 150)
   Start-Sleep -Milliseconds $ms
-} else { Start-Sleep -Milliseconds 900 }
+} else { exit 1 }
 $media.Stop()
 $media.Close()
 `;
@@ -185,19 +177,16 @@ async function speakEspeak(text: string, lang: string, preferFemale: boolean): P
   return false;
 }
 
-/** Combined Amharic phrase, then English letter + number fallbacks. */
+/** Combined Amharic phrase — MP3 is played in renderer; this is speech-only fallback. */
 export async function speakBallCall(
   number: number,
   language: string,
   voiceType: string,
 ): Promise<SpeakResult> {
   const preferFemale = voiceType.includes('FEMALE');
-  const { letter, numberText, numberLang } = getBallCallSpeechParts(number, language);
+  const { letter, numberText } = getBallCallSpeechParts(number, language);
 
   if (language === 'am' && number <= DRAW_BALL_COUNT) {
-    if (await playBundledBallCall(number)) {
-      return { success: true, engine: 'bundled-ball-call-audio' };
-    }
     const phrase = formatAmharicBallCall(number);
     if (await speakWindowsSapi(phrase, 'am-ET')) {
       return { success: true, engine: 'windows-sapi' };
