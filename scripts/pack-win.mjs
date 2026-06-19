@@ -93,7 +93,7 @@ run('node scripts/validate-release.mjs');
 console.log('\n→ Creating Windows installer + portable...\n');
 const productName = brand.appName.replace(/"/g, '\\"');
 run(
-  `npx electron-builder --win --config electron-builder.yml --config.productName="${productName}" --config.nsis.shortcutName="${productName}" --config.nsis.uninstallDisplayName="${productName}"`,
+  `npx electron-builder --win --publish never --config electron-builder.yml --config.productName="${productName}" --config.nsis.shortcutName="${productName}" --config.nsis.uninstallDisplayName="${productName}"`,
 );
 
 console.log('\n→ Verifying packaged app contents...\n');

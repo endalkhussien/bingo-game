@@ -21,6 +21,8 @@ asarUnpack:
 
 npmRebuild: true
 buildDependenciesFromSource: false
+# Local/CI builds only produce release/*.exe — no GitHub publish (avoids GH_TOKEN requirement in Actions)
+publish: null
 win:
   # 64-bit only — Windows 8, 8.1, 10, and 11 (Electron 22 does not support 32-bit shops)
   target:
