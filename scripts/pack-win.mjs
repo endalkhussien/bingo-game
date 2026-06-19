@@ -46,6 +46,29 @@ function ensureAmharicAudio() {
   }
 }
 
+function ensureAppIcon() {
+  const logoSvg = path.join(root, 'public', 'brand', 'logo.svg');
+  const iconIco = path.join(root, 'public', 'brand', 'icon.ico');
+  const iconPng = path.join(root, 'public', 'brand', 'icon.png');
+
+  if (!fs.existsSync(logoSvg)) {
+    console.error('\nMissing public/brand/logo.svg — cannot build Windows icon.\n');
+    process.exit(1);
+  }
+
+  const iconsExist = fs.existsSync(iconIco) && fs.existsSync(iconPng);
+  const logoChanged =
+    iconsExist && fs.statSync(logoSvg).mtimeMs > fs.statSync(iconIco).mtimeMs;
+
+  if (iconsExist && !logoChanged) {
+    console.log('→ App icon: public/brand/icon.ico OK\n');
+    return;
+  }
+
+  console.log('→ App icon: generating from logo.svg...\n');
+  run('node scripts/generate-app-icon.mjs');
+}
+
 const brand = loadBrand();
 
 console.log('========================================');
@@ -54,7 +77,7 @@ console.log('========================================\n');
 
 ensureAmharicAudio();
 
-run('node scripts/generate-app-icon.mjs');
+ensureAppIcon();
 
 run('node scripts/clean-build.mjs');
 
@@ -70,7 +93,7 @@ run('node scripts/validate-release.mjs');
 console.log('\n→ Creating Windows installer + portable...\n');
 const productName = brand.appName.replace(/"/g, '\\"');
 run(
-  `npx electron-builder --win --config electron-builder.yml --config.productName="${productName}" --config.nsis.shortcutName="${productName}" --config.nsis.uninstallDisplayName="${productName}"`,
+  `npx electron-builder --win --publish never --config electron-builder.yml --config.productName="${productName}" --config.nsis.shortcutName="${productName}" --config.nsis.uninstallDisplayName="${productName}"`,
 );
 
 console.log('\n→ Verifying packaged app contents...\n');

@@ -6,8 +6,20 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import sharp from 'sharp';
-import pngToIco from 'png-to-ico';
+
+let sharp;
+let pngToIco;
+try {
+  sharp = (await import('sharp')).default;
+  pngToIco = (await import('png-to-ico')).default;
+} catch {
+  console.error(
+    'Missing dev dependencies for icon generation (sharp, png-to-ico).\n' +
+      'Run: npm install\n' +
+      'Or use committed icons: public/brand/icon.ico + icon.png',
+  );
+  process.exit(1);
+}
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const logoSvg = path.join(root, 'public/brand/logo.svg');
