@@ -1,11 +1,11 @@
 ================================================================================
-  TEBIB-BINGO v1.0.0 — Agent Quick Guide (REAL SHOPS)
+  WALIYA v1.0.0 — Agent Quick Guide (REAL SHOPS)
 ================================================================================
 
 INSTALL (once per hall PC)
 --------------------------
-1. Run TEBIB-Bingo-Setup-1.0.0.exe
-2. Install -> open TEBIB-Bingo from Desktop
+1. Run Waliya-Setup-1.0.0.exe
+2. Install -> open Waliya from Desktop
 
 FIRST TIME ON THIS PC (REQUIRED)
 --------------------------------
@@ -15,7 +15,7 @@ FIRST TIME ON THIS PC (REQUIRED)
     - TAS- setup code (long code starting with TAS-)
 
   On YOUR hall PC:
-    1. Open TEBIB-Bingo
+    1. Open Waliya
     2. Login screen -> click "Activate PC"
     3. Paste the full TAS- code from admin
     4. Click "Activate this PC"
@@ -42,6 +42,21 @@ RUN A GAME
   4. Press green START button -> numbers 1-75 call with voice
   5. STOP to pause, RESUME to continue
   6. BINGO! -> verify cartella -> End Game
+
+  Cartella voice: when you tap a cartella number, you hear "ካርቴላ …"
+  (mute/unmute on the game board). Uses bundled Amharic clips offline.
+
+VOICE QUALITY (optional — for your own recordings)
+--------------------------------------------------
+  Best quality: record your own voice once, then rebuild the installer.
+    npm run recording:script   -> checklist of all phrases
+    Put ball calls in:         public/audio/   (B1.mp3 … O75.mp3)
+    Put cartella picks in:     public/sounds/cartella/  (1.mp3 … 500.mp3)
+    npm run validate:audio && npm run pack:win
+
+  Fallback without recording: app ships auto-generated Amharic clips
+  (Google TTS at build time). Windows Amharic language pack improves
+  speech fallback if a clip is missing.
 
 DEMO (testing one PC only)
 --------------------------

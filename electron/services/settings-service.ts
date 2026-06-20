@@ -10,7 +10,7 @@ const DEFAULTS: Record<string, string> = {
   currency: 'ETB',
   timezone: 'Africa/Addis_Ababa',
   default_voice: 'AMHARIC_MALE',
-  default_language: 'en',
+  default_language: 'am',
   number_range_max: '75',
 };
 

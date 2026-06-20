@@ -16,6 +16,7 @@ import { ensureBrandLogoImported, getBrandLogoPath } from './brand-logo.mjs';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, '..');
 const soundsDir = path.join(root, 'public', 'sounds', 'am');
+const cartellaDir = path.join(root, 'public', 'sounds', 'cartella');
 const ballCallDir = path.join(root, 'public', 'audio');
 
 const buildEnv = {
@@ -33,17 +34,31 @@ function run(cmd, env = {}) {
 }
 
 function ensureAmharicAudio() {
+  const brand = loadBrand();
+  const requiredCartella = brand.initialCartellaCount ?? 150;
+
   const ballCallCount = fs.existsSync(ballCallDir)
     ? fs.readdirSync(ballCallDir).filter((f) => f.endsWith('.mp3')).length
     : 0;
   const fallbackCount = fs.existsSync(soundsDir)
     ? fs.readdirSync(soundsDir).filter((f) => f.endsWith('.mp3')).length
     : 0;
-  if (ballCallCount < 75 || fallbackCount < 75) {
-    console.log(`\n→ Ball-call audio: ${ballCallCount}/75 combined, ${fallbackCount}/75 fallback — generating...\n`);
+  const cartellaCount = fs.existsSync(cartellaDir)
+    ? fs.readdirSync(cartellaDir).filter((f) => f.endsWith('.mp3')).length
+    : 0;
+
+  const needsBall = ballCallCount < 75 || fallbackCount < 75;
+  const needsCartella = cartellaCount < requiredCartella;
+
+  if (needsBall || needsCartella) {
+    console.log(
+      `\n→ Audio: ${ballCallCount}/75 ball, ${fallbackCount}/75 fallback, ${cartellaCount}/${requiredCartella} cartella — generating...\n`,
+    );
     run('node scripts/generate-amharic-audio.mjs');
   } else {
-    console.log(`\n→ Ball-call audio: ${ballCallCount} combined + ${fallbackCount} fallback OK\n`);
+    console.log(
+      `\n→ Audio OK: ${ballCallCount} ball + ${fallbackCount} fallback + ${cartellaCount} cartella\n`,
+    );
   }
 }
 
