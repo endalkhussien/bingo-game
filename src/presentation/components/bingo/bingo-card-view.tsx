@@ -9,11 +9,13 @@ interface BingoCardViewProps {
   cardNumber: string;
   grid: number[][];
   onSave?: (grid: number[][]) => Promise<void> | void;
+  /** @deprecated Use onSave — opens edit mode and saves edited grid */
+  onUpdate?: () => void;
   onDelete?: () => void;
   compact?: boolean;
 }
 
-export function BingoCardView({ cardNumber, grid, onSave, onDelete, compact }: BingoCardViewProps) {
+export function BingoCardView({ cardNumber, grid, onSave, onUpdate, onDelete, compact }: BingoCardViewProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<number[][]>(grid);
   const [error, setError] = useState('');
@@ -106,7 +108,7 @@ export function BingoCardView({ cardNumber, grid, onSave, onDelete, compact }: B
         </div>
       </div>
       {error && <p className="mt-2 text-center text-xs text-red-300">{error}</p>}
-      {(onSave || onDelete) && (
+      {(onSave || onUpdate || onDelete) && (
         <div className="mt-3 flex gap-2">
           {editing ? (
             <>
@@ -128,10 +130,10 @@ export function BingoCardView({ cardNumber, grid, onSave, onDelete, compact }: B
             </>
           ) : (
             <>
-              {onSave && (
+              {(onSave || onUpdate) && (
                 <button
                   type="button"
-                  onClick={startEdit}
+                  onClick={onSave ? startEdit : onUpdate}
                   className="flex-1 rounded-md bg-yellow-500 py-1.5 text-xs font-semibold text-white hover:bg-yellow-600"
                 >
                   Update
