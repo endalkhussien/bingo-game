@@ -1,8 +1,8 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Lock } from 'lucide-react';
+import { Lock, Shuffle } from 'lucide-react';
 import { cn } from '@/presentation/lib/utils';
 
 interface NumberGridProps {
@@ -10,31 +10,94 @@ interface NumberGridProps {
   selectedSet: Set<number>;
   onToggle: (num: number) => void;
   onClear: () => void;
+  onShuffle?: () => void;
+  shuffled?: boolean;
   disabled?: boolean;
   lockedSet?: Set<string | number>;
+  title?: string;
+  clearLabel?: string;
+  shuffleLabel?: string;
+  shuffledLabel?: string;
+}
+
+function shuffleArray<T>(arr: T[]): T[] {
+  const copy = [...arr];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
 }
 
 /** Bold cartella picker — large cells, green = selected, grey = available */
-export function NumberGrid({ availableNumbers, selectedSet, onToggle, onClear, disabled, lockedSet }: NumberGridProps) {
-  const numbers = useMemo(
+export function NumberGrid({
+  availableNumbers,
+  selectedSet,
+  onToggle,
+  onClear,
+  onShuffle,
+  shuffled,
+  disabled,
+  lockedSet,
+  title = 'Select Cartellas',
+  clearLabel = 'Clear Cards',
+  shuffleLabel = 'Shuffle',
+  shuffledLabel = 'Shuffled!',
+}: NumberGridProps) {
+  const [displayOrder, setDisplayOrder] = useState<number[]>([]);
+  const [justShuffled, setJustShuffled] = useState(false);
+
+  const sortedAvailable = useMemo(
     () => [...availableNumbers].sort((a, b) => a - b),
     [availableNumbers],
   );
 
+  const numbers = useMemo(() => {
+    if (displayOrder.length === sortedAvailable.length
+      && displayOrder.every((n) => sortedAvailable.includes(n))) {
+      return displayOrder;
+    }
+    return sortedAvailable;
+  }, [displayOrder, sortedAvailable]);
+
+  const handleShuffle = () => {
+    setDisplayOrder(shuffleArray(sortedAvailable));
+    setJustShuffled(true);
+    window.setTimeout(() => setJustShuffled(false), 2000);
+    onShuffle?.();
+  };
+
   return (
     <div>
-      <div className="mb-3 flex items-center justify-between">
-        <p className="text-lg font-black uppercase tracking-wide text-gray-800">Select Cartellas</p>
-        {!disabled && (
-          <button
-            type="button"
-            onClick={onClear}
-            disabled={selectedSet.size === 0}
-            className="text-sm font-bold text-red-600 hover:text-red-800 disabled:opacity-40"
-          >
-            Clear Cards
-          </button>
-        )}
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <p className="text-lg font-black uppercase tracking-wide text-gray-800">{title}</p>
+        <div className="flex items-center gap-3">
+          {(justShuffled || shuffled) && (
+            <span className="animate-pulse rounded-full bg-purple-100 px-3 py-1 text-xs font-bold text-purple-700">
+              {shuffledLabel}
+            </span>
+          )}
+          {!disabled && sortedAvailable.length > 0 && (
+            <button
+              type="button"
+              onClick={handleShuffle}
+              className="inline-flex items-center gap-1.5 text-sm font-bold text-purple-700 hover:text-purple-900"
+            >
+              <Shuffle className="h-4 w-4" />
+              {shuffleLabel}
+            </button>
+          )}
+          {!disabled && (
+            <button
+              type="button"
+              onClick={onClear}
+              disabled={selectedSet.size === 0}
+              className="text-sm font-bold text-red-600 hover:text-red-800 disabled:opacity-40"
+            >
+              {clearLabel}
+            </button>
+          )}
+        </div>
       </div>
 
       {numbers.length === 0 ? (

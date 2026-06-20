@@ -161,6 +161,9 @@ export async function updateCard(cardId: string, agentId: string, grid: number[]
   const now = Math.floor(Date.now() / 1000);
   const card = await db.select().from(bingoCards).where(eq(bingoCards.id, cardId)).get();
   if (!card || card.agentId !== agentId) throw new Error('Card not found');
+  if (!isValidBingoGrid(grid)) {
+    throw new Error('Invalid card — each B-I-N-G-O column must use its number range (1–75).');
+  }
 
   await db.update(bingoCards).set({
     cardData: serializeCardData(grid),

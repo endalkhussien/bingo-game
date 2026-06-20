@@ -92,10 +92,6 @@ export function speakCartella(number: number, voiceType: string, language: strin
   queue = queue.then(async () => {
     const payload = buildCartellaAnnouncement(number, voiceType, language);
 
-    if (payload.isAmharic && await playAmharicBall(number)) {
-      return;
-    }
-
     if (isElectron()) {
       const result = await ipc<{ success: boolean }>('tts:speak', number, voiceType, language, 'cartella');
       if (result?.success) return;

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { ipc } from '@/presentation/lib/ipc';
 import { formatBirr, formatDate } from '@/presentation/lib/utils';
 
@@ -15,6 +15,25 @@ interface GameReport {
   status: string;
 }
 
+function toDateInput(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+function rangeForFrequency(frequency: string): { start: string; end: string } {
+  const today = new Date();
+  const end = toDateInput(today);
+  if (frequency === 'Weekly') {
+    const start = new Date(today);
+    start.setDate(start.getDate() - 6);
+    return { start: toDateInput(start), end };
+  }
+  if (frequency === 'Monthly') {
+    const start = new Date(today.getFullYear(), today.getMonth(), 1);
+    return { start: toDateInput(start), end };
+  }
+  return { start: end, end };
+}
+
 export default function ReportsPage() {
   const [games, setGames] = useState<GameReport[]>([]);
   const [status, setStatus] = useState('ALL');
@@ -24,15 +43,22 @@ export default function ReportsPage() {
   const [page, setPage] = useState(1);
   const perPage = 10;
 
-  const loadGames = async () => {
+  useEffect(() => {
+    const { start, end } = rangeForFrequency(frequency);
+    setStartDate(start);
+    setEndDate(end);
+    setPage(1);
+  }, [frequency]);
+
+  const loadGames = useCallback(async () => {
     const filters: Record<string, unknown> = { status };
     if (startDate) filters.startDate = new Date(startDate).getTime() / 1000;
     if (endDate) filters.endDate = new Date(endDate).getTime() / 1000 + 86400;
     const data = await ipc<GameReport[]>('games:list', filters);
     setGames(data ?? []);
-  };
+  }, [status, startDate, endDate]);
 
-  useEffect(() => { loadGames(); }, [status, startDate, endDate]);
+  useEffect(() => { void loadGames(); }, [loadGames]);
 
   const totalGames = games.length;
   const totalProfit = games.reduce((s, g) => s + g.profit, 0);
@@ -43,7 +69,7 @@ export default function ReportsPage() {
     <div>
       <div className="mb-6 grid grid-cols-2 gap-4">
         <div className="rounded-xl bg-gray-200 p-6 text-center shadow-sm">
-          <p className="text-sm text-gray-600">Total Games</p>
+          <p className="text-sm text-gray-600">Total Games ({frequency})</p>
           <p className="text-3xl font-bold text-gray-900">{totalGames}</p>
         </div>
         <div className="rounded-xl bg-gray-200 p-6 text-center shadow-sm">
@@ -66,10 +92,10 @@ export default function ReportsPage() {
           <option>Weekly</option>
           <option>Monthly</option>
         </select>
-        <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
-          className="rounded-lg border border-gray-300 px-3 py-2 text-sm" placeholder="Start Date" />
-        <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)}
-          className="rounded-lg border border-gray-300 px-3 py-2 text-sm" placeholder="End Date" />
+        <input type="date" value={startDate} onChange={(e) => { setStartDate(e.target.value); setPage(1); }}
+          className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+        <input type="date" value={endDate} onChange={(e) => { setEndDate(e.target.value); setPage(1); }}
+          className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
       </div>
 
       <div className="overflow-hidden rounded-xl bg-white shadow-sm">
@@ -86,7 +112,7 @@ export default function ReportsPage() {
           </thead>
           <tbody>
             {paged.length === 0 ? (
-              <tr><td colSpan={6} className="px-4 py-12 text-center text-gray-500">No games found.</td></tr>
+              <tr><td colSpan={6} className="px-4 py-12 text-center text-gray-500">No games found for this period.</td></tr>
             ) : paged.map((game, i) => (
               <tr key={game.id} className="border-t border-gray-100 hover:bg-gray-50">
                 <td className="px-4 py-3">{(page - 1) * perPage + i + 1}</td>

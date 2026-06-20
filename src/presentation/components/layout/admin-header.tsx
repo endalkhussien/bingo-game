@@ -6,7 +6,6 @@ import { User, Wallet } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/presentation/providers/auth-provider';
 import { APP_NAME } from '@/shared/brand';
-import { ModeBadge } from '@/presentation/components/shared/mode-badge';
 import { ipc } from '@/presentation/lib/ipc';
 import { SHOP_ADMIN_WALLET } from '@/shared/admin-routes';
 
@@ -44,7 +43,6 @@ export function AdminHeader() {
     <header className="flex items-center justify-between border-b border-gray-200 bg-white px-6 py-3">
       <div className="flex items-center gap-3">
         <span className="text-sm font-semibold text-gray-700">{APP_NAME}</span>
-        <ModeBadge />
       </div>
       <div className="flex items-center gap-4">
         {shopBalance != null && (

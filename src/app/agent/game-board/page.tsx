@@ -1,12 +1,11 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, Volume2, VolumeX } from 'lucide-react';
 import { ipc } from '@/presentation/lib/ipc';
 import { useAuth } from '@/presentation/providers/auth-provider';
+import { useUiLanguage } from '@/presentation/providers/ui-language-provider';
 import { NumberGrid } from '@/presentation/components/bingo/number-grid';
-import { CalledNumbersModal } from '@/presentation/components/bingo/called-numbers-modal';
-import { CalledNumbersStrip } from '@/presentation/components/bingo/called-numbers-strip';
 import { CheckCardModal } from '@/presentation/components/bingo/check-card-modal';
 import { WINNING_PATTERNS, DRAW_INTERVALS, VOICE_TYPES, MIN_BET, DEFAULT_JACKPOT_MAX_CALLS, DEFAULT_CALL_COOLDOWN_MS, GAME_START_BREATH_MS, GAME_START_DELAY_MS, GAME_COMMISSION_OPTIONS, MIN_PLAYERS_TO_START } from '@/shared/constants';
 import { DRAW_BALL_COUNT } from '@/shared/brand';
@@ -93,6 +92,7 @@ function buildLiveSnapshot(
 
 export default function GameBoardPage() {
   const { agent, refreshBalance } = useAuth();
+  const { language: uiLang, t } = useUiLanguage();
   const [betAmount, setBetAmount] = useState('10');
   const [interval, setInterval_] = useState(DEFAULT_CALL_COOLDOWN_MS);
   const [pattern, setPattern] = useState('FIRST_LINE');
@@ -113,9 +113,12 @@ export default function GameBoardPage() {
   const [callerLocked, setCallerLocked] = useState(false);
   const [checkModalOpen, setCheckModalOpen] = useState(false);
   const [bingoClaimActive, setBingoClaimActive] = useState(false);
-  const [calledModalOpen, setCalledModalOpen] = useState(false);
   const [gameWinners, setGameWinners] = useState<GameWinner[]>([]);
   const [commissionPercent, setCommissionPercent] = useState('10');
+  const [showCommission, setShowCommission] = useState(false);
+  const [cartellaVoiceMuted, setCartellaVoiceMuted] = useState(false);
+
+  const CARTELLA_VOICE_KEY = 'waliya-cartella-voice-muted';
 
   const adminCommissionRate = agent?.adminCommissionRate ?? 20;
   const walletBalance = agent?.walletBalance ?? 0;
@@ -191,6 +194,13 @@ export default function GameBoardPage() {
   useEffect(() => { gameWinnersRef.current = gameWinners; }, [gameWinners]);
 
   useEffect(() => { loadVoices(); preloadBallCallClips(); }, []);
+  useEffect(() => {
+    setCartellaVoiceMuted(localStorage.getItem(CARTELLA_VOICE_KEY) === '1');
+  }, []);
+  useEffect(() => {
+    handleLanguageChange(uiLang);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uiLang]);
   useEffect(() => {
     ipc<{ cardNumber: string }[]>('cards:list').then((rows) => {
       setAvailableCartellas((rows ?? []).map((c) => Number(c.cardNumber)).filter((n) => Number.isFinite(n)));
@@ -275,7 +285,9 @@ export default function GameBoardPage() {
       if (prev.includes(num)) {
         return prev.filter((n) => n !== num);
       }
-      speakCartella(num, voice, language);
+      if (!cartellaVoiceMuted) {
+        speakCartella(num, voice, language);
+      }
       return [...prev, num];
     });
   };
@@ -710,7 +722,6 @@ export default function GameBoardPage() {
       setBingoClaimActive(false);
       setLiveAnnouncement(null);
       setCheckModalOpen(false);
-      setCalledModalOpen(false);
       setHallMode(false);
       broadcastLiveGame({ type: 'game-ended' });
       await ipc('window:close-caller-display').catch(() => {});
@@ -773,6 +784,7 @@ export default function GameBoardPage() {
             open={checkModalOpen}
             onClose={() => setCheckModalOpen(false)}
             calledNumbers={called}
+            lastDrawn={lastDrawn}
             gamePattern={activeGame?.winningPattern ?? pattern}
             onValidate={handleValidateCard}
             onInvalidClaim={(result) => handleInvalidBingoClaim(result)}
@@ -833,17 +845,35 @@ export default function GameBoardPage() {
             </div>
 
             <div className="flex flex-col gap-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Commission %</span>
-              <select
-                value={commissionPercent}
-                onChange={(e) => setCommissionPercent(e.target.value)}
-                disabled={!!activeGame}
-                className="h-14 w-[5.5rem] rounded-lg border-2 border-gray-300 bg-white px-2 text-center text-lg font-bold text-gray-900 focus:border-amber-500 focus:outline-none disabled:bg-gray-100"
-              >
-                {GAME_COMMISSION_OPTIONS.map((pct) => (
-                  <option key={pct} value={String(pct)}>{pct}%</option>
-                ))}
-              </select>
+              {!showCommission ? (
+                <button
+                  type="button"
+                  onClick={() => setShowCommission(true)}
+                  disabled={!!activeGame}
+                  className="h-14 min-w-[5.5rem] rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 px-3 text-center text-lg font-bold text-gray-700 hover:border-amber-400 hover:bg-amber-50 disabled:bg-gray-100"
+                >
+                  {commissionPercent}%
+                </button>
+              ) : (
+                <>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">{t('commission')}</span>
+                  <select
+                    value={commissionPercent}
+                    onChange={(e) => {
+                      setCommissionPercent(e.target.value);
+                      setShowCommission(false);
+                    }}
+                    onBlur={() => setShowCommission(false)}
+                    autoFocus
+                    disabled={!!activeGame}
+                    className="h-14 w-[5.5rem] rounded-lg border-2 border-amber-400 bg-white px-2 text-center text-lg font-bold text-gray-900 focus:outline-none disabled:bg-gray-100"
+                  >
+                    {GAME_COMMISSION_OPTIONS.map((pct) => (
+                      <option key={pct} value={String(pct)}>{pct}%</option>
+                    ))}
+                  </select>
+                </>
+              )}
             </div>
 
             {betError && <p className="w-full text-sm font-semibold text-red-600">{betError}</p>}
@@ -857,12 +887,29 @@ export default function GameBoardPage() {
             </button>
           </div>
 
-          <div className="mb-3 flex items-center gap-2 text-sm">
-            <span className="font-medium text-gray-700">Profit:</span>
-            <span className="font-semibold">{showProfit ? `${profit.toFixed(2)} ETB` : '******'}</span>
-            <button type="button" onClick={() => setShowProfit(!showProfit)} className="text-blue-500">
-              {showProfit ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </button>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-sm">
+              <span className="font-medium text-gray-700">Profit:</span>
+              <span className="font-semibold">{showProfit ? `${profit.toFixed(2)} ETB` : '******'}</span>
+              <button type="button" onClick={() => setShowProfit(!showProfit)} className="text-blue-500">
+                {showProfit ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+            {!activeGame && (
+              <button
+                type="button"
+                onClick={() => {
+                  const next = !cartellaVoiceMuted;
+                  setCartellaVoiceMuted(next);
+                  localStorage.setItem(CARTELLA_VOICE_KEY, next ? '1' : '0');
+                }}
+                className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                title={cartellaVoiceMuted ? t('unmute') : t('mute')}
+              >
+                {cartellaVoiceMuted ? <VolumeX className="h-4 w-4 text-red-500" /> : <Volume2 className="h-4 w-4 text-green-600" />}
+                {t('cartellaVoice')}: {cartellaVoiceMuted ? t('mute') : t('unmute')}
+              </button>
+            )}
           </div>
 
           {!activeGame && walletBalance <= 0 && (
@@ -884,6 +931,10 @@ export default function GameBoardPage() {
             onToggle={toggleNumber}
             onClear={() => setSelected([])}
             disabled={!canPickCartellas}
+            title={t('selectCartellas')}
+            clearLabel={t('clearCards')}
+            shuffleLabel={t('shuffle')}
+            shuffledLabel={t('shuffled')}
           />
         </div>
       )}

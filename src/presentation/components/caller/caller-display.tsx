@@ -44,6 +44,7 @@ function CallerDisplayView({
 }) {
   const [previewCards, setPreviewCards] = useState<PreviewCard[]>([]);
   const [previewIndex, setPreviewIndex] = useState(0);
+  const [shuffleFlash, setShuffleFlash] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [stickyBall, setStickyBall] = useState<number | null>(null);
 
@@ -98,7 +99,17 @@ function CallerDisplayView({
 
   const handleShufflePreview = () => {
     if (previewCards.length <= 1) return;
-    setPreviewIndex((i) => (i + 1) % previewCards.length);
+    setPreviewCards((cards) => {
+      const shuffled = [...cards];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+      return shuffled;
+    });
+    setPreviewIndex(0);
+    setShuffleFlash(true);
+    window.setTimeout(() => setShuffleFlash(false), 2000);
   };
 
   return (
@@ -155,7 +166,12 @@ function CallerDisplayView({
                 {game.language === 'am' ? 'ጨዋታ ጀመረች' : 'Game has started'}
               </p>
             ) : displayBall !== null ? (
-              <div className="flex h-40 w-40 items-center justify-center rounded-full border-[5px] border-black bg-white lg:h-52 lg:w-52">
+              <div className={cn(
+                'flex h-40 w-40 items-center justify-center rounded-full border-[5px] lg:h-52 lg:w-52',
+                isPaused || claimActive
+                  ? 'border-[#facc15] bg-[#facc15] text-[#111827] shadow-lg ring-4 ring-[#fde047]'
+                  : 'border-black bg-white',
+              )}>
                 <span className="text-8xl font-black lg:text-[7rem]">{displayBall}</span>
               </div>
             ) : (
@@ -183,7 +199,13 @@ function CallerDisplayView({
       <footer className="flex shrink-0 items-center justify-between gap-4 border-t border-white/10 px-6 py-5">
         <div className="w-32 shrink-0 lg:w-36">
           {previewCard ? (
-            <MinchCartellaPreview grid={previewCard.grid} calledSet={calledSet} compact />
+            <div>
+              <p className="mb-1 text-center text-[10px] font-bold text-[#facc15]">
+                #{previewCard.cardNumber}
+                {shuffleFlash && <span className="ml-1 text-white">· Shuffled!</span>}
+              </p>
+              <MinchCartellaPreview grid={previewCard.grid} calledSet={calledSet} compact />
+            </div>
           ) : (
             <div className="rounded-md border-2 border-dashed border-white/20 p-4 text-center text-xs text-white/40">
               Cartella
@@ -229,7 +251,10 @@ function CallerDisplayView({
             <button
               type="button"
               onClick={handleShufflePreview}
-              className="inline-flex min-h-[3.5rem] min-w-[8rem] items-center justify-center gap-2 rounded-2xl bg-[#8b5cf6] px-6 py-4 text-lg font-bold text-white shadow-lg hover:bg-[#7c3aed]"
+              className={cn(
+                'inline-flex min-h-[3.5rem] min-w-[8rem] items-center justify-center gap-2 rounded-2xl px-6 py-4 text-lg font-bold text-white shadow-lg',
+                shuffleFlash ? 'bg-[#a855f7] ring-2 ring-[#fde047]' : 'bg-[#8b5cf6] hover:bg-[#7c3aed]',
+              )}
             >
               <Shuffle className="h-6 w-6" /> Shuffle
             </button>

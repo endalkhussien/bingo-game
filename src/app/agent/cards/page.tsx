@@ -28,8 +28,8 @@ export default function CardsPage() {
 
   useEffect(() => { loadCards(); }, []);
 
-  const handleRegenerate = async (id: string) => {
-    await ipc('cards:regenerate', id);
+  const handleSaveGrid = async (id: string, grid: number[][]) => {
+    await ipc('cards:update', id, grid);
     await loadCards();
   };
 
@@ -84,7 +84,7 @@ export default function CardsPage() {
       <div className="mb-6 rounded-xl border border-indigo-100 bg-indigo-50/50 p-4">
         <h2 className="text-sm font-semibold text-indigo-900">Add a cartella</h2>
         <p className="mt-1 text-xs text-indigo-800">
-          Enter the cartella number you want (e.g. 151, 200, 300). Each gets a random 5×5 grid — use <strong>Update</strong> on the card to shuffle numbers.
+          Enter the cartella number you want (e.g. 151, 200, 500). Press <strong>Update</strong> on a card to edit its numbers.
         </p>
         <div className="mt-4 flex flex-wrap items-end gap-3">
           <div>
@@ -127,7 +127,7 @@ export default function CardsPage() {
               key={card.id}
               cardNumber={card.cardNumber}
               grid={card.grid}
-              onUpdate={() => handleRegenerate(card.id)}
+              onSave={(grid) => handleSaveGrid(card.id, grid)}
               onDelete={() => handleDelete(card.id, card.cardNumber)}
             />
           ))}

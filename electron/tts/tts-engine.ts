@@ -228,10 +228,6 @@ export async function speakNumber(
 
   const payload = buildCartellaAnnouncement(number, voiceType, language);
 
-  if (payload.isAmharic && number <= DRAW_BALL_COUNT && await playBundledAmharic(number)) {
-    return { success: true, engine: 'bundled-amharic-audio' };
-  }
-
   if (await speakWindowsSapi(payload.text, payload.lang)) {
     return { success: true, engine: 'windows-sapi' };
   }

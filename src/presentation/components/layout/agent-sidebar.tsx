@@ -5,20 +5,21 @@ import { usePathname } from 'next/navigation';
 import { Gamepad2, CreditCard, BarChart3, RefreshCw, LogOut } from 'lucide-react';
 import { cn } from '@/presentation/lib/utils';
 import { useAuth } from '@/presentation/providers/auth-provider';
+import { useUiLanguage } from '@/presentation/providers/ui-language-provider';
 import { APP_NAME, APP_TAGLINE } from '@/shared/brand';
 import { AppLogo } from '@/presentation/components/shared/app-logo';
-
-/** Waliya sidebar — Game Board, Bingo Cards, Reports, Recharge */
-const navItems = [
-  { href: '/agent/game-board', label: 'Game Board', icon: Gamepad2 },
-  { href: '/agent/cards', label: 'Bingo Cards', icon: CreditCard },
-  { href: '/agent/reports', label: 'Reports', icon: BarChart3 },
-  { href: '/agent/recharge', label: 'Recharge Balance', icon: RefreshCw },
-];
 
 export function AgentSidebar() {
   const pathname = usePathname();
   const { logout } = useAuth();
+  const { t } = useUiLanguage();
+
+  const navItems = [
+    { href: '/agent/game-board', label: t('gameBoard'), icon: Gamepad2 },
+    { href: '/agent/cards', label: t('bingoCards'), icon: CreditCard },
+    { href: '/agent/reports', label: t('reports'), icon: BarChart3 },
+    { href: '/agent/recharge', label: t('rechargeBalance'), icon: RefreshCw },
+  ];
 
   return (
     <aside className="flex w-56 flex-col bg-[#1a1410] text-white">
@@ -55,7 +56,7 @@ export function AgentSidebar() {
           className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-300 hover:bg-[#334155]/60"
         >
           <LogOut className="h-4 w-4" />
-          Logout
+          {t('logout')}
         </button>
       </div>
     </aside>
