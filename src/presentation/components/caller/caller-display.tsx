@@ -136,7 +136,7 @@ function CallerDisplayView({
 
       <div className="flex shrink-0 items-center justify-between px-6 py-4">
         <div className="flex items-center gap-4">
-          <AppLogo size={64} className="rounded-xl shadow-md ring-2 ring-amber-400/20" />
+          <AppLogo size={96} className="rounded-xl shadow-md ring-2 ring-amber-400/25" />
           <span className="text-lg font-semibold text-gray-200">Recent Draws:</span>
           <div className="flex items-center gap-2">
             {recent.length === 0 ? (
