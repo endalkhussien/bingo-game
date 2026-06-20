@@ -8,7 +8,9 @@ import {
   serializeCardData,
   parseCardData,
   isValidBingoGrid,
+  validateBingoGrid,
 } from '../../src/domain/services/card-generator';
+import { INITIAL_CARTELLA_COUNT } from '../../src/shared/brand';
 
 function nextCardNumber(existing: { cardNumber: string }[]): string | null {
   const used = new Set(existing.map((c) => c.cardNumber));
@@ -48,6 +50,12 @@ export async function ensureCardsExist(agentId: string, cardNumbers: number[]): 
   return created;
 }
 
+/** Create cartella #1–{INITIAL_CARTELLA_COUNT} when an agent is first set up. */
+export async function ensureInitialDeck(agentId: string): Promise<number> {
+  const numbers = Array.from({ length: INITIAL_CARTELLA_COUNT }, (_, i) => i + 1);
+  return ensureCardsExist(agentId, numbers);
+}
+
 /** Create cartella #1–{CARTELLA_MAX}, each with a random 5×5 grid (numbers 1–75) */
 export async function ensureFullDeck(agentId: string): Promise<number> {
   const numbers = Array.from({ length: CARTELLA_MAX }, (_, i) => i + 1);
@@ -76,7 +84,6 @@ export async function rebuildDeck(agentId: string, regenerateAll = false): Promi
 }
 
 export async function listCards(agentId: string) {
-  await rebuildDeck(agentId, false);
   const db = getDb();
   const cards = await db.select().from(bingoCards).where(eq(bingoCards.agentId, agentId)).all();
   return cards
@@ -161,8 +168,9 @@ export async function updateCard(cardId: string, agentId: string, grid: number[]
   const now = Math.floor(Date.now() / 1000);
   const card = await db.select().from(bingoCards).where(eq(bingoCards.id, cardId)).get();
   if (!card || card.agentId !== agentId) throw new Error('Card not found');
-  if (!isValidBingoGrid(grid)) {
-    throw new Error('Invalid card — each B-I-N-G-O column must use its number range (1–75).');
+  const validationError = validateBingoGrid(grid);
+  if (validationError) {
+    throw new Error(validationError);
   }
 
   await db.update(bingoCards).set({

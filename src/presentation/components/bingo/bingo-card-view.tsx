@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { BINGO_COLUMNS, BINGO_COLUMN_COLORS, COLUMN_RANGES } from '@/shared/constants';
 import { Star } from 'lucide-react';
-import { isValidBingoGrid } from '@/domain/services/card-generator';
+import { validateBingoGrid } from '@/domain/services/card-generator';
 
 interface BingoCardViewProps {
   cardNumber: string;
@@ -49,8 +49,9 @@ export function BingoCardView({ cardNumber, grid, onSave, onUpdate, onDelete, co
 
   const handleSave = async () => {
     if (!onSave) return;
-    if (!isValidBingoGrid(draft)) {
-      setError('Each column must use its B-I-N-G-O number range. Center must be Free.');
+    const validationError = validateBingoGrid(draft);
+    if (validationError) {
+      setError(validationError);
       return;
     }
     setSaving(true);

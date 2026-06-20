@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ipc } from '@/presentation/lib/ipc';
 import { BingoCardView } from '@/presentation/components/bingo/bingo-card-view';
 import { CARTELLA_MAX } from '@/shared/constants';
+import { INITIAL_CARTELLA_COUNT } from '@/shared/brand';
 
 interface CardItem {
   id: string;
@@ -18,6 +19,7 @@ export default function CardsPage() {
   const [manualNumber, setManualNumber] = useState('');
   const [creating, setCreating] = useState(false);
   const [createMsg, setCreateMsg] = useState('');
+  const [saveMsg, setSaveMsg] = useState('');
 
   const loadCards = async () => {
     setLoading(true);
@@ -28,9 +30,15 @@ export default function CardsPage() {
 
   useEffect(() => { loadCards(); }, []);
 
-  const handleSaveGrid = async (id: string, grid: number[][]) => {
-    await ipc('cards:update', id, grid);
+  const handleSaveGrid = async (id: string, cardNumber: string, grid: number[][]) => {
+    setSaveMsg('');
+    const result = await ipc<{ success?: boolean; error?: string }>('cards:update', id, grid);
+    if (result && typeof result === 'object' && 'error' in result && result.error) {
+      throw new Error(String(result.error));
+    }
     await loadCards();
+    setSaveMsg(`Cartella #${cardNumber} saved.`);
+    window.setTimeout(() => setSaveMsg(''), 3000);
   };
 
   const handleDelete = async (id: string, cardNumber: string) => {
@@ -69,8 +77,8 @@ export default function CardsPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Bingo Cards (Cartella)</h1>
           <p className="mt-1 text-sm text-gray-500">
-            Your deck — {cards.length} cartella{cards.length === 1 ? '' : 's'} (#1–{CARTELLA_MAX} max).
-            Add new numbers only when you need them.
+            Your deck — {cards.length} cartella{cards.length === 1 ? '' : 's'}.
+            Default deck is #1–{INITIAL_CARTELLA_COUNT}; you can add up to #{CARTELLA_MAX} manually.
           </p>
         </div>
         <Link
@@ -81,10 +89,16 @@ export default function CardsPage() {
         </Link>
       </div>
 
+      {saveMsg && (
+        <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
+          {saveMsg}
+        </div>
+      )}
+
       <div className="mb-6 rounded-xl border border-indigo-100 bg-indigo-50/50 p-4">
         <h2 className="text-sm font-semibold text-indigo-900">Add a cartella</h2>
         <p className="mt-1 text-xs text-indigo-800">
-          Enter the cartella number you want (e.g. 151, 200, 500). Press <strong>Update</strong> on a card to edit its numbers.
+          Enter a cartella number (e.g. 151, 200, 300). Press <strong>Update</strong> on a card, edit numbers, then <strong>Save</strong>.
         </p>
         <div className="mt-4 flex flex-wrap items-end gap-3">
           <div>
@@ -127,7 +141,7 @@ export default function CardsPage() {
               key={card.id}
               cardNumber={card.cardNumber}
               grid={card.grid}
-              onSave={(grid) => handleSaveGrid(card.id, grid)}
+              onSave={(grid) => handleSaveGrid(card.id, card.cardNumber, grid)}
               onDelete={() => handleDelete(card.id, card.cardNumber)}
             />
           ))}
