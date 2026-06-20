@@ -1,6 +1,6 @@
 import { CARTELLA_COUNT } from './brand';
 
-/** Cartella card numbers — 1 to 150 (each card grid uses numbers 1–75) */
+/** Cartella card numbers — 1 to cartellaCount (each card grid uses numbers 1–75) */
 export const CARTELLA_MAX = CARTELLA_COUNT;
 export const MIN_BET = 10;
 export const CURRENCY = 'ETB';

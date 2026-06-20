@@ -7,6 +7,7 @@ interface BingoCardVerifyViewProps {
   cardNumber: string;
   grid: number[][];
   calledNumbers: number[];
+  lastDrawn?: number | null;
   compact?: boolean;
 }
 
@@ -15,6 +16,7 @@ export function BingoCardVerifyView({
   cardNumber,
   grid,
   calledNumbers,
+  lastDrawn = null,
   compact,
 }: BingoCardVerifyViewProps) {
   const called = new Set(calledNumbers);
@@ -32,16 +34,19 @@ export function BingoCardVerifyView({
             row.map((cell, ci) => {
               const isFree = cell === -1;
               const isCalled = isFree || called.has(cell);
+              const isLastCall = !isFree && cell === lastDrawn;
               return (
                 <div
                   key={`${ri}-${ci}`}
                   className={cn(
                     'flex h-10 items-center justify-center text-sm font-bold',
-                    isFree
-                      ? 'bg-emerald-500 text-white'
-                      : isCalled
+                    isLastCall
+                      ? 'bg-[#facc15] text-[#111827] ring-2 ring-[#fde047] ring-inset'
+                      : isFree
                         ? 'bg-emerald-500 text-white'
-                        : 'bg-red-500 text-white',
+                        : isCalled
+                          ? 'bg-emerald-500 text-white'
+                          : 'bg-red-500 text-white',
                   )}
                 >
                   {isFree ? 'Free' : cell}

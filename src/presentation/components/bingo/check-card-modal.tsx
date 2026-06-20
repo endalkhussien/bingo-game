@@ -8,10 +8,14 @@ import { WINNING_PATTERNS } from '@/shared/constants';
 import { cn } from '@/presentation/lib/utils';
 import type { CardGrid } from '@/domain/services/card-generator';
 
+import { getBallLabel } from '@/domain/services/bingo-engine';
+import { formatBallCallLabel } from '@/shared/tts/ball-call';
+
 interface CheckCardModalProps {
   open: boolean;
   onClose: () => void;
   calledNumbers: number[];
+  lastDrawn?: number | null;
   gamePattern?: string;
   onValidate: (cardNumber: string) => Promise<{
     valid: boolean;
@@ -40,6 +44,7 @@ export function CheckCardModal({
   open,
   onClose,
   calledNumbers,
+  lastDrawn = null,
   gamePattern,
   onValidate,
   onInvalidClaim,
@@ -91,6 +96,16 @@ export function CheckCardModal({
           </button>
         </div>
 
+        {lastDrawn !== null && (
+          <div className="mb-4 flex items-center justify-center gap-3 rounded-xl bg-[#fef9c3] px-4 py-4 ring-2 ring-[#facc15]">
+            <p className="text-sm font-bold text-[#854d0e]">Last call</p>
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#facc15] text-2xl font-black text-[#111827] shadow-lg ring-4 ring-[#fde047]">
+              {lastDrawn}
+            </div>
+            <p className="text-sm font-semibold text-[#854d0e]">{getBallLabel(lastDrawn).replace('-', ' ')}</p>
+          </div>
+        )}
+
         <label className="mb-1 block text-sm font-medium text-gray-700">Enter Card Number</label>
         <div className="mb-4 flex gap-2">
           <input
@@ -118,6 +133,7 @@ export function CheckCardModal({
               cardNumber={result?.cardNumber ?? cardNumber}
               grid={result!.grid!}
               calledNumbers={displayCalled}
+              lastDrawn={lastDrawn ?? (displayCalled.length ? displayCalled[displayCalled.length - 1] : null)}
             />
           </div>
         )}

@@ -4,7 +4,7 @@
   "logoFile": "logo.png",
   "iconFile": "icon.ico",
   "initialCartellaCount": 150,
-  "cartellaCount": 300,
+  "cartellaCount": 500,
   "primaryColor": "#b45309",
   "accentColor": "#7c3aed"
 }
