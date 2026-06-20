@@ -2,6 +2,7 @@
 
 import { CARTELLA_MAX, DEFAULT_CALL_COOLDOWN_MS } from '@/shared/constants';
 import { INITIAL_CARTELLA_COUNT } from '@/shared/brand';
+import { validateBingoGrid } from '@/domain/services/card-generator';
 import { readPersistedLiveGame } from '@/presentation/lib/live-game-sync';
 import { generateAdminActivationCode, hashAdminActivationCode, parseAdminActivationCode } from '@/shared/voucher/admin-activation-code';
 import { generateVendorTopupCode, parseVendorTopupCode, hashVendorTopupCode } from '@/shared/voucher/vendor-topup-code';
@@ -435,7 +436,17 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
     return { success: true, grid: card.grid };
   },
   'cards:delete': async (id: unknown) => { const i = mockCards.findIndex(c => c.id === id); if (i >= 0) mockCards.splice(i, 1); return { success: true }; },
-  'cards:update': async () => ({ success: true }),
+  'cards:update': async (id: unknown, grid: unknown) => {
+    const card = mockCards.find((c) => c.id === id);
+    if (!card) throw new Error('Card not found');
+    const nextGrid = grid as number[][];
+    const err = validateBingoGrid(nextGrid);
+    if (err) throw new Error(err);
+    card.grid = nextGrid;
+    card.cardData = JSON.stringify({ grid: nextGrid, freeCell: { row: 2, col: 2 } });
+    card.updatedAt = Date.now() / 1000;
+    return { success: true };
+  },
   'cards:generate': async (count: unknown) => { const r = []; for (let i = 0; i < Number(count); i++) { const c = await mockHandlers['cards:create'](); if (c && !('error' in (c as object))) r.push(c); else break; } return r; },
 
   'window:open-caller-display': async () => {

@@ -51,13 +51,14 @@ export function serializeCardData(grid: CardGrid): string {
 
 const BINGO_COL_KEYS = ['B', 'I', 'N', 'G', 'O'] as const;
 
-/** Verify each column only contains numbers from its 1–75 B-I-N-G-O range */
+/** Verify B-I-N-G-O column ranges, free center, and no duplicates per column. */
 export function isValidBingoGrid(grid: CardGrid): boolean {
   if (!grid || grid.length !== 5 || grid.some((row) => row.length !== 5)) return false;
 
   for (let colIdx = 0; colIdx < 5; colIdx++) {
     const col = BINGO_COL_KEYS[colIdx];
     const [min, max] = COLUMN_RANGES[col];
+    const seen = new Set<number>();
     for (let row = 0; row < 5; row++) {
       if (col === 'N' && row === 2) {
         if (grid[row][colIdx] !== -1) return false;
@@ -65,7 +66,34 @@ export function isValidBingoGrid(grid: CardGrid): boolean {
       }
       const value = grid[row][colIdx];
       if (typeof value !== 'number' || value < min || value > max) return false;
+      if (seen.has(value)) return false;
+      seen.add(value);
     }
   }
   return true;
+}
+
+export function validateBingoGrid(grid: CardGrid): string | null {
+  if (!grid || grid.length !== 5 || grid.some((row) => row.length !== 5)) {
+    return 'Card must be a 5×5 grid.';
+  }
+
+  for (let colIdx = 0; colIdx < 5; colIdx++) {
+    const col = BINGO_COL_KEYS[colIdx];
+    const [min, max] = COLUMN_RANGES[col];
+    const seen = new Set<number>();
+    for (let row = 0; row < 5; row++) {
+      if (col === 'N' && row === 2) {
+        if (grid[row][colIdx] !== -1) return 'Center cell must be Free.';
+        continue;
+      }
+      const value = grid[row][colIdx];
+      if (typeof value !== 'number' || !Number.isFinite(value) || value < min || value > max) {
+        return `${col} column: use numbers ${min}–${max} only (row ${row + 1}).`;
+      }
+      if (seen.has(value)) return `${col} column: number ${value} is used twice.`;
+      seen.add(value);
+    }
+  }
+  return null;
 }

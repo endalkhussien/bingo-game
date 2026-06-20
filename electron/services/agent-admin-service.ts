@@ -8,7 +8,7 @@ import { createNotification } from './notification-service';
 import { generateAgentSetupCode, parseAgentSetupCode } from '../../src/shared/voucher/agent-setup-code';
 import { getOrganizationVoucherSecret } from './voucher-secret-service';
 import { setOrganizationVoucherSecret } from './voucher-secret-service';
-import { ensureFullDeck } from './card-service';
+import { ensureInitialDeck } from './card-service';
 import { normalizeUsername, isValidAgentUsername } from '../../src/shared/auth/normalize-username';
 
 export async function listAgents() {
@@ -145,7 +145,7 @@ export async function activateAgentFromSetup(setupCode: string) {
         status: 'ACTIVE',
         updatedAt: now,
       }).where(eq(agents.id, agent.id));
-      await ensureFullDeck(agent.id);
+      await ensureInitialDeck(agent.id);
       return { success: true, data: { username, message: 'Agent account updated on this PC. You can log in now.' } };
     }
   }
@@ -175,7 +175,7 @@ export async function activateAgentFromSetup(setupCode: string) {
     updatedAt: now,
   });
 
-  await ensureFullDeck(agentId);
+  await ensureInitialDeck(agentId);
 
   return {
     success: true,
