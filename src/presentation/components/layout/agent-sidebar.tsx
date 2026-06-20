@@ -23,9 +23,9 @@ export function AgentSidebar() {
 
   return (
     <aside className="flex w-56 flex-col bg-[#1a1410] text-white">
-      <div className="flex items-center gap-2 border-b border-amber-900/40 px-4 py-5">
-        <AppLogo size={72} className="rounded-2xl shadow-md ring-2 ring-amber-500/20" />
-        <div>
+      <div className="flex flex-col items-center gap-3 border-b border-amber-900/40 px-3 py-5">
+        <AppLogo size={96} className="rounded-xl shadow-md ring-2 ring-amber-500/30" />
+        <div className="text-center">
           <div className="text-sm font-bold leading-tight">{APP_NAME}</div>
           <div className="text-[10px] text-amber-200/50">{APP_TAGLINE}</div>
         </div>

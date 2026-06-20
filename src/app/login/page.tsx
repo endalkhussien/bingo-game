@@ -10,14 +10,6 @@ import { getPostLoginPath, getShopAdminEntryPath, ROLE_OPERATOR } from '@/shared
 import { TextInput } from '@/presentation/components/shared/text-input';
 import { TextArea } from '@/presentation/components/shared/text-area';
 
-const BINGO_LETTERS = [
-  { letter: 'B', color: 'bg-red-500' },
-  { letter: 'I', color: 'bg-blue-500' },
-  { letter: 'N', color: 'bg-green-500' },
-  { letter: 'G', color: 'bg-yellow-500' },
-  { letter: 'O', color: 'bg-purple-500' },
-];
-
 export default function LoginPage() {
   const [mode, setMode] = useState<'login' | 'activate'>('login');
   const [username, setUsername] = useState('');
@@ -93,15 +85,8 @@ export default function LoginPage() {
       <div className="relative z-10 flex w-full flex-col lg:flex-row">
         <div className="flex flex-1 flex-col justify-between px-8 py-10 lg:px-14 lg:py-12">
           <div>
-            <div className="mb-6 flex items-center gap-4">
-              <AppLogo size={128} className="rounded-2xl shadow-lg ring-2 ring-amber-400/30" />
-              <div className="flex gap-2">
-                {BINGO_LETTERS.map(({ letter, color }) => (
-                  <div key={letter} className={`flex h-10 w-10 items-center justify-center rounded-lg ${color} text-lg font-black text-white shadow`}>
-                    {letter}
-                  </div>
-                ))}
-              </div>
+            <div className="mb-8">
+              <AppLogo size={140} className="rounded-2xl shadow-xl ring-2 ring-amber-400/40" />
             </div>
             <h1 className="text-4xl font-black tracking-tight text-white lg:text-5xl">{APP_NAME}</h1>
             <p className="mt-3 text-lg text-slate-300">{APP_TAGLINE}</p>

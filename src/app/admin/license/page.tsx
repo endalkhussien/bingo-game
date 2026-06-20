@@ -84,7 +84,7 @@ export default function AdminLicensePage() {
   return (
     <div className="mx-auto max-w-2xl px-4 py-8 sm:px-6">
       <div className="mb-8 text-center">
-        <AppLogo size={112} className="mx-auto rounded-2xl shadow-lg ring-2 ring-amber-400/30" />
+        <AppLogo size={140} className="mx-auto rounded-2xl shadow-xl ring-2 ring-amber-400/40" />
         <h1 className="mt-4 text-3xl font-black text-white sm:text-4xl">{APP_NAME}</h1>
         <p className="mt-2 text-xl font-bold text-amber-400">Shop Admin — Enter Activation Key</p>
         <p className="mt-1 text-lg text-amber-100/60">የሱቅ አድሚን — የማግበር ቁልፍ ያስገቡ</p>

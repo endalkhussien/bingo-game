@@ -41,14 +41,15 @@ async function main() {
     process.exit(1);
   }
 
+  const iconBg = { r: 0, g: 0, b: 0, alpha: 1 };
+
   const logo = fs.readFileSync(logoPath);
-  const pipeline = sharp(logo).resize(256, 256, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } });
-  await pipeline.png().toFile(iconPng);
+  await sharp(logo).resize(256, 256, { fit: 'contain', background: iconBg }).png().toFile(iconPng);
 
   const pngBuffers = await Promise.all(
     sizes.map((size) =>
       sharp(logo)
-        .resize(size, size, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+        .resize(size, size, { fit: 'contain', background: iconBg })
         .png()
         .toBuffer(),
     ),
