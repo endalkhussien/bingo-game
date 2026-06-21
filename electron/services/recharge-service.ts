@@ -1,7 +1,7 @@
 import { v4 as uuid } from 'uuid';
 import { eq, desc, and } from 'drizzle-orm';
 import { getDb } from './database-service';
-import { rechargeRequests, agents, users, walletTransactions } from '../../src/infrastructure/database/schema';
+import { rechargeRequests, agents, users } from '../../src/infrastructure/database/schema';
 import { logAudit } from './audit-service';
 import { createNotification } from './notification-service';
 
@@ -44,34 +44,11 @@ export async function listRechargeRequests(filters?: { status?: string; agentId?
   return result;
 }
 
-export async function approveRecharge(adminId: string, requestId: string) {
-  const db = getDb();
-  const now = Math.floor(Date.now() / 1000);
-  const req = await db.select().from(rechargeRequests).where(eq(rechargeRequests.id, requestId)).get();
-  if (!req || req.status !== 'PENDING') return { success: false, error: 'Request not found or already processed' };
-
-  const agent = await db.select().from(agents).where(eq(agents.id, req.agentId)).get();
-  if (!agent) return { success: false, error: 'Agent not found' };
-
-  const newBalance = agent.walletBalance + req.amount;
-  await db.update(rechargeRequests).set({ status: 'APPROVED', reviewedBy: adminId, reviewedAt: now })
-    .where(eq(rechargeRequests.id, requestId));
-  await db.update(agents).set({ walletBalance: newBalance, updatedAt: now }).where(eq(agents.id, req.agentId));
-  await db.insert(walletTransactions).values({
-    id: uuid(), agentId: req.agentId, amount: req.amount, transactionType: 'RECHARGE',
-    referenceType: 'recharge_request', referenceId: requestId,
-    description: `Recharge approved: ${req.amount} ETB`, balanceAfter: newBalance, createdAt: now,
-  });
-
-  const agentUser = await db.select().from(users).where(eq(users.id, agent.userId)).get();
-  if (agentUser) {
-    await createNotification({
-      userId: agentUser.id, type: 'RECHARGE_APPROVED',
-      title: 'Recharge Approved', message: `Your recharge of ${req.amount} ETB has been approved.`,
-    });
-  }
-  await logAudit({ userId: adminId, action: 'APPROVE', entityType: 'recharge_request', entityId: requestId });
-  return { success: true };
+export async function approveRecharge(_adminId: string, _requestId: string) {
+  return {
+    success: false,
+    error: 'Manual recharge approval is disabled. Generate a TBG code for this agent (uses your shop TVP balance).',
+  };
 }
 
 export async function rejectRecharge(adminId: string, requestId: string, reason?: string) {

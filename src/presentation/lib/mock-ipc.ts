@@ -402,7 +402,10 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
     if (f?.status) rows = rows.filter(r => r.status === f.status);
     return rows;
   },
-  'recharge:approve': async (id: unknown) => { const r = mockRechargeRequests.find(x => x.id === id); if (r) { r.status = 'APPROVED'; mockBalance += Number(r.amount); } return { success: true }; },
+  'recharge:approve': async () => ({
+    success: false,
+    error: 'Manual recharge approval is disabled. Generate a TBG code for this agent.',
+  }),
   'recharge:reject': async (id: unknown) => { const r = mockRechargeRequests.find(x => x.id === id); if (r) r.status = 'REJECTED'; return { success: true }; },
   'recharge:pending-count': async () => { requireShopAdminSession(); return mockRechargeRequests.filter(r => r.status === 'PENDING').length; },
 
@@ -493,8 +496,8 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
     const rate = c.commissionRate ?? currentSession?.agent?.commissionRate ?? 20;
     const commission = pot * (rate / 100);
     const prize = pot - commission;
-    if (mockBalance + pot < prize) {
-      return { success: false, error: `Insufficient balance to cover winner prize (${prize.toFixed(0)} ETB).` };
+    if (mockBalance < prize) {
+      return { success: false, error: `Insufficient wallet balance (${mockBalance.toFixed(0)} ETB). Need at least ${prize.toFixed(0)} ETB. Ask admin for a TBG recharge code.` };
     }
     const agentId = getCurrentAgentId();
     ensureMockDeck(agentId);
@@ -511,8 +514,6 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
     };
     mockGames.push(game);
     touchMockActiveGame(game as MockActiveGame);
-    mockBalance += pot;
-    if (currentSession?.agent) currentSession.agent.walletBalance = mockBalance;
     return { success: true, data: game };
   },
   'games:active': async () => {

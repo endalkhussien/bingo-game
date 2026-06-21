@@ -23,6 +23,11 @@ export default function AdminRechargePage() {
   return (
     <div>
       <PageHeader title="Recharge Requests" />
+      <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+        Agent balance is added only via <strong>TBG codes</strong> from{' '}
+        <a href="/admin/vouchers/" className="font-semibold text-indigo-700 underline">Recharge (TBG)</a>.
+        Manual approval is disabled — reject old requests and issue a TBG code instead.
+      </p>
       <div className="mb-4 flex gap-2">
         {['PENDING', 'APPROVED', 'REJECTED', 'ALL'].map((t) => (
           <button key={t} onClick={() => setTab(t)}
