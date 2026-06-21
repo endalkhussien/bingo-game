@@ -115,7 +115,6 @@ export default function GameBoardPage() {
   const [bingoClaimActive, setBingoClaimActive] = useState(false);
   const [gameWinners, setGameWinners] = useState<GameWinner[]>([]);
   const [commissionPercent, setCommissionPercent] = useState('10');
-  const [showCommission, setShowCommission] = useState(false);
   const [cartellaVoiceMuted, setCartellaVoiceMuted] = useState(false);
 
   const CARTELLA_VOICE_KEY = 'waliya-cartella-voice-muted';
@@ -197,7 +196,6 @@ export default function GameBoardPage() {
   useEffect(() => { loadVoices(); preloadBallCallClips(); }, []);
   useEffect(() => {
     if (activeGame) {
-      setShowCommission(false);
       setShowProfit(false);
     }
   }, [activeGame?.id]);
@@ -853,37 +851,16 @@ export default function GameBoardPage() {
 
             <div className="flex flex-col gap-1">
               <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">{t('commission')}</span>
-              <div className="flex h-14 items-center gap-1.5">
-                {showCommission ? (
-                  <select
-                    value={commissionPercent}
-                    onChange={(e) => setCommissionPercent(e.target.value)}
-                    disabled={!!activeGame}
-                    className="h-14 w-[5.5rem] rounded-lg border-2 border-blue-400 bg-white px-2 text-center text-lg font-bold text-blue-700 focus:outline-none disabled:bg-gray-100"
-                  >
-                    {GAME_COMMISSION_OPTIONS.map((pct) => (
-                      <option key={pct} value={String(pct)}>{pct}%</option>
-                    ))}
-                  </select>
-                ) : (
-                  <div
-                    className="flex h-14 min-w-[5.5rem] items-center justify-center rounded-lg border-2 border-gray-300 bg-gray-50 px-3 text-lg font-bold text-blue-600"
-                    aria-hidden
-                  >
-                    **%
-                  </div>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setShowCommission(!showCommission)}
-                  disabled={!!activeGame}
-                  className="rounded p-1 text-blue-600 hover:bg-blue-50 disabled:opacity-40"
-                  title={showCommission ? t('hide') : t('show')}
-                  aria-label={showCommission ? t('hide') : t('show')}
-                >
-                  {showCommission ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
+              <select
+                value={commissionPercent}
+                onChange={(e) => setCommissionPercent(e.target.value)}
+                disabled={!!activeGame}
+                className="h-14 min-w-[5.5rem] rounded-lg border-2 border-gray-300 bg-white px-2 text-center text-lg font-bold text-gray-900 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200 disabled:bg-gray-100"
+              >
+                {GAME_COMMISSION_OPTIONS.map((pct) => (
+                  <option key={pct} value={String(pct)}>{pct}%</option>
+                ))}
+              </select>
             </div>
 
             {betError && <p className="w-full text-sm font-semibold text-red-600">{betError}</p>}
