@@ -1,11 +1,6 @@
-/** Bundled MP3 paths for game events (custom recordings in public/audio or public/sounds/am). */
+/** Bundled MP3 paths for game events (custom recordings in public/audio). */
 
-export const GAME_STARTED_CLIPS = [
-  'audio/game_started.mp3',
-  'sounds/am/game-started.mp3',
-  'audio/game-started.mp3',
-] as const;
-
+export const GAME_STARTED_CLIP = 'audio/game_started.mp3';
 export const GAME_STOPPED_CLIP = 'audio/game_stopped.mp3';
 export const GAME_CONTINUED_CLIP = 'audio/game_continued.mp3';
 export const WINNER_CLIP = 'audio/winner.mp3';

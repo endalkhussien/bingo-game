@@ -3,7 +3,7 @@ import { formatAmharicBallCall, getBallCallAudioKey } from '@/shared/tts/amharic
 import {
   CARTELLA_LOCKED_CLIP,
   GAME_CONTINUED_CLIP,
-  GAME_STARTED_CLIPS,
+  GAME_STARTED_CLIP,
   GAME_STOPPED_CLIP,
   NOT_WINNER_CLIP,
   WINNER_CLIP,
@@ -155,15 +155,8 @@ export async function playEventClip(relativePath: string): Promise<boolean> {
   return playUrl(eventClipUrl(relativePath));
 }
 
-export async function playFirstAvailableClip(paths: readonly string[]): Promise<boolean> {
-  for (const path of paths) {
-    if (await playEventClip(path)) return true;
-  }
-  return false;
-}
-
 export function playGameStartedClip(): Promise<boolean> {
-  return playFirstAvailableClip(GAME_STARTED_CLIPS);
+  return playEventClip(GAME_STARTED_CLIP);
 }
 
 export function playGameStoppedClip(): Promise<boolean> {
