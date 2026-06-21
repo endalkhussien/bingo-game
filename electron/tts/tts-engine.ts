@@ -6,9 +6,6 @@ import { promisify } from 'util';
 import { app } from 'electron';
 import { buildCartellaAnnouncement } from '../../src/shared/tts/voice-map';
 import { getBallCallSpeechParts } from '../../src/shared/tts/ball-call';
-import { formatAmharicBallCall } from '../../src/shared/tts/amharic-ball-call';
-import { DRAW_BALL_COUNT } from '../../src/shared/brand';
-import { getBallLetter } from '../../src/domain/services/bingo-engine';
 
 const execFileAsync = promisify(execFile);
 
@@ -200,25 +197,18 @@ async function speakEspeak(text: string, lang: string, preferFemale: boolean): P
   return false;
 }
 
-/** Combined Amharic phrase — MP3 is played in renderer; this is speech-only fallback. */
+/** Combined Amharic phrase — MP3 only in renderer; never use Windows SAPI here. */
 export async function speakBallCall(
   number: number,
   language: string,
   voiceType: string,
 ): Promise<SpeakResult> {
+  if (language === 'am') {
+    return { success: false, error: 'Amharic ball calls use bundled MP3 in the app window.' };
+  }
+
   const preferFemale = voiceType.includes('FEMALE');
   const { letter, numberText } = getBallCallSpeechParts(number, language);
-
-  if (language === 'am' && number <= DRAW_BALL_COUNT) {
-    const phrase = formatAmharicBallCall(number);
-    if (await speakWindowsSapi(phrase, 'am-ET')) {
-      return { success: true, engine: 'windows-sapi' };
-    }
-    if (await speakEspeak(phrase, 'am-ET', preferFemale)) {
-      return { success: true, engine: 'espeak-ng' };
-    }
-    return { success: false, error: 'No Amharic voice for ball call.' };
-  }
 
   if (letter) {
     if (!(await playEnglishLetter(letter))) {
@@ -251,19 +241,18 @@ export async function speakNumber(
 
   const payload = buildCartellaAnnouncement(number, voiceType, language);
 
-  if (payload.isAmharic && await playBundledCartella(number)) {
-    return { success: true, engine: 'bundled-mp3' };
+  if (payload.isAmharic) {
+    if (await playBundledCartella(number)) {
+      return { success: true, engine: 'bundled-mp3' };
+    }
+    return { success: false, error: 'Cartella MP3 missing.' };
   }
 
   if (await speakWindowsSapi(payload.text, payload.lang)) {
     return { success: true, engine: 'windows-sapi' };
   }
 
-  if (payload.isAmharic && await speakEspeak(payload.text, payload.lang, voiceType.includes('FEMALE'))) {
-    return { success: true, engine: 'espeak-ng' };
-  }
-
-  if (!payload.isAmharic && await speakEspeak(payload.text, 'en', voiceType.includes('FEMALE'))) {
+  if (await speakEspeak(payload.text, 'en', voiceType.includes('FEMALE'))) {
     return { success: true, engine: 'espeak-ng' };
   }
 
@@ -271,6 +260,10 @@ export async function speakNumber(
 }
 
 export async function speakPlainText(text: string, lang: string, voiceType: string): Promise<SpeakResult> {
+  if (lang.startsWith('am')) {
+    return { success: false, error: 'Amharic uses bundled MP3 in the app window.' };
+  }
+
   const preferFemale = voiceType.includes('FEMALE');
   if (await speakWindowsSapi(text, lang)) {
     return { success: true, engine: 'windows-sapi' };

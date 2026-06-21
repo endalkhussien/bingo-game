@@ -1,7 +1,7 @@
 import { formatAmharicBallCall } from '@/shared/tts/amharic-ball-call';
 import { getBallCallSpeechParts } from '@/shared/tts/ball-call';
 import { buildCartellaAnnouncement, buildGameStartedAnnouncement } from '@/shared/tts/voice-map';
-import { playBallCallAudio, playCartellaClip, playGameStartedClip } from './amharic-audio';
+import { playBallCallAudio, playCartellaClip, playGameStartedClip, cancelBrowserSpeech } from './amharic-audio';
 import { ipc } from './ipc';
 import { isElectron } from '@/shared/runtime';
 
@@ -57,8 +57,12 @@ async function speakBrowser(text: string, lang: string, preferFemale: boolean): 
   });
 }
 
-/** Play ball call — bundled MP3 in renderer first, then speech fallback. */
+/** Play ball call — Amharic uses bundled MP3 only (no system TTS). */
 export async function speakBallCall(number: number, voiceType: string, language: string): Promise<boolean> {
+  if (language === 'am') {
+    return playBallCallAudio(number, language);
+  }
+
   const preferFemale = voiceType.includes('FEMALE');
   const { letter, numberText } = getBallCallSpeechParts(number, language);
 
@@ -73,10 +77,6 @@ export async function speakBallCall(number: number, voiceType: string, language:
     }
   }
 
-  if (language === 'am') {
-    return speakBrowser(formatAmharicBallCall(number), 'am-ET', preferFemale);
-  }
-
   if (letter) {
     return speakBrowser(`${letter} ${numberText}`, 'en-US', preferFemale);
   }
@@ -86,7 +86,10 @@ export async function speakBallCall(number: number, voiceType: string, language:
 
 export function speakCartella(number: number, voiceType: string, language: string): void {
   queue = queue.then(async () => {
-    if (language === 'am' && await playCartellaClip(number)) return;
+    if (language === 'am') {
+      await playCartellaClip(number);
+      return;
+    }
 
     if (isElectron()) {
       const result = await ipc<{ success: boolean }>('tts:speak', number, voiceType, language, 'cartella');
@@ -98,8 +101,10 @@ export function speakCartella(number: number, voiceType: string, language: strin
   });
 }
 
-/** Speak arbitrary announcement text (game started, etc.). */
+/** Speak arbitrary announcement text (English / non-Amharic only). */
 export async function speakPlainText(text: string, lang: string, voiceType: string): Promise<void> {
+  if (lang.startsWith('am')) return;
+
   const preferFemale = voiceType.includes('FEMALE');
   if (isElectron()) {
     const result = await ipc<{ success: boolean }>('tts:speak-text', text, lang, voiceType);
@@ -108,9 +113,12 @@ export async function speakPlainText(text: string, lang: string, voiceType: stri
   await speakBrowser(text, lang, preferFemale);
 }
 
-/** Announce \"Game has started\" before the first ball is called. */
+/** Announce game start — Amharic uses game_started.mp3 only. */
 export async function speakGameStarted(voiceType: string, language: string): Promise<void> {
-  if (language === 'am' && await playGameStartedClip()) return;
+  if (language === 'am') {
+    await playGameStartedClip();
+    return;
+  }
   const payload = buildGameStartedAnnouncement(language, voiceType);
   await speakPlainText(payload.text, payload.lang, voiceType);
 }

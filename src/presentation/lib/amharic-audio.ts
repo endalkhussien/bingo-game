@@ -75,7 +75,7 @@ function waitForCanPlay(audio: HTMLAudioElement, timeoutMs: number): Promise<boo
   });
 }
 
-function playUrl(url: string): Promise<boolean> {
+function playUrl(url: string, readyTimeoutMs = 2500): Promise<boolean> {
   if (typeof window === 'undefined') return Promise.resolve(false);
 
   return new Promise((resolve) => {
@@ -98,13 +98,14 @@ function playUrl(url: string): Promise<boolean> {
 
     void (async () => {
       try {
+        cancelBrowserSpeech();
         if (currentAudio) {
           currentAudio.pause();
           currentAudio.currentTime = 0;
         }
         currentAudio = audio;
 
-        const ready = await waitForCanPlay(audio, 2500);
+        const ready = await waitForCanPlay(audio, readyTimeoutMs);
         if (!ready) {
           settle(false);
           return;
@@ -121,6 +122,13 @@ function playUrl(url: string): Promise<boolean> {
   });
 }
 
+/** Stop any MP3 and browser/system speech so clips never overlap TTS. */
+export function cancelBrowserSpeech(): void {
+  if (typeof window !== 'undefined' && window.speechSynthesis) {
+    window.speechSynthesis.cancel();
+  }
+}
+
 /** Warm browser cache for all 75 ball-call clips (call once when game board loads). */
 export function preloadBallCallClips(): void {
   if (typeof window === 'undefined') return;
@@ -131,7 +139,27 @@ export function preloadBallCallClips(): void {
   }
 }
 
+const GAME_EVENT_CLIPS = [
+  GAME_STARTED_CLIP,
+  GAME_STOPPED_CLIP,
+  GAME_CONTINUED_CLIP,
+  WINNER_CLIP,
+  NOT_WINNER_CLIP,
+  CARTELLA_LOCKED_CLIP,
+] as const;
+
+/** Warm cache for game event clips so game_started plays on first Play click. */
+export function preloadGameEventClips(): void {
+  if (typeof window === 'undefined') return;
+  for (const clip of GAME_EVENT_CLIPS) {
+    const audio = new Audio(eventClipUrl(clip));
+    audio.preload = 'auto';
+    audio.load();
+  }
+}
+
 export function stopCurrentAudio(): void {
+  cancelBrowserSpeech();
   if (currentAudio) {
     currentAudio.pause();
     currentAudio.currentTime = 0;
@@ -152,7 +180,7 @@ function eventClipUrl(relativePath: string): string {
 }
 
 export async function playEventClip(relativePath: string): Promise<boolean> {
-  return playUrl(eventClipUrl(relativePath));
+  return playUrl(eventClipUrl(relativePath), 5000);
 }
 
 export function playGameStartedClip(): Promise<boolean> {
@@ -189,21 +217,14 @@ export async function playEnglishBingoLetter(letter: string): Promise<boolean> {
 }
 
 export async function playBallCallAudio(number: number, language: string): Promise<boolean> {
-  if (language === 'am' && await playBallCallClip(number)) {
-    return true;
+  if (language === 'am') {
+    return playBallCallClip(number);
   }
 
   const letter = getBallLetter(number);
-  if (!letter) {
-    return language === 'am' ? playAmharicBall(number) : false;
-  }
+  if (!letter) return false;
 
-  const letterPlayed = await playEnglishBingoLetter(letter);
-  if (language === 'am') {
-    const numberPlayed = await playAmharicBall(number);
-    return letterPlayed || numberPlayed;
-  }
-  return letterPlayed;
+  return playEnglishBingoLetter(letter);
 }
 
 export function getBallCallDisplayText(number: number, language: string): string {
