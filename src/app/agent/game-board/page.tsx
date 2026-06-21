@@ -18,6 +18,7 @@ import { formatBallCallLabel } from '@/shared/tts/ball-call';
 import { calculateTotalPot, calculateGameEconomics, calculateWinnerPrize } from '@/shared/prize';
 import { broadcastLiveGame, subscribeGameControl, toHallSnapshot, type LiveGameSnapshot, type CallingPhase, type LiveGameAnnouncement } from '@/presentation/lib/live-game-sync';
 import { CallerDisplay, HallModeOverlay } from '@/presentation/components/caller/caller-display';
+import { cn } from '@/presentation/lib/utils';
 
 interface GameWinner {
   cardNumber: string;
@@ -851,16 +852,27 @@ export default function GameBoardPage() {
 
             <div className="flex flex-col gap-1">
               <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">{t('commission')}</span>
-              <select
-                value={commissionPercent}
-                onChange={(e) => setCommissionPercent(e.target.value)}
-                disabled={!!activeGame}
-                className="h-14 min-w-[5.5rem] rounded-lg border-2 border-gray-300 bg-white px-2 text-center text-lg font-bold text-gray-900 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200 disabled:bg-gray-100"
-              >
-                {GAME_COMMISSION_OPTIONS.map((pct) => (
-                  <option key={pct} value={String(pct)}>{pct}%</option>
-                ))}
-              </select>
+              <div className="flex h-14 items-center gap-2">
+                {GAME_COMMISSION_OPTIONS.map((pct) => {
+                  const selected = commissionPercent === String(pct);
+                  return (
+                    <button
+                      key={pct}
+                      type="button"
+                      disabled={!!activeGame}
+                      onClick={() => setCommissionPercent(String(pct))}
+                      aria-label={t('commission')}
+                      aria-pressed={selected}
+                      className={cn(
+                        'h-12 w-14 shrink-0 rounded-lg bg-[#e8eaf2] transition-shadow disabled:cursor-not-allowed disabled:opacity-50',
+                        selected
+                          ? 'border-2 border-amber-500 shadow-[0_0_0_2px_rgba(245,158,11,0.35)]'
+                          : 'border-2 border-transparent hover:border-gray-300',
+                      )}
+                    />
+                  );
+                })}
+              </div>
             </div>
 
             {betError && <p className="w-full text-sm font-semibold text-red-600">{betError}</p>}
