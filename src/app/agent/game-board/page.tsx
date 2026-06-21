@@ -116,6 +116,8 @@ export default function GameBoardPage() {
   const [bingoClaimActive, setBingoClaimActive] = useState(false);
   const [gameWinners, setGameWinners] = useState<GameWinner[]>([]);
   const [commissionPercent, setCommissionPercent] = useState('10');
+  const [commissionPickerOpen, setCommissionPickerOpen] = useState(false);
+  const commissionPickerRef = useRef<HTMLDivElement>(null);
   const [cartellaVoiceMuted, setCartellaVoiceMuted] = useState(false);
 
   const CARTELLA_VOICE_KEY = 'waliya-cartella-voice-muted';
@@ -198,8 +200,19 @@ export default function GameBoardPage() {
   useEffect(() => {
     if (activeGame) {
       setShowProfit(false);
+      setCommissionPickerOpen(false);
     }
   }, [activeGame?.id]);
+
+  useEffect(() => {
+    if (!commissionPickerOpen) return;
+    const onPointerDown = (event: MouseEvent) => {
+      if (commissionPickerRef.current?.contains(event.target as Node)) return;
+      setCommissionPickerOpen(false);
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    return () => document.removeEventListener('mousedown', onPointerDown);
+  }, [commissionPickerOpen]);
   useEffect(() => {
     setCartellaVoiceMuted(localStorage.getItem(CARTELLA_VOICE_KEY) === '1');
   }, []);
@@ -850,29 +863,43 @@ export default function GameBoardPage() {
               </select>
             </div>
 
-            <div className="flex flex-col gap-1">
+            <div ref={commissionPickerRef} className="relative flex flex-col gap-1">
               <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">{t('commission')}</span>
-              <div className="flex h-14 items-center gap-2">
-                {GAME_COMMISSION_OPTIONS.map((pct) => {
-                  const selected = commissionPercent === String(pct);
-                  return (
-                    <button
-                      key={pct}
-                      type="button"
-                      disabled={!!activeGame}
-                      onClick={() => setCommissionPercent(String(pct))}
-                      aria-label={t('commission')}
-                      aria-pressed={selected}
-                      className={cn(
-                        'h-12 w-14 shrink-0 rounded-lg bg-[#e8eaf2] transition-shadow disabled:cursor-not-allowed disabled:opacity-50',
-                        selected
-                          ? 'border-2 border-amber-500 shadow-[0_0_0_2px_rgba(245,158,11,0.35)]'
-                          : 'border-2 border-transparent hover:border-gray-300',
-                      )}
-                    />
-                  );
-                })}
-              </div>
+              <button
+                type="button"
+                disabled={!!activeGame}
+                onClick={() => setCommissionPickerOpen((open) => !open)}
+                aria-label={t('commission')}
+                aria-expanded={commissionPickerOpen}
+                className={cn(
+                  'h-14 w-[5.5rem] rounded-lg border-2 border-amber-500 bg-[#e8eaf2] shadow-[0_0_0_2px_rgba(245,158,11,0.35)] transition-shadow disabled:cursor-not-allowed disabled:opacity-50',
+                  !commissionPickerOpen && 'hover:border-amber-600',
+                )}
+              />
+              {commissionPickerOpen && !activeGame && (
+                <ul
+                  className="absolute left-0 top-full z-20 mt-1 min-w-[5.5rem] overflow-hidden rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
+                  role="listbox"
+                >
+                  {GAME_COMMISSION_OPTIONS.map((pct) => (
+                    <li key={pct} role="option" aria-selected={commissionPercent === String(pct)}>
+                      <button
+                        type="button"
+                        className={cn(
+                          'w-full px-4 py-2.5 text-left text-base font-bold hover:bg-amber-50',
+                          commissionPercent === String(pct) ? 'bg-amber-100 text-amber-900' : 'text-gray-900',
+                        )}
+                        onClick={() => {
+                          setCommissionPercent(String(pct));
+                          setCommissionPickerOpen(false);
+                        }}
+                      >
+                        {pct}%
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
 
             {betError && <p className="w-full text-sm font-semibold text-red-600">{betError}</p>}
