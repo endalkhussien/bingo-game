@@ -42,6 +42,7 @@ const exeCandidates = fs.existsSync(unpacked)
   ? fs.readdirSync(unpacked).filter((f) => f.endsWith('.exe'))
   : [];
 check('Waliya.exe present', exeCandidates.length > 0);
+check('Brand icon bundled (resources/brand/icon.ico)', fs.existsSync(path.join(resources, 'brand', 'icon.ico')));
 
 console.log('');
 if (failed > 0) {
