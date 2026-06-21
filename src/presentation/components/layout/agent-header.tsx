@@ -8,7 +8,7 @@ import { useUiLanguage } from '@/presentation/providers/ui-language-provider';
 export function AgentHeader() {
   const { user, agent, refreshBalance } = useAuth();
   const { language, setLanguage, t } = useUiLanguage();
-  const [showBalance, setShowBalance] = useState(true);
+  const [showBalance, setShowBalance] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   const handleRefresh = async () => {
@@ -21,7 +21,7 @@ export function AgentHeader() {
     <header className="flex items-center justify-end gap-4 border-b border-gray-200 bg-white px-6 py-3">
       <div className="flex items-center gap-2 rounded-full bg-sidebar px-4 py-1.5 text-sm text-white">
         <span>{t('balance')}:</span>
-        <span className="font-semibold">
+        <span className={`font-semibold ${showBalance ? '' : 'text-red-400'}`}>
           {showBalance ? `${agent?.walletBalance?.toFixed(0) ?? 0} ETB` : '••••'}
         </span>
         <button
@@ -35,7 +35,9 @@ export function AgentHeader() {
         <button
           type="button"
           onClick={() => setShowBalance(!showBalance)}
-          className="text-blue-300 hover:text-white"
+          className={showBalance ? 'text-blue-300 hover:text-white' : 'text-red-400 hover:text-red-300'}
+          title={showBalance ? t('hide') : t('show')}
+          aria-label={showBalance ? t('hide') : t('show')}
         >
           {showBalance ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
         </button>
