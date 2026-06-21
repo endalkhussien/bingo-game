@@ -10,7 +10,7 @@ import { CheckCardModal } from '@/presentation/components/bingo/check-card-modal
 import { WINNING_PATTERNS, DRAW_INTERVALS, VOICE_TYPES, MIN_BET, DEFAULT_JACKPOT_MAX_CALLS, DEFAULT_CALL_COOLDOWN_MS, GAME_START_BREATH_MS, GAME_START_DELAY_MS, GAME_COMMISSION_OPTIONS, MIN_PLAYERS_TO_START } from '@/shared/constants';
 import { DRAW_BALL_COUNT } from '@/shared/brand';
 import { speakBallCall, speakCartella, speakGameStarted, loadVoices } from '@/presentation/lib/tts';
-import { stopCurrentAudio, preloadBallCallClips } from '@/presentation/lib/amharic-audio';
+import { stopCurrentAudio, preloadBallCallClips, playGameContinuedClip, playGameStoppedClip, playWinnerClip, playNotWinnerClip, playCartellaLockedClip } from '@/presentation/lib/amharic-audio';
 import { AudioSyncManager, runAutoCallLoop } from '@/presentation/lib/audio-sync-manager';
 import { CallingEngine } from '@/domain/services/calling-engine';
 import { getBallLabel } from '@/domain/services/bingo-engine';
@@ -659,6 +659,9 @@ export default function GameBoardPage() {
       };
       setLiveAnnouncement(ann);
       window.setTimeout(() => setLiveAnnouncement(null), 8000);
+      if (languageRef.current === 'am') {
+        await playWinnerClip();
+      }
       await refreshBalance();
     } else if (result.banned || result.eliminated) {
       setBannedCartellas((prev) => (
@@ -675,6 +678,10 @@ export default function GameBoardPage() {
       };
       setLiveAnnouncement(ann);
       window.setTimeout(() => setLiveAnnouncement(null), 5000);
+      if (languageRef.current === 'am') {
+        if (result.banned) await playCartellaLockedClip();
+        else await playNotWinnerClip();
+      }
     }
 
     return {
@@ -706,6 +713,10 @@ export default function GameBoardPage() {
     if (getEffectiveDrawCount() === 0) {
       await beginCalling();
     } else {
+      if (languageRef.current === 'am') {
+        stopCurrentAudio();
+        await playGameContinuedClip();
+      }
       await startCalling(true);
     }
   }, [bingoClaimActive, beginCalling, startCalling, getEffectiveDrawCount]);
@@ -724,6 +735,9 @@ export default function GameBoardPage() {
     setIsPaused(true);
     syncManagerRef.current.abort();
     stopCurrentAudio();
+    if (languageRef.current === 'am') {
+      await playGameStoppedClip();
+    }
     setCallingPhase('ended');
     callingPhaseRef.current = 'ended';
 

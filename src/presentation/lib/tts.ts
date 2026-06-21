@@ -1,7 +1,7 @@
 import { formatAmharicBallCall } from '@/shared/tts/amharic-ball-call';
 import { getBallCallSpeechParts } from '@/shared/tts/ball-call';
 import { buildCartellaAnnouncement, buildGameStartedAnnouncement } from '@/shared/tts/voice-map';
-import { playBallCallAudio, playCartellaClip } from './amharic-audio';
+import { playBallCallAudio, playCartellaClip, playGameStartedClip } from './amharic-audio';
 import { ipc } from './ipc';
 import { isElectron } from '@/shared/runtime';
 
@@ -110,6 +110,7 @@ export async function speakPlainText(text: string, lang: string, voiceType: stri
 
 /** Announce \"Game has started\" before the first ball is called. */
 export async function speakGameStarted(voiceType: string, language: string): Promise<void> {
+  if (language === 'am' && await playGameStartedClip()) return;
   const payload = buildGameStartedAnnouncement(language, voiceType);
   await speakPlainText(payload.text, payload.lang, voiceType);
 }
