@@ -8,6 +8,7 @@ import { startStaticServer } from './utils/static-server';
 import { registerWaliyaMediaProtocol, registerWaliyaMediaScheme } from './utils/media-protocol';
 import { checkWindowsSupport } from './utils/windows-support';
 import { formatStartupError } from './utils/startup-error';
+import { resolveAppIconPath } from './utils/app-icon';
 import { APP_NAME } from '../src/shared/brand';
 
 registerWaliyaMediaScheme();
@@ -42,6 +43,8 @@ async function loadUi(win: BrowserWindow) {
 }
 
 async function createWindow() {
+  const iconPath = resolveAppIconPath();
+
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
@@ -50,6 +53,7 @@ async function createWindow() {
     title: APP_NAME,
     show: true,
     backgroundColor: '#f9fafb',
+    ...(iconPath ? { icon: iconPath } : {}),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -110,6 +114,9 @@ if (!windowsSupport.supported) {
   });
 } else {
   app.whenReady().then(async () => {
+    if (process.platform === 'win32') {
+      app.setAppUserModelId('com.waliya.app');
+    }
     registerWaliyaMediaProtocol();
     await createWindow();
   });

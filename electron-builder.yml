@@ -12,7 +12,11 @@ files:
   - node_modules/better-sqlite3/**/*
   - node_modules/bindings/**/*
   - node_modules/file-uri-to-path/**/*
-extraResources: []
+extraResources:
+  - from: public/brand/icon.ico
+    to: brand/icon.ico
+  - from: public/brand/icon.png
+    to: brand/icon.png
 asarUnpack:
   - "**/*.node"
   - node_modules/better-sqlite3/**/*

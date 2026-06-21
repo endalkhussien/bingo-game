@@ -1,6 +1,7 @@
 import { BrowserWindow } from 'electron';
 import path from 'path';
 import { APP_NAME } from '../../src/shared/brand';
+import { resolveAppIconPath } from './app-icon';
 
 let callerDisplayWindow: BrowserWindow | null = null;
 
@@ -44,6 +45,8 @@ export async function openCallerDisplayWindow(parent: BrowserWindow | null): Pro
   const base = parent ? await resolveUiBase(parent) : (process.env.UI_URL ?? 'http://127.0.0.1:3000');
   const url = `${base.replace(/\/$/, '')}/agent/caller-display/`;
 
+  const iconPath = resolveAppIconPath();
+
   callerDisplayWindow = new BrowserWindow({
     width: 1280,
     height: 800,
@@ -52,6 +55,7 @@ export async function openCallerDisplayWindow(parent: BrowserWindow | null): Pro
     title: `${APP_NAME} — Caller Display`,
     backgroundColor: '#1a1f3a',
     autoHideMenuBar: true,
+    ...(iconPath ? { icon: iconPath } : {}),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
