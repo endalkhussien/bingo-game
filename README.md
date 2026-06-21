@@ -44,10 +44,12 @@ Output: `release/TEBIB-Bingo-1.0.0-win-x64.exe` (+ portable variant)
 - Offline SQLite — no server or internet during games
 - Agent wallet, vouchers, audit log
 
-| Role | Username | Password |
-|------|----------|----------|
-| Agent | `agent` | `agent123` |
-| Admin | `admin` | `admin123` |
+| Role | Username | Notes |
+|------|----------|-------|
+| Vendor | `vendor` | First install only — change password in Settings |
+| Shop admin | `admin` | First install only — change password, activate with TAK code |
+
+Agents are created by the shop admin (no demo agent account).
 
 ---
 

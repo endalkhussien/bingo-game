@@ -71,9 +71,8 @@ let currentSession: Session | null = loadSession();
 let mockBalance = 0;
 const mockCards: Array<{ id: string; cardNumber: string; grid: number[][]; cardData: string; agentId: string; createdAt: number; updatedAt: number }> = [];
 const mockGames: Array<Record<string, unknown>> = [];
-const mockAgents = [
-  { id: 'agent-1', userId: 'u1', fullName: 'Demo Agent', username: 'agent', phone: '+251900000000', commissionRate: 20, adminCommissionRate: 20, walletBalance: 0, status: 'ACTIVE', userStatus: 'ACTIVE', totalGames: 0, totalProfit: 0, createdAt: Date.now() / 1000 },
-];
+const mockAgents: Array<{ id: string; userId: string; fullName: string; username: string; phone: string; commissionRate: number; adminCommissionRate: number; walletBalance: number; status: string; userStatus: string; totalGames: number; totalProfit: number; createdAt: number }> = [];
+const mockAgentPasswords = new Map<string, string>();
 type Session = { user: { id: string; fullName: string; username: string; role: string }; agent: { id: string; walletBalance: number; commissionRate: number; adminCommissionRate: number } | null };
 
 const mockRechargeRequests: Array<Record<string, unknown>> = [];
@@ -125,24 +124,37 @@ function generateCard(): number[][] {
   return grid;
 }
 
-function initMockDeck() {
-  if (mockCards.length > 0) return;
+function agentCards(agentId: string) {
+  return mockCards.filter((c) => c.agentId === agentId);
+}
+
+function mockAgentName(agentId?: string) {
+  const id = agentId ?? currentSession?.agent?.id;
+  const agent = mockAgents.find((a) => a.id === id);
+  return agent?.fullName ?? 'Agent';
+}
+
+function getCurrentAgentId() {
+  const session = requireSession();
+  if (!session.agent) throw new Error('Agent session required');
+  return session.agent.id;
+}
+
+function ensureMockDeck(agentId: string) {
+  if (agentCards(agentId).length > 0) return;
   for (let n = 1; n <= INITIAL_CARTELLA_COUNT; n++) {
     const grid = generateCard();
     mockCards.push({
-      id: `card-${n}`,
+      id: `card-${agentId}-${n}`,
       cardNumber: String(n),
       grid,
       cardData: JSON.stringify({ grid }),
-      agentId: 'agent-1',
+      agentId,
       createdAt: Date.now() / 1000,
       updatedAt: Date.now() / 1000,
     });
   }
-  mockCards.sort((a, b) => Number(a.cardNumber) - Number(b.cardNumber));
 }
-
-initMockDeck();
 syncMockActiveGameFromStorage();
 
 function requireShopAdminRoleOnly() {
@@ -179,12 +191,21 @@ function requireVendorSession() {
 
 export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
   'auth:login': async (username: unknown, password: unknown) => {
-    if (username === 'agent' && password === 'agent123') {
-      currentSession = { user: { id: 'u1', fullName: 'Demo Agent', username: 'agent', role: 'AGENT' }, agent: { id: 'agent-1', walletBalance: mockBalance, commissionRate: 20, adminCommissionRate: 20 } };
+    const uname = String(username).trim().toLowerCase();
+    const pw = String(password);
+
+    const agent = mockAgents.find((a) => a.username === uname && a.status === 'ACTIVE' && a.userStatus === 'ACTIVE');
+    if (agent && mockAgentPasswords.get(uname) === pw) {
+      ensureMockDeck(agent.id);
+      currentSession = {
+        user: { id: agent.userId, fullName: agent.fullName, username: agent.username, role: 'AGENT' },
+        agent: { id: agent.id, walletBalance: mockBalance, commissionRate: agent.commissionRate, adminCommissionRate: agent.adminCommissionRate },
+      };
       saveSession(currentSession);
       return { success: true, data: { token: 'mock', user: currentSession.user, agent: currentSession.agent } };
     }
-    if (username === 'vendor' && password === 'vendor2024') {
+
+    if (uname === 'vendor' && pw === 'vendor2024') {
       currentSession = { user: { id: 'v1', fullName: 'Waliya Vendor', username: 'vendor', role: 'SUPER_ADMIN' }, agent: null };
       saveSession(currentSession);
       return { success: true, data: { token: 'mock', user: currentSession.user, agent: null } };
@@ -242,6 +263,8 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
       walletBalance: 0,
       status: 'ACTIVE', userStatus: 'ACTIVE', totalGames: 0, totalProfit: 0, createdAt: Math.floor(Date.now() / 1000),
     });
+    mockAgentPasswords.set(username, d.password);
+    ensureMockDeck(id);
     const payload = btoa(JSON.stringify({ u: username, p: d.password, n: d.fullName, c: d.adminCommissionRate ?? 20 }));
     const body = payload.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     const setupCode = `TAS-${body}-mockmockmockmockmockmockmockmock`;
@@ -252,6 +275,7 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
     const a = mockAgents.find((x) => x.id === agentId);
     if (!a) return { success: false, error: 'Agent not found' };
     const pw = String(password ?? '').trim() || `bingo${Math.floor(1000 + Math.random() * 9000)}`;
+    mockAgentPasswords.set(a.username, pw);
     const payload = btoa(JSON.stringify({ u: a.username, p: pw, n: a.fullName, c: a.adminCommissionRate }));
     const body = payload.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     return {
@@ -281,6 +305,8 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
     requireShopAdminSession();
     const idx = mockAgents.findIndex((x) => x.id === id);
     if (idx < 0) return { success: false, error: 'Agent not found' };
+    mockAgentPasswords.delete(mockAgents[idx].username);
+    mockCards.splice(0, mockCards.length, ...mockCards.filter((c) => c.agentId !== id));
     mockAgents.splice(idx, 1);
     return { success: true, data: { username: '' } };
   },
@@ -291,14 +317,8 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
   'wallet:transactions': async () => mockTxs,
   'wallet:redeem': async (code: unknown) => {
     requireSession();
-    const amounts: Record<string, number> = { VOUCHER100: 100, VOUCHER500: 500, VOUCHER1000: 1000, DEMO2024: 250 };
     const c = String(code).trim();
     const upper = c.toUpperCase();
-    if (amounts[upper]) {
-      mockBalance += amounts[upper];
-      if (currentSession?.agent) currentSession.agent.walletBalance = mockBalance;
-      return { success: true, data: { amount: amounts[upper], newBalance: mockBalance } };
-    }
     if (upper.startsWith('TBG-')) {
       const issued = mockIssuedCodes.find((x) => x.code.toUpperCase() === upper);
       if (!issued) return { success: false, error: 'Unknown offline code (generate from admin in this session)' };
@@ -373,7 +393,7 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
 
   'recharge:submit': async (data: unknown) => {
     const d = data as Record<string, unknown>;
-    mockRechargeRequests.push({ id: `rr-${mockRechargeRequests.length}`, agentId: 'agent-1', amount: d.amount, paymentMethod: d.paymentMethod, status: 'PENDING', requestedAt: Date.now() / 1000, agentName: 'Demo Agent' });
+    mockRechargeRequests.push({ id: `rr-${mockRechargeRequests.length}`, agentId: getCurrentAgentId(), amount: d.amount, paymentMethod: d.paymentMethod, status: 'PENDING', requestedAt: Date.now() / 1000, agentName: mockAgentName() });
     return { success: true };
   },
   'recharge:list': async (filters: unknown) => {
@@ -392,25 +412,29 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
   'pricing:disable': async () => ({ success: true }),
 
   'cards:list': async () => {
-    initMockDeck();
-    return mockCards.sort((a, b) => Number(a.cardNumber) - Number(b.cardNumber));
+    const agentId = getCurrentAgentId();
+    ensureMockDeck(agentId);
+    return agentCards(agentId).sort((a, b) => Number(a.cardNumber) - Number(b.cardNumber));
   },
   'cards:create': async () => {
-    if (mockCards.length >= CARTELLA_MAX) return { error: `All ${CARTELLA_MAX} cartella cards exist` };
-    const used = new Set(mockCards.map((c) => c.cardNumber));
+    const agentId = getCurrentAgentId();
+    const mine = agentCards(agentId);
+    if (mine.length >= CARTELLA_MAX) return { error: `All ${CARTELLA_MAX} cartella cards exist` };
+    const used = new Set(mine.map((c) => c.cardNumber));
     let n = 1;
     while (used.has(String(n)) && n <= CARTELLA_MAX) n++;
     const grid = generateCard();
-    const card = { id: `card-${n}`, cardNumber: String(n), grid, cardData: JSON.stringify({ grid }), agentId: 'agent-1', createdAt: Date.now() / 1000, updatedAt: Date.now() / 1000 };
+    const card = { id: `card-${agentId}-${n}`, cardNumber: String(n), grid, cardData: JSON.stringify({ grid }), agentId, createdAt: Date.now() / 1000, updatedAt: Date.now() / 1000 };
     mockCards.push(card);
     return card;
   },
   'cards:create-by-number': async (cardNumber: unknown) => {
+    const agentId = getCurrentAgentId();
     const num = Number(cardNumber);
     if (!Number.isFinite(num) || num < 1 || num > CARTELLA_MAX) throw new Error(`Cartella number must be 1–${CARTELLA_MAX}`);
-    if (mockCards.some((c) => c.cardNumber === String(num))) throw new Error(`Cartella #${num} already exists.`);
+    if (mockCards.some((c) => c.agentId === agentId && c.cardNumber === String(num))) throw new Error(`Cartella #${num} already exists.`);
     const grid = generateCard();
-    const card = { id: `card-${num}`, cardNumber: String(num), grid, cardData: JSON.stringify({ grid }), agentId: 'agent-1', createdAt: Date.now() / 1000, updatedAt: Date.now() / 1000 };
+    const card = { id: `card-${agentId}-${num}`, cardNumber: String(num), grid, cardData: JSON.stringify({ grid }), agentId, createdAt: Date.now() / 1000, updatedAt: Date.now() / 1000 };
     mockCards.push(card);
     return card;
   },
@@ -419,14 +443,16 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
     return card ? { id: card.id, cardNumber: card.cardNumber, grid: card.grid } : null;
   },
   'cards:rebuild-deck': async (regenerateAll: unknown) => {
-    initMockDeck();
+    const agentId = getCurrentAgentId();
+    ensureMockDeck(agentId);
+    const mine = agentCards(agentId);
     if (regenerateAll) {
-      for (const card of mockCards) {
+      for (const card of mine) {
         card.grid = generateCard();
         card.cardData = JSON.stringify({ grid: card.grid });
       }
     }
-    return { success: true, updated: mockCards.length };
+    return { success: true, updated: mine.length };
   },
   'cards:regenerate': async (id: unknown) => {
     const card = mockCards.find((c) => c.id === id);
@@ -470,8 +496,9 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
     if (mockBalance + pot < prize) {
       return { success: false, error: `Insufficient balance to cover winner prize (${prize.toFixed(0)} ETB).` };
     }
-    initMockDeck();
-    const missing = (c.selectedNumbers ?? []).filter((n) => !mockCards.some((card) => card.cardNumber === String(n)));
+    const agentId = getCurrentAgentId();
+    ensureMockDeck(agentId);
+    const missing = (c.selectedNumbers ?? []).filter((n) => !agentCards(agentId).some((card) => card.cardNumber === String(n)));
     if (missing.length > 0) {
       return { success: false, error: `Cartella(s) not in your deck: ${missing.slice(0, 8).join(', ')}. Add them on Bingo Cards first.` };
     }
@@ -652,20 +679,20 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
     saveMockActiveGame(null);
     return { success: true, data: { totalBets: 100, agentRevenue: 80, totalPayouts: 0, commissionRevenue: 20, commissionRate: 20 } };
   },
-  'games:list': async () => mockGames.map((g, i) => ({ id: g.id, gameCode: g.gameCode, date: Date.now() / 1000 - i * 86400, betAmount: g.betAmount || 10, playersNumber: (g as { playerCount?: number }).playerCount || 0, commissionPercent: 20, profit: 80, status: g.status || 'COMPLETED', agentName: 'Demo Agent' })),
+  'games:list': async () => mockGames.map((g, i) => ({ id: g.id, gameCode: g.gameCode, date: Date.now() / 1000 - i * 86400, betAmount: g.betAmount || 10, playersNumber: (g as { playerCount?: number }).playerCount || 0, commissionPercent: 20, profit: 80, status: g.status || 'COMPLETED', agentName: mockAgentName() })),
 
-  'reports:revenue': async () => mockGames.map(g => ({ gameCode: g.gameCode, agentName: 'Demo Agent', date: Date.now() / 1000, totalBets: 100, platformRevenue: 20, agentRevenue: 80 })),
-  'reports:profit': async () => mockGames.map(g => ({ gameCode: g.gameCode, agentName: 'Demo Agent', profit: 20 })),
+  'reports:revenue': async () => mockGames.map(g => ({ gameCode: g.gameCode, agentName: mockAgentName(), date: Date.now() / 1000, totalBets: 100, platformRevenue: 20, agentRevenue: 80 })),
+  'reports:profit': async () => mockGames.map(g => ({ gameCode: g.gameCode, agentName: mockAgentName(), profit: 20 })),
   'reports:agents': async () => mockAgents.map(a => ({ agentName: a.fullName, username: a.username, totalGames: a.totalGames, totalRevenue: 1000, totalProfit: 200, walletBalance: mockBalance, status: a.status })),
   'reports:recharge': async () => mockRechargeRequests,
-  'reports:games': async () => mockGames.map(g => ({ gameCode: g.gameCode, agentName: 'Demo Agent', betAmount: g.betAmount, status: g.status, date: Date.now() / 1000, profit: 80 })),
+  'reports:games': async () => mockGames.map(g => ({ gameCode: g.gameCode, agentName: mockAgentName(), betAmount: g.betAmount, status: g.status, date: Date.now() / 1000, profit: 80 })),
   'reports:wallet': async () => mockTxs,
 
   'settings:get': async () => mockSettings,
   'settings:update': async (data: unknown) => { Object.assign(mockSettings, data); return mockSettings; },
 
   'backup:create': async () => ({ success: true, data: { filename: `backup-${Date.now()}.db` } }),
-  'backup:list': async () => [{ filename: 'bingo-backup-demo.db', size: 102400, createdAt: new Date().toISOString() }],
+  'backup:list': async () => [{ filename: 'waliya-backup.db', size: 102400, createdAt: new Date().toISOString() }],
   'backup:restore': async () => ({ success: true, message: 'Backup restored' }),
 
   'notifications:list': async () => mockNotifications,
@@ -678,7 +705,7 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
   'license:status': async () => ({
     activated: mockAdminActivated,
     active: mockAdminActivated && mockOperatorWalletBalance > 0,
-    shopName: mockAdminActivated ? 'Demo Shop' : '',
+    shopName: mockAdminActivated ? 'Shop' : '',
     vendorCommissionRate: 20,
     walletBalance: mockOperatorWalletBalance,
     needsActivation: !mockAdminActivated,
@@ -725,7 +752,7 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
     gameCount: mockGames.length,
     totalBets: mockGames.length * 100,
     vendorCommissionDue: mockGames.length * 20,
-    shopName: 'Demo Shop',
+    shopName: 'Shop',
     vendorCommissionRate: 20,
     licenseActive: mockAdminActivated,
   }),

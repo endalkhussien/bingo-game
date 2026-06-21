@@ -52,6 +52,12 @@ export interface LiveGameSnapshot {
   announcement?: LiveGameAnnouncement | null;
 }
 
+/** Hall / caller display — no agent commission or internal economics. */
+export function toHallSnapshot(snapshot: LiveGameSnapshot): LiveGameSnapshot {
+  const { commissionRate: _commission, ...publicFields } = snapshot;
+  return publicFields;
+}
+
 export type LiveGameMessage =
   | { type: 'game-update'; payload: LiveGameSnapshot | null }
   | { type: 'game-started'; payload: LiveGameSnapshot }

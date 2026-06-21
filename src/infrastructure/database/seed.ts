@@ -1,11 +1,12 @@
 import bcrypt from 'bcryptjs';
 import { v4 as uuid } from 'uuid';
-import { eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import * as schema from './schema';
-import { generateBingoCard, serializeCardData } from '../../domain/services/card-generator';
-import { INITIAL_CARTELLA_COUNT } from '../../shared/brand';
 import { DEFAULT_OPERATOR_ORG_KEY } from '../../shared/voucher/default-org-key';
+
+const SEEDED_DEMO_USERNAME = 'agent';
+const SEEDED_DEMO_FULL_NAME = 'Demo Agent';
 
 export async function seedDatabase(db: BetterSQLite3Database<typeof schema>) {
   const now = Math.floor(Date.now() / 1000);
@@ -15,8 +16,6 @@ export async function seedDatabase(db: BetterSQLite3Database<typeof schema>) {
 
   const vendorId = uuid();
   const adminId = uuid();
-  const agentUserId = uuid();
-  const agentId = uuid();
 
   await db.insert(schema.users).values([
     {
@@ -39,41 +38,7 @@ export async function seedDatabase(db: BetterSQLite3Database<typeof schema>) {
       createdAt: now,
       updatedAt: now,
     },
-    {
-      id: agentUserId,
-      fullName: 'Demo Agent',
-      username: 'agent',
-      passwordHash: await bcrypt.hash('agent123', 12),
-      role: 'AGENT',
-      status: 'ACTIVE',
-      createdAt: now,
-      updatedAt: now,
-    },
   ]);
-
-  await db.insert(schema.agents).values({
-    id: agentId,
-    userId: agentUserId,
-    phone: '+251900000000',
-    commissionRate: 20,
-    adminCommissionRate: 20,
-    walletBalance: 0,
-    status: 'ACTIVE',
-    createdAt: now,
-    updatedAt: now,
-  });
-
-  const cardRows = Array.from({ length: INITIAL_CARTELLA_COUNT }, (_, i) => ({
-    id: uuid(),
-    cardNumber: String(i + 1),
-    agentId,
-    cardData: serializeCardData(generateBingoCard()),
-    createdAt: now,
-    updatedAt: now,
-  }));
-  for (let i = 0; i < cardRows.length; i += 50) {
-    await db.insert(schema.bingoCards).values(cardRows.slice(i, i + 50));
-  }
 
   const settings = [
     { key: 'default_commission', value: '20' },
@@ -108,6 +73,42 @@ export async function seedDatabase(db: BetterSQLite3Database<typeof schema>) {
       createdAt: now, updatedAt: now,
     });
   }
+}
+
+/** Remove the old seeded demo agent account from upgrades (no demo agent in production). */
+export async function removeSeededDemoAgent(db: BetterSQLite3Database<typeof schema>) {
+  const user = await db.select().from(schema.users).where(eq(schema.users.username, SEEDED_DEMO_USERNAME)).get();
+  if (!user || user.fullName !== SEEDED_DEMO_FULL_NAME) return;
+
+  const agent = await db.select().from(schema.agents).where(eq(schema.agents.userId, user.id)).get();
+  if (!agent) {
+    await db.delete(schema.users).where(eq(schema.users.id, user.id));
+    return;
+  }
+
+  const activeGames = await db.select().from(schema.games).where(
+    and(eq(schema.games.agentId, agent.id), inArray(schema.games.status, ['RUNNING', 'PAUSED'])),
+  ).all();
+  if (activeGames.length > 0) return;
+
+  const agentGames = await db.select().from(schema.games).where(eq(schema.games.agentId, agent.id)).all();
+  for (const game of agentGames) {
+    await db.delete(schema.drawnNumbers).where(eq(schema.drawnNumbers.gameId, game.id));
+    await db.delete(schema.winners).where(eq(schema.winners.gameId, game.id));
+    await db.delete(schema.gameCards).where(eq(schema.gameCards.gameId, game.id));
+    await db.delete(schema.gameRevenue).where(eq(schema.gameRevenue.gameId, game.id));
+    await db.delete(schema.games).where(eq(schema.games.id, game.id));
+  }
+
+  await db.delete(schema.bingoCards).where(eq(schema.bingoCards.agentId, agent.id));
+  await db.delete(schema.walletTransactions).where(eq(schema.walletTransactions.agentId, agent.id));
+  await db.delete(schema.rechargeRequests).where(eq(schema.rechargeRequests.agentId, agent.id));
+  await db.delete(schema.usedOfflineVouchers).where(eq(schema.usedOfflineVouchers.agentId, agent.id));
+  await db.delete(schema.sessions).where(eq(schema.sessions.userId, user.id));
+  await db.delete(schema.notifications).where(eq(schema.notifications.userId, user.id));
+  await db.update(schema.rechargeVouchers).set({ usedByAgentId: null }).where(eq(schema.rechargeVouchers.usedByAgentId, agent.id));
+  await db.delete(schema.agents).where(eq(schema.agents.id, agent.id));
+  await db.delete(schema.users).where(eq(schema.users.id, user.id));
 }
 
 /** Ensure shop admin account exists with OPERATOR role (fixes old installs). */
