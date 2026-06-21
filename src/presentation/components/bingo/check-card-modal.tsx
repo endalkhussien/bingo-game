@@ -9,7 +9,6 @@ import { cn } from '@/presentation/lib/utils';
 import type { CardGrid } from '@/domain/services/card-generator';
 
 import { getBallLabel } from '@/domain/services/bingo-engine';
-import { formatBallCallLabel } from '@/shared/tts/ball-call';
 
 interface CheckCardModalProps {
   open: boolean;

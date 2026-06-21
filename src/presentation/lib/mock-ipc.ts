@@ -654,7 +654,6 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
       };
     }
     const rate = currentSession?.agent?.commissionRate ?? 20;
-    const adminRate = currentSession?.agent?.adminCommissionRate ?? 20;
     const playerCount = g.selectedNumbers?.length ?? 1;
     const betAmount = g.betAmount ?? 10;
     const { totalPot, prize } = calculateWinnerPrize(betAmount, playerCount, rate);

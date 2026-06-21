@@ -12,9 +12,6 @@ import { DRAW_BALL_COUNT, INITIAL_CARTELLA_COUNT } from '@/shared/brand';
 import { speakBallCall, speakCartella, speakGameStarted, loadVoices } from '@/presentation/lib/tts';
 import { stopCurrentAudio, preloadBallCallClips, preloadGameEventClips, playGameContinuedClip, playGameStoppedClip, playWinnerClip, playNotWinnerClip, playCartellaLockedClip } from '@/presentation/lib/amharic-audio';
 import { AudioSyncManager, runAutoCallLoop } from '@/presentation/lib/audio-sync-manager';
-import { CallingEngine } from '@/domain/services/calling-engine';
-import { getBallLabel } from '@/domain/services/bingo-engine';
-import { formatBallCallLabel } from '@/shared/tts/ball-call';
 import { calculateTotalPot, calculateGameEconomics, calculateWinnerPrize } from '@/shared/prize';
 import { broadcastLiveGame, subscribeGameControl, toHallSnapshot, type LiveGameSnapshot, type CallingPhase, type LiveGameAnnouncement } from '@/presentation/lib/live-game-sync';
 import { CallerDisplay, HallModeOverlay } from '@/presentation/components/caller/caller-display';
@@ -97,7 +94,6 @@ export default function GameBoardPage() {
   const [betAmount, setBetAmount] = useState('10');
   const [interval, setInterval_] = useState(DEFAULT_CALL_COOLDOWN_MS);
   const [pattern, setPattern] = useState('FIRST_LINE');
-  const [jackpotMaxCalls, setJackpotMaxCalls] = useState(String(DEFAULT_JACKPOT_MAX_CALLS));
   const [voice, setVoice] = useState('AMHARIC_MALE');
   const [language, setLanguage] = useState('am');
   const [selected, setSelected] = useState<number[]>([]);
@@ -111,7 +107,7 @@ export default function GameBoardPage() {
   const [creating, setCreating] = useState(false);
   const [autoDraw, setAutoDraw] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
-  const [callerLocked, setCallerLocked] = useState(false);
+  const [_callerLocked, setCallerLocked] = useState(false);
   const [checkModalOpen, setCheckModalOpen] = useState(false);
   const [bingoClaimActive, setBingoClaimActive] = useState(false);
   const [gameWinners, setGameWinners] = useState<GameWinner[]>([]);
@@ -169,16 +165,7 @@ export default function GameBoardPage() {
     adminCommissionRate,
   ), [betAmount, playerCount, commissionPercent, adminCommissionRate]);
   const displayProfit = profit > 0 ? profit : gameEconomics.agentNetCommission;
-  const maxBalls = activeGame?.maxBalls ?? DRAW_BALL_COUNT;
-  const drawCount = called.length;
 
-  const callerEngine = useMemo(() => {
-    const engine = new CallingEngine(maxBalls);
-    engine.loadFromHistory(called, callHistory.map((c) => c.drawnAt * 1000));
-    return engine;
-  }, [called, callHistory, maxBalls]);
-
-  const remainingCount = callerEngine.remainingNumbers.length;
   const selectedSet = useMemo(() => new Set(selected), [selected]);
   const bannedSet = useMemo(() => new Set(bannedCartellas.map(String)), [bannedCartellas]);
 
@@ -202,7 +189,7 @@ export default function GameBoardPage() {
       setShowProfit(false);
       setCommissionPickerOpen(false);
     }
-  }, [activeGame?.id]);
+  }, [activeGame?.id]); // eslint-disable-line react-hooks/exhaustive-deps -- reset profit UI only when switching games
 
   useEffect(() => {
     if (!commissionPickerOpen) return;
@@ -373,7 +360,7 @@ export default function GameBoardPage() {
     autoDrawRef.current = true;
     setAutoDraw(true);
     setCallingPhase('calling');
-  }, [bingoClaimActive]);
+  }, []);
 
   const beginCalling = useCallback(async () => {
     if (!activeGameRef.current || autoDrawRef.current || bingoClaimActiveRef.current || announcingRef.current || gameWinnersRef.current.length > 0 || gameEndedRef.current) return;
@@ -411,7 +398,7 @@ export default function GameBoardPage() {
       return;
     }
     await startCalling(true);
-  }, [bingoClaimActive, startCalling]);
+  }, [startCalling]);
 
   const drawFromServer = useCallback(async () => {
     const game = activeGameRef.current;
@@ -486,7 +473,7 @@ export default function GameBoardPage() {
       voiceType: voice,
       language,
       commissionRate: commission,
-      jackpotMaximumCalls: parseInt(jackpotMaxCalls, 10) || DEFAULT_JACKPOT_MAX_CALLS,
+      jackpotMaximumCalls: DEFAULT_JACKPOT_MAX_CALLS,
       selectedNumbers: selected,
     });
 
@@ -533,20 +520,6 @@ export default function GameBoardPage() {
     }
   };
 
-  const handleDraw = useCallback(async () => {
-    if (!activeGame || isPaused || syncManagerRef.current.isLocked()) return;
-
-    const data = await drawFromServer();
-    if (!data) return;
-
-    applyDrawResult(data);
-    void syncManagerRef.current.callNumber(
-      data.number,
-      (n) => speakBallCall(n, data.voiceType ?? voice, data.language ?? language),
-      interval,
-    );
-  }, [activeGame, isPaused, drawFromServer, applyDrawResult, voice, language, interval]);
-
   useEffect(() => {
     if (!autoDraw || !activeGame?.id || isPaused || bingoClaimActive || hasWinner) return;
 
@@ -588,13 +561,13 @@ export default function GameBoardPage() {
     };
   }, [autoDraw, activeGame?.id, isPaused, bingoClaimActive, hasWinner, drawFromServer, applyDrawResult]);
 
-  const handleBingoClaim = async () => {
+  const handleBingoClaim = useCallback(async () => {
     if (!activeGame || bingoClaimActive) return;
     await stopCalling(true);
     setBingoClaimActive(true);
     bingoClaimActiveRef.current = true;
     setCheckModalOpen(false);
-  };
+  }, [activeGame, bingoClaimActive, stopCalling]);
 
   const handleCheckCards = useCallback(async () => {
     if (!activeGame) return;
@@ -720,7 +693,7 @@ export default function GameBoardPage() {
       }
       await startCalling(true);
     }
-  }, [bingoClaimActive, beginCalling, startCalling, getEffectiveDrawCount]);
+  }, [beginCalling, startCalling, getEffectiveDrawCount]);
 
   const handleEndGame = useCallback(async () => {
     const game = activeGameRef.current;
@@ -761,7 +734,7 @@ export default function GameBoardPage() {
       await ipc('window:close-caller-display').catch(() => {});
       await refreshBalance();
     }
-  }, [stopCalling, refreshBalance]);
+  }, [refreshBalance]);
 
   const handleHallPlay = useCallback(() => {
     if (gameWinnersRef.current.length > 0) return;
@@ -798,7 +771,7 @@ export default function GameBoardPage() {
       if (msg.type === 'bingo-claim') void handleBingoClaim();
       if (msg.type === 'check-cards') handleCheckCards();
     });
-  }, [beginCalling, stopCalling, handleResume, handleEndGame, handleCheckCards, getEffectiveDrawCount]);
+  }, [beginCalling, stopCalling, handleResume, handleEndGame, handleCheckCards, handleBingoClaim, getEffectiveDrawCount]);
 
   return (
     <>
@@ -918,6 +891,7 @@ export default function GameBoardPage() {
             </div>
 
             {betError && <p className="w-full text-sm font-semibold text-red-600">{betError}</p>}
+            {drawError && <p className="w-full text-sm font-semibold text-amber-700">{drawError}</p>}
             <button
               type="button"
               onClick={handleCreateGame}
@@ -980,6 +954,7 @@ export default function GameBoardPage() {
             onToggle={toggleNumber}
             onClear={() => setSelected([])}
             disabled={!canPickCartellas}
+            lockedSet={bannedSet}
             staticMax={INITIAL_CARTELLA_COUNT}
             title={t('selectCartellas')}
             clearLabel={t('clearCards')}
