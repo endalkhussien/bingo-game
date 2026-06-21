@@ -7,7 +7,7 @@ import { useAuth } from '@/presentation/providers/auth-provider';
 import { useUiLanguage } from '@/presentation/providers/ui-language-provider';
 import { NumberGrid } from '@/presentation/components/bingo/number-grid';
 import { CheckCardModal } from '@/presentation/components/bingo/check-card-modal';
-import { WINNING_PATTERNS, DRAW_INTERVALS, VOICE_TYPES, MIN_BET, DEFAULT_JACKPOT_MAX_CALLS, DEFAULT_CALL_COOLDOWN_MS, GAME_START_BREATH_MS, GAME_START_DELAY_MS, GAME_COMMISSION_OPTIONS, MIN_PLAYERS_TO_START } from '@/shared/constants';
+import { WINNING_PATTERNS, DRAW_INTERVALS, VOICE_TYPES, MIN_BET, DEFAULT_JACKPOT_MAX_CALLS, DEFAULT_CALL_COOLDOWN_MS, GAME_START_BREATH_MS, GAME_COMMISSION_OPTIONS, MIN_PLAYERS_TO_START } from '@/shared/constants';
 import { DRAW_BALL_COUNT, INITIAL_CARTELLA_COUNT } from '@/shared/brand';
 import { speakBallCall, speakCartella, speakGameStarted, loadVoices } from '@/presentation/lib/tts';
 import { stopCurrentAudio, preloadBallCallClips, playGameContinuedClip, playGameStoppedClip, playWinnerClip, playNotWinnerClip, playCartellaLockedClip } from '@/presentation/lib/amharic-audio';
@@ -336,7 +336,10 @@ export default function GameBoardPage() {
     });
   }, []);
 
-  const stopCalling = useCallback(async (pauseOnServer = true) => {
+  const stopCalling = useCallback(async (
+    pauseOnServer = true,
+    options?: { playPausedClip?: boolean },
+  ) => {
     autoDrawRef.current = false;
     setAutoDraw(false);
     callingLoopIdRef.current += 1;
@@ -346,6 +349,10 @@ export default function GameBoardPage() {
     setCallingPhase('paused');
     syncManagerRef.current.abort();
     stopCurrentAudio();
+
+    if (options?.playPausedClip && languageRef.current === 'am') {
+      await playGameStoppedClip();
+    }
 
     if (!pauseOnServer || !activeGameRef.current) return;
 
@@ -393,8 +400,9 @@ export default function GameBoardPage() {
 
       await speakGameStarted(voiceRef.current, languageRef.current);
 
+      const postStartGapMs = intervalRef.current;
       const delayStart = Date.now();
-      while (Date.now() - delayStart < GAME_START_DELAY_MS) {
+      while (Date.now() - delayStart < postStartGapMs) {
         if (!activeGameRef.current || !announcingRef.current || gameEndedRef.current) {
           setCallingPhase('paused');
           return;
@@ -766,7 +774,7 @@ export default function GameBoardPage() {
     if (gameWinnersRef.current.length > 0) return;
 
     if (autoDrawRef.current && !isPausedRef.current) {
-      void stopCalling(true);
+      void stopCalling(true, { playPausedClip: true });
       if (getEffectiveDrawCount() > 0) {
         setBingoClaimActive(true);
         bingoClaimActiveRef.current = true;
@@ -786,7 +794,7 @@ export default function GameBoardPage() {
     return subscribeGameControl((msg) => {
       if (msg.type === 'start-calling') void beginCalling();
       if (msg.type === 'pause') {
-        void stopCalling(true);
+        void stopCalling(true, { playPausedClip: true });
         if (getEffectiveDrawCount() > 0 && gameWinnersRef.current.length === 0) {
           setBingoClaimActive(true);
           bingoClaimActiveRef.current = true;
