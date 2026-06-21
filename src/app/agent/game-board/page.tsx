@@ -8,7 +8,7 @@ import { useUiLanguage } from '@/presentation/providers/ui-language-provider';
 import { NumberGrid } from '@/presentation/components/bingo/number-grid';
 import { CheckCardModal } from '@/presentation/components/bingo/check-card-modal';
 import { WINNING_PATTERNS, DRAW_INTERVALS, VOICE_TYPES, MIN_BET, DEFAULT_JACKPOT_MAX_CALLS, DEFAULT_CALL_COOLDOWN_MS, GAME_START_BREATH_MS, GAME_START_DELAY_MS, GAME_COMMISSION_OPTIONS, MIN_PLAYERS_TO_START } from '@/shared/constants';
-import { DRAW_BALL_COUNT } from '@/shared/brand';
+import { DRAW_BALL_COUNT, INITIAL_CARTELLA_COUNT } from '@/shared/brand';
 import { speakBallCall, speakCartella, speakGameStarted, loadVoices } from '@/presentation/lib/tts';
 import { stopCurrentAudio, preloadBallCallClips, playGameContinuedClip, playGameStoppedClip, playWinnerClip, playNotWinnerClip, playCartellaLockedClip } from '@/presentation/lib/amharic-audio';
 import { AudioSyncManager, runAutoCallLoop } from '@/presentation/lib/audio-sync-manager';
@@ -979,6 +979,7 @@ export default function GameBoardPage() {
             onToggle={toggleNumber}
             onClear={() => setSelected([])}
             disabled={!canPickCartellas}
+            staticMax={INITIAL_CARTELLA_COUNT}
             title={t('selectCartellas')}
             clearLabel={t('clearCards')}
             shuffleLabel={t('shuffle')}

@@ -19,14 +19,14 @@ export const WINNING_PATTERNS = [
 
 export const DEFAULT_JACKPOT_MAX_CALLS = 45;
 
-/** Fixed gap between ball calls — voice + pause always equals this (default 4 sec). */
-export const DEFAULT_CALL_COOLDOWN_MS = 4000;
+/** Fixed gap between ball calls — voice + pause always equals this (default 2 sec). */
+export const DEFAULT_CALL_COOLDOWN_MS = 2000;
 
-/** Short breath after Play, before \"Game has started\" is spoken. */
-export const GAME_START_BREATH_MS = 500;
+/** No extra pause after Play before \"Game has started\" (clip starts immediately). */
+export const GAME_START_BREATH_MS = 0;
 
-/** Pause after \"Game has started\" before the first ball. */
-export const GAME_START_DELAY_MS = 3000;
+/** No fixed pause after \"Game has started\" — first ball follows the clip. */
+export const GAME_START_DELAY_MS = 0;
 
 /** Minimum cartellas required to create a game. */
 export const MIN_PLAYERS_TO_START = 3;

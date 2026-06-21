@@ -14,6 +14,8 @@ interface NumberGridProps {
   shuffled?: boolean;
   disabled?: boolean;
   lockedSet?: Set<string | number>;
+  /** Always show slots 1..N in fixed positions; extras above N append at the end. */
+  staticMax?: number;
   title?: string;
   clearLabel?: string;
   shuffleLabel?: string;
@@ -29,6 +31,16 @@ function shuffleArray<T>(arr: T[]): T[] {
   return copy;
 }
 
+function mergeOrder(customOrder: number[] | null, slots: number[]): number[] {
+  if (!customOrder || customOrder.length === 0) return slots;
+  const slotSet = new Set(slots);
+  const kept = customOrder.filter((n) => slotSet.has(n));
+  const keptSet = new Set(kept);
+  const added = slots.filter((n) => !keptSet.has(n));
+  const merged = [...kept, ...added];
+  return merged.length > 0 ? merged : slots;
+}
+
 /** Bold cartella picker — large cells, green = selected, grey = available */
 export function NumberGrid({
   availableNumbers,
@@ -39,12 +51,13 @@ export function NumberGrid({
   shuffled,
   disabled,
   lockedSet,
+  staticMax,
   title = 'Select Cartellas',
   clearLabel = 'Clear Cards',
   shuffleLabel = 'Shuffle',
   shuffledLabel = 'Shuffled!',
 }: NumberGridProps) {
-  const [displayOrder, setDisplayOrder] = useState<number[]>([]);
+  const [customOrder, setCustomOrder] = useState<number[] | null>(null);
   const [justShuffled, setJustShuffled] = useState(false);
 
   const sortedAvailable = useMemo(
@@ -52,16 +65,22 @@ export function NumberGrid({
     [availableNumbers],
   );
 
-  const numbers = useMemo(() => {
-    if (displayOrder.length === sortedAvailable.length
-      && displayOrder.every((n) => sortedAvailable.includes(n))) {
-      return displayOrder;
-    }
-    return sortedAvailable;
-  }, [displayOrder, sortedAvailable]);
+  const availableSet = useMemo(() => new Set(sortedAvailable), [sortedAvailable]);
+
+  const slotNumbers = useMemo(() => {
+    if (!staticMax) return sortedAvailable;
+    const base = Array.from({ length: staticMax }, (_, i) => i + 1);
+    const extras = sortedAvailable.filter((n) => n > staticMax);
+    return [...base, ...extras];
+  }, [sortedAvailable, staticMax]);
+
+  const numbers = useMemo(
+    () => mergeOrder(customOrder, slotNumbers),
+    [customOrder, slotNumbers],
+  );
 
   const handleShuffle = () => {
-    setDisplayOrder(shuffleArray(sortedAvailable));
+    setCustomOrder(shuffleArray(slotNumbers));
     setJustShuffled(true);
     window.setTimeout(() => setJustShuffled(false), 2000);
     onShuffle?.();
@@ -77,7 +96,7 @@ export function NumberGrid({
               {shuffledLabel}
             </span>
           )}
-          {!disabled && sortedAvailable.length > 0 && (
+          {!disabled && slotNumbers.length > 0 && (
             <button
               type="button"
               onClick={handleShuffle}
@@ -119,19 +138,23 @@ export function NumberGrid({
             {numbers.map((num) => {
               const isSelected = selectedSet.has(num);
               const isLocked = lockedSet?.has(num) || lockedSet?.has(String(num));
+              const isAvailable = availableSet.has(num);
+              const isMissing = !isAvailable;
               return (
                 <button
                   key={num}
                   type="button"
-                  onClick={() => !disabled && !isLocked && onToggle(num)}
-                  disabled={disabled || isLocked}
+                  onClick={() => !disabled && !isLocked && isAvailable && onToggle(num)}
+                  disabled={disabled || isLocked || isMissing}
                   className={cn(
                     'relative flex min-h-[2.75rem] items-center justify-center rounded-md border-2 text-base font-black transition-colors sm:min-h-[3.25rem] sm:text-lg md:min-h-[3.75rem] md:text-xl',
-                    isLocked
-                      ? 'cursor-not-allowed border-red-300 bg-red-100 text-red-600 line-through'
-                      : isSelected
-                        ? 'border-[#15803d] bg-[#22c55e] text-white shadow-md hover:bg-[#16a34a]'
-                        : 'border-gray-300 bg-gray-200 text-gray-900 hover:border-gray-400 hover:bg-gray-300',
+                    isMissing
+                      ? 'cursor-not-allowed border-gray-200 bg-gray-50 text-gray-400'
+                      : isLocked
+                        ? 'cursor-not-allowed border-red-300 bg-red-100 text-red-600 line-through'
+                        : isSelected
+                          ? 'border-[#15803d] bg-[#22c55e] text-white shadow-md hover:bg-[#16a34a]'
+                          : 'border-gray-300 bg-gray-200 text-gray-900 hover:border-gray-400 hover:bg-gray-300',
                   )}
                 >
                   {isLocked && <Lock className="absolute right-0.5 top-0.5 h-3 w-3 text-red-500" />}
