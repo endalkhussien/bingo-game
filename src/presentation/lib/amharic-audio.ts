@@ -26,6 +26,10 @@ export function ballCallAudioUrl(number: number): string {
   return buildMediaUrl(`audio/${getBallCallAudioKey(number)}.mp3`);
 }
 
+export function cartellaAudioUrl(number: number): string {
+  return buildMediaUrl(`sounds/cartella/${number}.mp3`);
+}
+
 function englishLetterUrl(letter: string): string {
   return buildMediaUrl(`sounds/en/letters/${letter}.mp3`);
 }
@@ -129,6 +133,10 @@ export function stopCurrentAudio(): void {
 
 export function playBallCallClip(number: number): Promise<boolean> {
   return playUrl(ballCallAudioUrl(number));
+}
+
+export function playCartellaClip(number: number): Promise<boolean> {
+  return playUrl(cartellaAudioUrl(number));
 }
 
 export function playAmharicBall(number: number): Promise<boolean> {

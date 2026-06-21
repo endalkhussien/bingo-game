@@ -91,7 +91,7 @@ const mockPricingPlans = [
 ];
 const mockSettings: Record<string, string> = {
   default_commission: '20', platform_fee: '0', minimum_bet: '10', maximum_bet: '1000',
-  currency: 'ETB', timezone: 'Africa/Addis_Ababa', default_voice: 'AMHARIC_MALE', default_language: 'en', number_range_max: '75',
+  currency: 'ETB', timezone: 'Africa/Addis_Ababa', default_voice: 'AMHARIC_MALE', default_language: 'am', number_range_max: '75',
 };
 const mockTxs: Array<Record<string, unknown>> = [];
 const MOCK_ACTIVATED_KEY = 'bingo_mock_admin_activated';

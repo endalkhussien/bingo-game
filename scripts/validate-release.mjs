@@ -19,7 +19,10 @@ function check(name, ok, detail = '') {
   }
 }
 
-console.log('TEBIB-Bingo release validation\n');
+console.log('Waliya release validation\n');
+
+const brand = JSON.parse(fs.readFileSync(path.join(root, 'brand.config.json'), 'utf8'));
+const requiredCartella = brand.initialCartellaCount ?? 150;
 
 const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
 check('package.json version', pkg.version === '1.0.0', `got ${pkg.version}`);
@@ -38,6 +41,11 @@ const fallbackCount = fs.existsSync(path.join(root, 'public/sounds/am'))
   ? fs.readdirSync(path.join(root, 'public/sounds/am')).filter((f) => f.endsWith('.mp3')).length
   : 0;
 check('Amharic fallback audio (75)', fallbackCount >= 75, `${fallbackCount}/75`);
+
+const cartellaCount = fs.existsSync(path.join(root, 'public/sounds/cartella'))
+  ? fs.readdirSync(path.join(root, 'public/sounds/cartella')).filter((f) => f.endsWith('.mp3')).length
+  : 0;
+check(`Cartella voice audio (${requiredCartella})`, cartellaCount >= requiredCartella, `${cartellaCount}/${requiredCartella}`);
 
 check('dist-electron/main.js', fs.existsSync(path.join(root, 'dist-electron/electron/main.js')));
 check('out/index.html', fs.existsSync(path.join(root, 'out/index.html')));

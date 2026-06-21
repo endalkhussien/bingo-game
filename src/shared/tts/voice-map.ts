@@ -1,4 +1,3 @@
-import { getBallLabel, getBallLetter } from '../../domain/services/bingo-engine';
 import { formatAmharicBallCall } from './amharic-ball-call';
 
 const AMHARIC_ONES = ['', 'አንድ', 'ሁለት', 'ሶስት', 'አራት', 'አምስት', 'ስድስት', 'ሰባት', 'ስምንት', 'ዘጠኝ'];
@@ -29,43 +28,18 @@ function toAmharicNumber(n: number): string {
     return `${AMHARIC_TENS[tens]} ${AMHARIC_ONES[ones]}`;
   }
   if (n === 100) return 'መቶ';
-  if (n <= 300) {
-    const rest = n - 100;
-    return rest === 0 ? 'መቶ' : `መቶ ${toAmharicNumber(rest)}`;
+  if (n <= 500) {
+    const hundreds = Math.floor(n / 100);
+    const rest = n % 100;
+    const hundredWord = hundreds === 1 ? 'መቶ' : `${AMHARIC_ONES[hundreds]} መቶ`;
+    if (rest === 0) return hundredWord;
+    return `${hundredWord} ${toAmharicNumber(rest)}`;
   }
   return String(n);
 }
 
 export function toAmharicNumberWord(n: number): string {
   return toAmharicNumber(n);
-}
-
-export function buildAnnouncement(
-  number: number,
-  voiceType: string,
-  language: string,
-): { text: string; lang: string; isAmharic: boolean; preferFemale: boolean } {
-  const isAmharic = language === 'am';
-  const preferFemale = voiceType.includes('FEMALE');
-  const letter = getBallLetter(number);
-
-  if (isAmharic) {
-    return {
-      text: formatAmharicBallCall(number),
-      lang: 'am-ET',
-      isAmharic: true,
-      preferFemale,
-    };
-  }
-
-  const label = getBallLabel(number);
-  const [, num] = label.includes('-') ? label.split('-') : ['', String(number)];
-  return {
-    text: letter ? `${letter} ${num}` : `Number ${number}`,
-    lang: 'en-US',
-    isAmharic: false,
-    preferFemale,
-  };
 }
 
 /** Spoken when an agent selects a player cartella on the game board */
