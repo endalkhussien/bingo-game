@@ -1,7 +1,7 @@
 import { formatAmharicBallCall } from '@/shared/tts/amharic-ball-call';
 import { getBallCallSpeechParts } from '@/shared/tts/ball-call';
 import { buildCartellaAnnouncement, buildGameStartedAnnouncement } from '@/shared/tts/voice-map';
-import { playBallCallAudio, playCartellaClip, playGameStartedClip, cancelBrowserSpeech } from './amharic-audio';
+import { playBallCallAudio, playCartellaClip, playGameStartedClip } from './amharic-audio';
 import { ipc } from './ipc';
 import { isElectron } from '@/shared/runtime';
 
