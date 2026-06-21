@@ -58,13 +58,6 @@ VOICE QUALITY (optional — for your own recordings)
   (Google TTS at build time). Windows Amharic language pack improves
   speech fallback if a clip is missing.
 
-DEMO (testing one PC only)
---------------------------
-  Username: agent
-  Password: agent123
-  Demo recharge: VOUCHER500
-
-REQUIREMENTS
 ------------
   Windows 8, 8.1, 10, or 11 (64-bit)
   No internet needed after install

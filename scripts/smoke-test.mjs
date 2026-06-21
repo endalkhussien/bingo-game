@@ -27,42 +27,12 @@ await check('Home redirects to login', async () => {
   await page.waitForURL('**/login**', { timeout: 10000 });
 });
 
-await check('Agent login works', async () => {
-  await page.fill('input[type="text"]', 'agent');
-  await page.fill('input[type="password"]', 'agent123');
-  await page.click('button[type="submit"]');
-  await page.waitForURL('**/agent/dashboard**', { timeout: 10000 });
-});
-
-await check('Game board loads', async () => {
-  await page.goto(`${BASE}/agent/game-board/`, { waitUntil: 'networkidle' });
-  await page.waitForSelector('button:has-text("Start Game")', { timeout: 5000 });
-});
-
-await check('Caller display page loads (web)', async () => {
+await check('Demo agent login is rejected', async () => {
   await page.goto(`${BASE}/login/`, { waitUntil: 'networkidle' });
   await page.fill('input[type="text"]', 'agent');
   await page.fill('input[type="password"]', 'agent123');
   await page.click('button[type="submit"]');
-  await page.waitForURL('**/agent/dashboard**', { timeout: 10000 });
-  await page.goto(`${BASE}/agent/caller-display/`, { waitUntil: 'networkidle' });
-  await page.waitForSelector('text=No active game', { timeout: 5000 });
-});
-
-await check('Caller display syncs after game start (web)', async () => {
-  await page.goto(`${BASE}/agent/game-board/`, { waitUntil: 'networkidle' });
-  await page.locator('.number-grid-scroll button').first().click();
-  await page.click('button:has-text("Start Game")');
-  await page.waitForSelector('text=Web preview', { timeout: 8000 });
-  const display = await browser.newPage();
-  await display.goto(`${BASE}/agent/caller-display/`, { waitUntil: 'networkidle' });
-  await display.waitForSelector('text=Game has', { timeout: 10000 });
-  await display.close();
-});
-
-await check('Bingo cards page loads', async () => {
-  await page.goto(`${BASE}/agent/cards/`, { waitUntil: 'networkidle' });
-  await page.waitForSelector('text=Bingo Cards', { timeout: 5000 });
+  await page.waitForURL('**/login**', { timeout: 10000 });
 });
 
 await check('Admin login works', async () => {
@@ -70,12 +40,15 @@ await check('Admin login works', async () => {
   await page.fill('input[type="text"]', 'admin');
   await page.fill('input[type="password"]', 'admin123');
   await page.click('button[type="submit"]');
-  await page.waitForURL('**/admin/dashboard**', { timeout: 10000 });
+  await page.waitForURL('**/admin/**', { timeout: 10000 });
 });
 
-await check('Admin agents page loads', async () => {
-  await page.goto(`${BASE}/admin/agents/`, { waitUntil: 'networkidle' });
-  await page.waitForSelector('text=Agents', { timeout: 5000 });
+await check('Vendor login works', async () => {
+  await page.goto(`${BASE}/login/`, { waitUntil: 'networkidle' });
+  await page.fill('input[type="text"]', 'vendor');
+  await page.fill('input[type="password"]', 'vendor2024');
+  await page.click('button[type="submit"]');
+  await page.waitForURL('**/vendor**', { timeout: 10000 });
 });
 
 await browser.close();

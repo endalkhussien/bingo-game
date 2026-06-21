@@ -14,8 +14,8 @@ const STEPS = [
     icon: LogIn,
     title: 'Login as Admin',
     titleAm: 'እንደ አድሚን ግባ',
-    text: 'Username: admin · Password: admin123 (from your installer)',
-    textAm: 'የተጠቃሚ ስም: admin · የይለፍ ቃል: admin123',
+    text: 'Sign in with your shop admin username and password (change password after first login)',
+    textAm: 'በሱቅ አድሚን የተጠቃሚ ስም እና የይለፍ ቃልዎን በመጀመሪያ መግቢያ ይቀይሩ',
   },
   {
     num: '2',

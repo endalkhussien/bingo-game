@@ -84,10 +84,6 @@ export default function RechargePage() {
           <button type="button" onClick={handleVoucher} disabled={loading} className="rounded-lg bg-blue-600 px-8 py-2.5 text-sm font-semibold text-white disabled:opacity-50">
             {loading ? 'Processing...' : 'Recharge'}
           </button>
-          <div className="mt-6 rounded-lg bg-gray-100 p-4 text-xs text-gray-500">
-            <p className="font-medium text-gray-700 mb-1">Demo codes (this PC only, username &quot;agent&quot;):</p>
-            <p>VOUCHER100 · VOUCHER500 · VOUCHER1000 · DEMO2024</p>
-          </div>
         </div>
       ) : (
         <div className="max-w-lg space-y-4">
