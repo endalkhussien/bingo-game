@@ -9,7 +9,7 @@ import { normalizeWinningPattern } from '../../src/domain/services/winner-verifi
 import { MIN_BET, CARTELLA_MAX } from '../../src/shared/constants';
 import { DRAW_BALL_COUNT } from '../../src/shared/brand';
 import { calculateTotalPot, calculateWinnerPrize, calculateGameEconomics } from '../../src/shared/prize';
-import { deductPrizePayout, creditGameStakes, deductAdminCommission, reverseGameStakes } from './wallet-service';
+import { deductPrizePayout, deductAdminCommission } from './wallet-service';
 import { parseCardData } from '../../src/domain/services/card-generator';
 import { verifyTicketForGame } from './winner-service';
 
@@ -60,11 +60,10 @@ export async function createGame(agentId: string, config: {
   }
 
   const { totalPot, prize } = calculateWinnerPrize(config.betAmount, playerCount, commissionRate);
-  // Player stakes are credited when the game starts, so balance after credit always covers the prize.
-  if (agent.walletBalance + totalPot < prize) {
+  if (agent.walletBalance < prize) {
     return {
       success: false,
-      error: `Insufficient balance to cover winner prize (${prize.toFixed(0)} ETB).`,
+      error: `Insufficient wallet balance (${agent.walletBalance.toFixed(0)} ETB). Need at least ${prize.toFixed(0)} ETB to cover the winner prize. Ask admin for a TBG recharge code.`,
     };
   }
 
@@ -119,8 +118,6 @@ export async function createGame(agentId: string, config: {
   if (gameCardInserts.length > 0) {
     await db.insert(gameCards).values(gameCardInserts);
   }
-
-  await creditGameStakes(agentId, totalPot, gameCode);
 
   return {
     success: true,
@@ -436,8 +433,6 @@ export async function endGame(gameId: string, agentId: string) {
 
   if (totalPayouts > 0 && economics.adminCut > 0) {
     await deductAdminCommission(agentId, economics.adminCut, game.gameCode);
-  } else if (totalPayouts === 0) {
-    await reverseGameStakes(agentId, totalBets, game.gameCode);
   }
 
   return {

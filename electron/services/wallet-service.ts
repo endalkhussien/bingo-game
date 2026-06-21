@@ -80,22 +80,13 @@ export async function redeemVoucher(agentId: string, code: string) {
     .get();
 
   if (voucher) {
-    await db.update(rechargeVouchers).set({
-      isUsed: true,
-      usedByAgentId: agentId,
-      usedAt: now,
-    }).where(eq(rechargeVouchers.id, voucher.id));
-
-    return creditAgentWallet(
-      agentId,
-      voucher.amount,
-      `Voucher recharge: ${normalized}`,
-      'voucher',
-      voucher.id,
-    );
+    return {
+      success: false,
+      error: 'This code type is no longer supported. Ask your admin for a TBG recharge code.',
+    };
   }
 
-  // 2) Signed offline code — unique per agent, verified with organization key
+  // Signed offline TBG code — unique per agent, verified with organization key
   const configuredKey = await getConfiguredOrganizationKey();
   const orgKeys = [...new Set([
     configuredKey,
@@ -309,14 +300,18 @@ export async function adminDeposit(_agentId: string, _amount: number, _descripti
   };
 }
 
-export async function adminWithdraw(agentId: string, amount: number, description: string) {
-  const balance = await adjustWallet(agentId, -amount, 'WITHDRAWAL', description || 'Admin withdrawal');
-  return { success: true, data: { newBalance: balance } };
+export async function adminWithdraw(_agentId: string, _amount: number, _description: string) {
+  return {
+    success: false,
+    error: 'Direct withdrawals are disabled. Agent balance changes only via TBG recharge codes and game payouts.',
+  };
 }
 
-export async function adminAdjust(agentId: string, amount: number, description: string) {
-  const balance = await adjustWallet(agentId, amount, 'ADJUSTMENT', description || 'Admin adjustment');
-  return { success: true, data: { newBalance: balance } };
+export async function adminAdjust(_agentId: string, _amount: number, _description: string) {
+  return {
+    success: false,
+    error: 'Manual balance adjustments are disabled. Generate a TBG recharge code for this agent.',
+  };
 }
 
 export async function creditGameStakes(agentId: string, amount: number, gameCode: string) {
