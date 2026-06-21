@@ -1,5 +1,13 @@
 import { getBallLetter } from '@/domain/services/bingo-engine';
 import { formatAmharicBallCall, getBallCallAudioKey } from '@/shared/tts/amharic-ball-call';
+import {
+  CARTELLA_LOCKED_CLIP,
+  GAME_CONTINUED_CLIP,
+  GAME_STARTED_CLIP,
+  GAME_STOPPED_CLIP,
+  NOT_WINNER_CLIP,
+  WINNER_CLIP,
+} from '@/shared/tts/game-clips';
 import { isElectron } from '@/shared/runtime';
 
 let currentAudio: HTMLAudioElement | null = null;
@@ -137,6 +145,38 @@ export function playBallCallClip(number: number): Promise<boolean> {
 
 export function playCartellaClip(number: number): Promise<boolean> {
   return playUrl(cartellaAudioUrl(number));
+}
+
+function eventClipUrl(relativePath: string): string {
+  return buildMediaUrl(relativePath);
+}
+
+export async function playEventClip(relativePath: string): Promise<boolean> {
+  return playUrl(eventClipUrl(relativePath));
+}
+
+export function playGameStartedClip(): Promise<boolean> {
+  return playEventClip(GAME_STARTED_CLIP);
+}
+
+export function playGameStoppedClip(): Promise<boolean> {
+  return playEventClip(GAME_STOPPED_CLIP);
+}
+
+export function playGameContinuedClip(): Promise<boolean> {
+  return playEventClip(GAME_CONTINUED_CLIP);
+}
+
+export function playWinnerClip(): Promise<boolean> {
+  return playEventClip(WINNER_CLIP);
+}
+
+export function playNotWinnerClip(): Promise<boolean> {
+  return playEventClip(NOT_WINNER_CLIP);
+}
+
+export function playCartellaLockedClip(): Promise<boolean> {
+  return playEventClip(CARTELLA_LOCKED_CLIP);
 }
 
 export function playAmharicBall(number: number): Promise<boolean> {

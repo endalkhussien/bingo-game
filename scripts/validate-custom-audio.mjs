@@ -10,6 +10,15 @@ import { fileURLToPath } from 'url';
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const audioDir = path.join(root, 'public', 'audio');
 
+const EVENT_CLIPS = [
+  { label: 'Game start (PLAY)', paths: ['public/audio/game_started.mp3'] },
+  { label: 'End game', paths: ['public/audio/game_stopped.mp3'] },
+  { label: 'Resume game', paths: ['public/audio/game_continued.mp3'] },
+  { label: 'Winner', paths: ['public/audio/winner.mp3'] },
+  { label: 'Not winner', paths: ['public/audio/not_winner.mp3'] },
+  { label: 'Cartella locked', paths: ['public/audio/cartella_locked.mp3'] },
+];
+
 function getBallLetter(n) {
   if (n <= 15) return 'B';
   if (n <= 30) return 'I';
@@ -46,8 +55,25 @@ for (let n = 1; n <= 75; n++) {
   if (stat.size < 500) empty.push(name);
 }
 
-if (missing.length === 0 && empty.length === 0) {
+let eventMissing = [];
+let eventEmpty = [];
+
+for (const { label, paths: clipPaths } of EVENT_CLIPS) {
+  const found = clipPaths.find((p) => fs.existsSync(path.join(root, p)));
+  if (!found) {
+    eventMissing.push(`${label} (${clipPaths.join(' or ')})`);
+    continue;
+  }
+  const stat = fs.statSync(path.join(root, found));
+  if (stat.size < 500) eventEmpty.push(`${label} (${found})`);
+}
+
+const hasBallIssues = missing.length > 0 || empty.length > 0;
+const hasEventIssues = eventMissing.length > 0 || eventEmpty.length > 0;
+
+if (!hasBallIssues && !hasEventIssues) {
   console.log('✓ All 75 ball-call files found and look OK.');
+  console.log('✓ All game event clips found.');
   console.log('  Next: npm run pack:win  (to build installer with your voice)');
   process.exit(0);
 }
@@ -60,6 +86,15 @@ if (missing.length > 0) {
 
 if (empty.length > 0) {
   console.error(`✗ Too small (maybe empty recording): ${empty.join(', ')}`);
+}
+
+if (eventMissing.length > 0) {
+  console.error(`✗ Missing ${eventMissing.length} event clip(s):`);
+  eventMissing.forEach((f) => console.error(`    ${f}`));
+}
+
+if (eventEmpty.length > 0) {
+  console.error(`✗ Event clip too small: ${eventEmpty.join(', ')}`);
 }
 
 console.error('\nRun  npm run recording:script  for the full list of names and phrases.');
