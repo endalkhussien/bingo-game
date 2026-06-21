@@ -7,10 +7,10 @@ import { useAuth } from '@/presentation/providers/auth-provider';
 import { useUiLanguage } from '@/presentation/providers/ui-language-provider';
 import { NumberGrid } from '@/presentation/components/bingo/number-grid';
 import { CheckCardModal } from '@/presentation/components/bingo/check-card-modal';
-import { WINNING_PATTERNS, DRAW_INTERVALS, VOICE_TYPES, MIN_BET, DEFAULT_JACKPOT_MAX_CALLS, DEFAULT_CALL_COOLDOWN_MS, GAME_START_BREATH_MS, GAME_COMMISSION_OPTIONS, MIN_PLAYERS_TO_START } from '@/shared/constants';
+import { WINNING_PATTERNS, DRAW_INTERVALS, VOICE_TYPES, MIN_BET, DEFAULT_JACKPOT_MAX_CALLS, DEFAULT_CALL_COOLDOWN_MS, GAME_COMMISSION_OPTIONS, MIN_PLAYERS_TO_START } from '@/shared/constants';
 import { DRAW_BALL_COUNT, INITIAL_CARTELLA_COUNT } from '@/shared/brand';
 import { speakBallCall, speakCartella, speakGameStarted, loadVoices } from '@/presentation/lib/tts';
-import { stopCurrentAudio, preloadBallCallClips, playGameContinuedClip, playGameStoppedClip, playWinnerClip, playNotWinnerClip, playCartellaLockedClip } from '@/presentation/lib/amharic-audio';
+import { stopCurrentAudio, preloadBallCallClips, preloadGameEventClips, playGameContinuedClip, playGameStoppedClip, playWinnerClip, playNotWinnerClip, playCartellaLockedClip } from '@/presentation/lib/amharic-audio';
 import { AudioSyncManager, runAutoCallLoop } from '@/presentation/lib/audio-sync-manager';
 import { CallingEngine } from '@/domain/services/calling-engine';
 import { getBallLabel } from '@/domain/services/bingo-engine';
@@ -196,7 +196,7 @@ export default function GameBoardPage() {
   useEffect(() => { bingoClaimActiveRef.current = bingoClaimActive; }, [bingoClaimActive]);
   useEffect(() => { gameWinnersRef.current = gameWinners; }, [gameWinners]);
 
-  useEffect(() => { loadVoices(); preloadBallCallClips(); }, []);
+  useEffect(() => { loadVoices(); preloadBallCallClips(); preloadGameEventClips(); }, []);
   useEffect(() => {
     if (activeGame) {
       setShowProfit(false);
@@ -383,16 +383,10 @@ export default function GameBoardPage() {
     syncManagerRef.current.abort();
     stopCurrentAudio();
 
-    try {
-      const breathStart = Date.now();
-      while (Date.now() - breathStart < GAME_START_BREATH_MS) {
-        if (!activeGameRef.current || !announcingRef.current || gameEndedRef.current) {
-          setCallingPhase('paused');
-          return;
-        }
-        await new Promise((r) => setTimeout(r, 50));
-      }
+    const paceStart = Date.now();
+    const paceMs = intervalRef.current;
 
+    try {
       if (!activeGameRef.current || !announcingRef.current || gameEndedRef.current) {
         setCallingPhase('paused');
         return;
@@ -400,9 +394,8 @@ export default function GameBoardPage() {
 
       await speakGameStarted(voiceRef.current, languageRef.current);
 
-      const postStartGapMs = intervalRef.current;
-      const delayStart = Date.now();
-      while (Date.now() - delayStart < postStartGapMs) {
+      const waitUntil = paceStart + paceMs;
+      while (Date.now() < waitUntil) {
         if (!activeGameRef.current || !announcingRef.current || gameEndedRef.current) {
           setCallingPhase('paused');
           return;

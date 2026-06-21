@@ -22,12 +22,6 @@ export const DEFAULT_JACKPOT_MAX_CALLS = 45;
 /** Fixed gap between ball calls — voice + pause always equals this (default 2 sec). */
 export const DEFAULT_CALL_COOLDOWN_MS = 2000;
 
-/** No extra pause after Play before \"Game has started\" (clip starts immediately). */
-export const GAME_START_BREATH_MS = 0;
-
-/** Pause after \"Game has started\" before the first ball — matches default call pace. */
-export const GAME_START_DELAY_MS = DEFAULT_CALL_COOLDOWN_MS;
-
 /** Minimum cartellas required to create a game. */
 export const MIN_PLAYERS_TO_START = 3;
 
