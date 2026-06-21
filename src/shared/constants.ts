@@ -40,7 +40,7 @@ export const DRAW_INTERVALS = [
 ] as const;
 
 /** Agent game commission % options on game board. */
-export const GAME_COMMISSION_OPTIONS = [10, 20, 25, 30, 35] as const;
+export const GAME_COMMISSION_OPTIONS = [10, 20, 25, 30, 35, 40] as const;
 
 export const VOICE_TYPES = [
   { value: 'AMHARIC_MALE', label: 'Amharic Male 1' },
