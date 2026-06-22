@@ -37,3 +37,96 @@ export function calculateGameEconomics(
     agentNetCommission,
   };
 }
+
+/** TBG wallet must cover prize payout plus admin share debit on a winning game */
+export function calculateWalletReserveRequired(
+  betAmount: number,
+  playerCount: number,
+  agentCommissionRate: number,
+  adminCommissionRate: number,
+) {
+  const economics = calculateGameEconomics(
+    betAmount,
+    playerCount,
+    agentCommissionRate,
+    adminCommissionRate,
+  );
+  return {
+    prize: economics.prize,
+    adminCut: economics.adminCut,
+    reserveRequired: economics.prize + economics.adminCut,
+  };
+}
+
+export interface GameSettlementInput {
+  betAmount: number;
+  /** Every cartella that joined and paid at game start */
+  totalJoinedPlayers: number;
+  /** Non-cancelled cartellas — used for prize pool math */
+  activePlayerCount: number;
+  agentCommissionRate: number;
+  adminCommissionRate: number;
+  hasWinner: boolean;
+  totalPayouts: number;
+}
+
+export interface GameSettlement {
+  totalBets: number;
+  /** Active players in prize pool */
+  totalPlayers: number;
+  totalJoinedPlayers: number;
+  /** Cash from eliminated (false BINGO) cartellas kept by agent */
+  forfeitedStakes: number;
+  economics: ReturnType<typeof calculateGameEconomics>;
+  platformRevenue: number;
+  agentRevenue: number;
+  commissionRevenue: number;
+  walletAdminCutDue: number;
+}
+
+/** Single source of truth for end-of-game profit and revenue rows */
+export function summarizeGameSettlement(input: GameSettlementInput): GameSettlement {
+  const {
+    betAmount,
+    totalJoinedPlayers,
+    activePlayerCount,
+    agentCommissionRate,
+    adminCommissionRate,
+    hasWinner,
+  } = input;
+
+  const totalBets = betAmount * totalJoinedPlayers;
+  const forfeitedStakes = betAmount * Math.max(0, totalJoinedPlayers - activePlayerCount);
+  const economics = calculateGameEconomics(
+    betAmount,
+    activePlayerCount,
+    agentCommissionRate,
+    adminCommissionRate,
+  );
+
+  if (hasWinner) {
+    return {
+      totalBets,
+      totalPlayers: activePlayerCount,
+      totalJoinedPlayers,
+      forfeitedStakes,
+      economics,
+      platformRevenue: economics.adminCut,
+      agentRevenue: economics.agentNetCommission + forfeitedStakes,
+      commissionRevenue: economics.agentGrossCommission,
+      walletAdminCutDue: economics.adminCut,
+    };
+  }
+
+  return {
+    totalBets,
+    totalPlayers: activePlayerCount,
+    totalJoinedPlayers,
+    forfeitedStakes: 0,
+    economics,
+    platformRevenue: 0,
+    agentRevenue: totalBets,
+    commissionRevenue: 0,
+    walletAdminCutDue: 0,
+  };
+}

@@ -6,6 +6,7 @@ import { validateBingoGrid } from '@/domain/services/card-generator';
 import { readPersistedLiveGame } from '@/presentation/lib/live-game-sync';
 import { generateAdminActivationCode, hashAdminActivationCode, parseAdminActivationCode } from '@/shared/voucher/admin-activation-code';
 import { generateVendorTopupCode, parseVendorTopupCode, hashVendorTopupCode } from '@/shared/voucher/vendor-topup-code';
+import { calculateWalletReserveRequired, calculateWinnerPrize, summarizeGameSettlement } from '@/shared/prize';
 
 const SESSION_KEY = 'bingo_mock_session';
 const MOCK_ACTIVE_GAME_KEY = 'bingo_mock_active_game';
@@ -494,10 +495,19 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
     if (playerCount === 0) return { success: false, error: 'Select at least one cartella.' };
     const pot = c.betAmount * playerCount;
     const rate = c.commissionRate ?? currentSession?.agent?.commissionRate ?? 20;
-    const commission = pot * (rate / 100);
-    const prize = pot - commission;
-    if (mockBalance < prize) {
-      return { success: false, error: `Insufficient wallet balance (${mockBalance.toFixed(0)} ETB). Need at least ${prize.toFixed(0)} ETB. Ask admin for a TBG recharge code.` };
+    const adminRate = currentSession?.agent?.adminCommissionRate ?? 20;
+    const { prize } = calculateWinnerPrize(c.betAmount, playerCount, rate);
+    const { reserveRequired, adminCut } = calculateWalletReserveRequired(
+      c.betAmount,
+      playerCount,
+      rate,
+      adminRate,
+    );
+    if (mockBalance < reserveRequired) {
+      return {
+        success: false,
+        error: `Insufficient wallet balance (${mockBalance.toFixed(0)} ETB). Need at least ${reserveRequired.toFixed(0)} ETB (prize ${prize.toFixed(0)} ETB + admin share ${adminCut.toFixed(0)} ETB). Ask admin for a TBG recharge code.`,
+      };
     }
     const agentId = getCurrentAgentId();
     ensureMockDeck(agentId);
@@ -674,10 +684,59 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
     };
   },
   'games:end': async (id: unknown) => {
-    const g = mockGames.find((x) => x.id === id);
-    if (g) g.status = 'COMPLETED';
+    const g = mockGames.find((x) => x.id === id) as {
+      betAmount?: number;
+      playerCount?: number;
+      selectedNumbers?: number[];
+      commissionRate?: number;
+      winners?: Array<{ prizeAmount: number }>;
+      bannedCartellas?: string[];
+      status?: string;
+    } | undefined;
+    if (!g) return { success: false, error: 'Game not found' };
+    if (g.status === 'COMPLETED') return { success: false, error: 'Game already ended' };
+
+    const totalJoined = g.playerCount ?? g.selectedNumbers?.length ?? 0;
+    const bannedCount = g.bannedCartellas?.length ?? 0;
+    const activeCount = Math.max(0, totalJoined - bannedCount);
+    const betAmount = g.betAmount ?? 10;
+    const agentRate = g.commissionRate ?? currentSession?.agent?.commissionRate ?? 20;
+    const adminRate = currentSession?.agent?.adminCommissionRate ?? 20;
+    const winners = g.winners ?? [];
+    const totalPayouts = winners.reduce((s, w) => s + w.prizeAmount, 0);
+    const hasWinner = winners.length > 0;
+
+    const settlement = summarizeGameSettlement({
+      betAmount,
+      totalJoinedPlayers: totalJoined,
+      activePlayerCount: activeCount,
+      agentCommissionRate: agentRate,
+      adminCommissionRate: adminRate,
+      hasWinner,
+      totalPayouts,
+    });
+
+    if (hasWinner && settlement.walletAdminCutDue > 0) {
+      mockBalance -= settlement.walletAdminCutDue;
+      if (currentSession?.agent) currentSession.agent.walletBalance = mockBalance;
+      mockOperatorWalletBalance += settlement.walletAdminCutDue;
+    }
+
+    g.status = 'COMPLETED';
     saveMockActiveGame(null);
-    return { success: true, data: { totalBets: 100, agentRevenue: 80, totalPayouts: 0, commissionRevenue: 20, commissionRate: 20 } };
+    return {
+      success: true,
+      data: {
+        totalBets: settlement.totalBets,
+        agentRevenue: settlement.agentRevenue,
+        totalPayouts,
+        commissionRevenue: settlement.commissionRevenue,
+        platformRevenue: settlement.platformRevenue,
+        agentCommissionRate: agentRate,
+        adminCommissionRate: adminRate,
+        hasWinner,
+      },
+    };
   },
   'games:list': async () => mockGames.map((g, i) => ({ id: g.id, gameCode: g.gameCode, date: Date.now() / 1000 - i * 86400, betAmount: g.betAmount || 10, playersNumber: (g as { playerCount?: number }).playerCount || 0, commissionPercent: 20, profit: 80, status: g.status || 'COMPLETED', agentName: mockAgentName() })),
 

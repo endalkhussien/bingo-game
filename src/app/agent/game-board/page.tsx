@@ -12,7 +12,7 @@ import { DRAW_BALL_COUNT, INITIAL_CARTELLA_COUNT } from '@/shared/brand';
 import { speakBallCall, speakCartella, speakGameStarted, loadVoices } from '@/presentation/lib/tts';
 import { stopCurrentAudio, preloadBallCallClips, preloadGameEventClips, playGameContinuedClip, playGameStoppedClip, playWinnerClip, playNotWinnerClip, playCartellaLockedClip } from '@/presentation/lib/amharic-audio';
 import { AudioSyncManager, runAutoCallLoop } from '@/presentation/lib/audio-sync-manager';
-import { calculateTotalPot, calculateGameEconomics, calculateWinnerPrize } from '@/shared/prize';
+import { calculateTotalPot, calculateGameEconomics, calculateWinnerPrize, calculateWalletReserveRequired } from '@/shared/prize';
 import { broadcastLiveGame, subscribeGameControl, toHallSnapshot, type LiveGameSnapshot, type CallingPhase, type LiveGameAnnouncement } from '@/presentation/lib/live-game-sync';
 import { CallerDisplay, HallModeOverlay } from '@/presentation/components/caller/caller-display';
 import { cn } from '@/presentation/lib/utils';
@@ -111,7 +111,7 @@ export default function GameBoardPage() {
   const [checkModalOpen, setCheckModalOpen] = useState(false);
   const [bingoClaimActive, setBingoClaimActive] = useState(false);
   const [gameWinners, setGameWinners] = useState<GameWinner[]>([]);
-  const [commissionPercent, setCommissionPercent] = useState('10');
+  const [commissionPercent, setCommissionPercent] = useState('20');
   const [commissionPickerOpen, setCommissionPickerOpen] = useState(false);
   const commissionPickerRef = useRef<HTMLDivElement>(null);
   const [cartellaVoiceMuted, setCartellaVoiceMuted] = useState(false);
@@ -152,10 +152,6 @@ export default function GameBoardPage() {
   const gameWinnersRef = useRef<GameWinner[]>([]);
   const gameEndedRef = useRef(false);
 
-  const hasWinner = gameWinners.length > 0;
-  const canPickCartellas = !activeGame && walletBalance > 0;
-  const canCreateGame = canPickCartellas && selected.length >= MIN_PLAYERS_TO_START && !creating;
-
   const playerCount = activeGame?.playerCount ?? activeGame?.selectedNumbers?.length ?? selected.length;
   const totalPot = activeGame?.totalPot ?? calculateTotalPot(parseFloat(betAmount || '0') || 0, playerCount);
   const gameEconomics = useMemo(() => calculateGameEconomics(
@@ -164,7 +160,18 @@ export default function GameBoardPage() {
     parseFloat(commissionPercent || '0') || 0,
     adminCommissionRate,
   ), [betAmount, playerCount, commissionPercent, adminCommissionRate]);
+  const walletReserve = useMemo(() => calculateWalletReserveRequired(
+    parseFloat(betAmount || '0') || 0,
+    selected.length || playerCount,
+    parseFloat(commissionPercent || '0') || 0,
+    adminCommissionRate,
+  ), [betAmount, selected.length, playerCount, commissionPercent, adminCommissionRate]);
   const displayProfit = profit > 0 ? profit : gameEconomics.agentNetCommission;
+
+  const hasWinner = gameWinners.length > 0;
+  const canPickCartellas = !activeGame && walletBalance > 0;
+  const canCreateGame = canPickCartellas && selected.length >= MIN_PLAYERS_TO_START && !creating
+    && walletBalance >= walletReserve.reserveRequired;
 
   const selectedSet = useMemo(() => new Set(selected), [selected]);
   const bannedSet = useMemo(() => new Set(bannedCartellas.map(String)), [bannedCartellas]);
@@ -184,6 +191,11 @@ export default function GameBoardPage() {
   useEffect(() => { gameWinnersRef.current = gameWinners; }, [gameWinners]);
 
   useEffect(() => { loadVoices(); preloadBallCallClips(); preloadGameEventClips(); }, []);
+  useEffect(() => {
+    if (agent?.commissionRate != null && !activeGame) {
+      setCommissionPercent(String(agent.commissionRate));
+    }
+  }, [agent?.commissionRate, activeGame]);
   useEffect(() => {
     if (activeGame) {
       setShowProfit(false);
@@ -939,6 +951,15 @@ export default function GameBoardPage() {
             <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
               <p className="font-medium">Wallet balance: 0 ETB</p>
               <p className="mt-1">You cannot create a game or select cartellas until your admin adds TBG balance.</p>
+            </div>
+          )}
+
+          {!activeGame && walletBalance > 0 && selected.length >= MIN_PLAYERS_TO_START && walletBalance < walletReserve.reserveRequired && (
+            <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-950">
+              <p className="font-medium">Insufficient TBG balance for this game</p>
+              <p className="mt-1">
+                Need at least {walletReserve.reserveRequired.toFixed(0)} ETB (prize {walletReserve.prize.toFixed(0)} ETB + admin share {walletReserve.adminCut.toFixed(0)} ETB). Current balance: {walletBalance.toFixed(0)} ETB.
+              </p>
             </div>
           )}
 

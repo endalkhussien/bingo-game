@@ -8,8 +8,9 @@ import { CallingEngine } from '../../src/domain/services/calling-engine';
 import { normalizeWinningPattern } from '../../src/domain/services/winner-verification';
 import { MIN_BET, CARTELLA_MAX } from '../../src/shared/constants';
 import { DRAW_BALL_COUNT } from '../../src/shared/brand';
-import { calculateTotalPot, calculateWinnerPrize, calculateGameEconomics } from '../../src/shared/prize';
+import { calculateTotalPot, calculateWinnerPrize, calculateWalletReserveRequired, summarizeGameSettlement } from '../../src/shared/prize';
 import { deductPrizePayout, deductAdminCommission } from './wallet-service';
+import { creditOperatorWallet } from './operator-wallet-service';
 import { parseCardData } from '../../src/domain/services/card-generator';
 import { verifyTicketForGame } from './winner-service';
 
@@ -59,11 +60,18 @@ export async function createGame(agentId: string, config: {
     return { success: false, error: 'Commission must be between 0% and 100%.' };
   }
 
+  const adminCommissionRate = agent.adminCommissionRate ?? 20;
   const { totalPot, prize } = calculateWinnerPrize(config.betAmount, playerCount, commissionRate);
-  if (agent.walletBalance < prize) {
+  const { reserveRequired, adminCut } = calculateWalletReserveRequired(
+    config.betAmount,
+    playerCount,
+    commissionRate,
+    adminCommissionRate,
+  );
+  if (agent.walletBalance < reserveRequired) {
     return {
       success: false,
-      error: `Insufficient wallet balance (${agent.walletBalance.toFixed(0)} ETB). Need at least ${prize.toFixed(0)} ETB to cover the winner prize. Ask admin for a TBG recharge code.`,
+      error: `Insufficient wallet balance (${agent.walletBalance.toFixed(0)} ETB). Need at least ${reserveRequired.toFixed(0)} ETB to cover winner prize (${prize.toFixed(0)} ETB) and admin share (${adminCut.toFixed(0)} ETB). Ask admin for a TBG recharge code.`,
     };
   }
 
@@ -357,6 +365,11 @@ export async function validateWinner(gameId: string, agentId: string, cardNumber
   const commissionRate = game.commissionRate ?? agent?.commissionRate ?? 20;
   const { totalPot, prize } = calculateWinnerPrize(game.betAmount, activeCount, commissionRate);
 
+  const payout = await deductPrizePayout(agentId, prize, game.gameCode);
+  if (!payout.success) {
+    return { success: false, valid: false, error: payout.error ?? 'Insufficient balance to pay winner prize' };
+  }
+
   await db.insert(winners).values({
     id: uuid(),
     gameId,
@@ -369,11 +382,6 @@ export async function validateWinner(gameId: string, agentId: string, cardNumber
     verifiedAt: now,
     verificationResult: 'VALID',
   });
-
-  const payout = await deductPrizePayout(agentId, prize, game.gameCode);
-  if (!payout.success) {
-    return { success: false, valid: false, error: payout.error ?? 'Insufficient balance to pay winner prize' };
-  }
 
   await db.update(games).set({ status: 'PAUSED', updatedAt: now }).where(eq(games.id, gameId));
 
@@ -399,22 +407,47 @@ export async function endGame(gameId: string, agentId: string) {
   const now = Math.floor(Date.now() / 1000);
   const game = await db.select().from(games).where(eq(games.id, gameId)).get();
   if (!game || game.agentId !== agentId) return { success: false, error: 'Game not found' };
+  if (game.status === 'COMPLETED') return { success: false, error: 'Game already ended' };
+
+  const existingRevenue = await db.select().from(gameRevenue).where(eq(gameRevenue.gameId, gameId)).get();
+  if (existingRevenue) return { success: false, error: 'Game already settled' };
 
   const agent = await db.select().from(agents).where(eq(agents.id, agentId)).get();
   const agentCommissionRate = game.commissionRate ?? agent?.commissionRate ?? 20;
   const adminCommissionRate = agent?.adminCommissionRate ?? 20;
 
   const gameCardRows = await db.select().from(gameCards).where(eq(gameCards.gameId, gameId)).all();
-  const playerCount = gameCardRows.length;
-  const totalBets = game.betAmount * playerCount;
-  const economics = calculateGameEconomics(
-    game.betAmount,
-    playerCount,
-    agentCommissionRate,
-    adminCommissionRate,
-  );
+  const totalJoinedPlayers = gameCardRows.length;
+  const activePlayerCount = gameCardRows.filter((t) => t.status !== 'CANCELLED').length;
   const gameWinners = await db.select().from(winners).where(eq(winners.gameId, gameId)).all();
   const totalPayouts = gameWinners.reduce((s, w) => s + w.prizeAmount, 0);
+  const hasWinner = gameWinners.length > 0;
+
+  const settlement = summarizeGameSettlement({
+    betAmount: game.betAmount,
+    totalJoinedPlayers,
+    activePlayerCount,
+    agentCommissionRate,
+    adminCommissionRate,
+    hasWinner,
+    totalPayouts,
+  });
+
+  if (hasWinner && settlement.walletAdminCutDue > 0) {
+    const adminDebit = await deductAdminCommission(agentId, settlement.walletAdminCutDue, game.gameCode);
+    if (!adminDebit.success) {
+      return {
+        success: false,
+        error: adminDebit.error ?? `Insufficient balance for admin share (${settlement.walletAdminCutDue.toFixed(0)} ETB)`,
+      };
+    }
+    await creditOperatorWallet(
+      settlement.walletAdminCutDue,
+      `Admin share from game ${game.gameCode}`,
+      'game_commission',
+      gameId,
+    );
+  }
 
   await db.update(games).set({ status: 'COMPLETED', completedAt: now, updatedAt: now })
     .where(eq(games.id, gameId));
@@ -422,29 +455,26 @@ export async function endGame(gameId: string, agentId: string) {
   await db.insert(gameRevenue).values({
     id: uuid(),
     gameId,
-    totalPlayers: playerCount,
-    totalBets,
+    totalPlayers: settlement.totalPlayers,
+    totalBets: settlement.totalBets,
     totalPayouts,
-    platformRevenue: economics.adminCut,
-    agentRevenue: economics.agentNetCommission,
-    commissionRevenue: economics.agentGrossCommission,
+    platformRevenue: settlement.platformRevenue,
+    agentRevenue: settlement.agentRevenue,
+    commissionRevenue: settlement.commissionRevenue,
     calculatedAt: now,
   });
-
-  if (totalPayouts > 0 && economics.adminCut > 0) {
-    await deductAdminCommission(agentId, economics.adminCut, game.gameCode);
-  }
 
   return {
     success: true,
     data: {
-      totalBets,
-      agentRevenue: Math.max(0, economics.agentNetCommission),
+      totalBets: settlement.totalBets,
+      agentRevenue: Math.max(0, settlement.agentRevenue),
       totalPayouts,
-      commissionRevenue: economics.agentGrossCommission,
-      platformRevenue: economics.adminCut,
+      commissionRevenue: settlement.commissionRevenue,
+      platformRevenue: settlement.platformRevenue,
       agentCommissionRate,
       adminCommissionRate,
+      hasWinner,
     },
   };
 }
