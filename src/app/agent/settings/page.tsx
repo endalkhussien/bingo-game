@@ -76,8 +76,8 @@ export default function AgentSettingsPage() {
       <div className="rounded-xl bg-white p-6 shadow-sm border space-y-4">
         <h3 className="font-semibold">Your game commission</h3>
         <p className="text-sm text-gray-600">
-          This is the percentage you take from the prize pool before the winner is paid.
-          Admin takes {agent?.adminCommissionRate ?? 20}% of your commission — not shown to players.
+          This is the percentage you take from the prize pool before the winner is paid in cash at the hall.
+          Your TBG wallet is debited by this commission amount when the game ends (admin takes {agent?.adminCommissionRate ?? 20}% of your commission).
         </p>
         {msg && <p className="text-sm text-green-600">{msg}</p>}
         {err && <p className="text-sm text-red-500">{err}</p>}

@@ -9,7 +9,7 @@ import { normalizeWinningPattern } from '../../src/domain/services/winner-verifi
 import { MIN_BET, CARTELLA_MAX } from '../../src/shared/constants';
 import { DRAW_BALL_COUNT } from '../../src/shared/brand';
 import { calculateTotalPot, calculateWinnerPrize, calculateWalletReserveRequired, summarizeGameSettlement } from '../../src/shared/prize';
-import { deductPrizePayout, deductAdminCommission } from './wallet-service';
+import { deductGameCommission } from './wallet-service';
 import { creditOperatorWallet } from './operator-wallet-service';
 import { parseCardData } from '../../src/domain/services/card-generator';
 import { verifyTicketForGame } from './winner-service';
@@ -62,7 +62,7 @@ export async function createGame(agentId: string, config: {
 
   const adminCommissionRate = agent.adminCommissionRate ?? 20;
   const { totalPot, prize } = calculateWinnerPrize(config.betAmount, playerCount, commissionRate);
-  const { reserveRequired, adminCut } = calculateWalletReserveRequired(
+  const { reserveRequired, commission } = calculateWalletReserveRequired(
     config.betAmount,
     playerCount,
     commissionRate,
@@ -71,7 +71,7 @@ export async function createGame(agentId: string, config: {
   if (agent.walletBalance < reserveRequired) {
     return {
       success: false,
-      error: `Insufficient wallet balance (${agent.walletBalance.toFixed(0)} ETB). Need at least ${reserveRequired.toFixed(0)} ETB to cover winner prize (${prize.toFixed(0)} ETB) and admin share (${adminCut.toFixed(0)} ETB). Ask admin for a TBG recharge code.`,
+      error: `Insufficient wallet balance (${agent.walletBalance.toFixed(0)} ETB). Need at least ${reserveRequired.toFixed(0)} ETB to cover game commission (${commission.toFixed(0)} ETB). Winner prize (${prize.toFixed(0)} ETB) is paid in cash at the hall. Ask admin for a TBG recharge code.`,
     };
   }
 
@@ -365,11 +365,6 @@ export async function validateWinner(gameId: string, agentId: string, cardNumber
   const commissionRate = game.commissionRate ?? agent?.commissionRate ?? 20;
   const { totalPot, prize } = calculateWinnerPrize(game.betAmount, activeCount, commissionRate);
 
-  const payout = await deductPrizePayout(agentId, prize, game.gameCode);
-  if (!payout.success) {
-    return { success: false, valid: false, error: payout.error ?? 'Insufficient balance to pay winner prize' };
-  }
-
   await db.insert(winners).values({
     id: uuid(),
     gameId,
@@ -433,20 +428,22 @@ export async function endGame(gameId: string, agentId: string) {
     totalPayouts,
   });
 
-  if (hasWinner && settlement.walletAdminCutDue > 0) {
-    const adminDebit = await deductAdminCommission(agentId, settlement.walletAdminCutDue, game.gameCode);
-    if (!adminDebit.success) {
+  if (hasWinner && settlement.walletCommissionDue > 0) {
+    const commissionDebit = await deductGameCommission(agentId, settlement.walletCommissionDue, game.gameCode);
+    if (!commissionDebit.success) {
       return {
         success: false,
-        error: adminDebit.error ?? `Insufficient balance for admin share (${settlement.walletAdminCutDue.toFixed(0)} ETB)`,
+        error: commissionDebit.error ?? `Insufficient balance for game commission (${settlement.walletCommissionDue.toFixed(0)} ETB)`,
       };
     }
-    await creditOperatorWallet(
-      settlement.walletAdminCutDue,
-      `Admin share from game ${game.gameCode}`,
-      'game_commission',
-      gameId,
-    );
+    if (settlement.platformRevenue > 0) {
+      await creditOperatorWallet(
+        settlement.platformRevenue,
+        `Admin share from game ${game.gameCode}`,
+        'game_commission',
+        gameId,
+      );
+    }
   }
 
   await db.update(games).set({ status: 'COMPLETED', completedAt: now, updatedAt: now })

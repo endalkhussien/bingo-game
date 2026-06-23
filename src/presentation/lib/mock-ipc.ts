@@ -497,7 +497,7 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
     const rate = c.commissionRate ?? currentSession?.agent?.commissionRate ?? 20;
     const adminRate = currentSession?.agent?.adminCommissionRate ?? 20;
     const { prize } = calculateWinnerPrize(c.betAmount, playerCount, rate);
-    const { reserveRequired, adminCut } = calculateWalletReserveRequired(
+    const { reserveRequired, commission } = calculateWalletReserveRequired(
       c.betAmount,
       playerCount,
       rate,
@@ -506,7 +506,7 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
     if (mockBalance < reserveRequired) {
       return {
         success: false,
-        error: `Insufficient wallet balance (${mockBalance.toFixed(0)} ETB). Need at least ${reserveRequired.toFixed(0)} ETB (prize ${prize.toFixed(0)} ETB + admin share ${adminCut.toFixed(0)} ETB). Ask admin for a TBG recharge code.`,
+        error: `Insufficient wallet balance (${mockBalance.toFixed(0)} ETB). Need at least ${reserveRequired.toFixed(0)} ETB commission (${commission.toFixed(0)} ETB). Winner prize (${prize.toFixed(0)} ETB) is paid in cash.`,
       };
     }
     const agentId = getCurrentAgentId();
@@ -667,8 +667,6 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
     const playerCount = g.selectedNumbers?.length ?? 1;
     const betAmount = g.betAmount ?? 10;
     const { totalPot, prize } = calculateWinnerPrize(betAmount, playerCount, rate);
-    mockBalance -= prize;
-    if (currentSession?.agent) currentSession.agent.walletBalance = mockBalance;
     if (g) {
       (g as { status?: string }).status = 'PAUSED';
       const prev = (g as { winners?: Array<{ cardNumber: string; prizeAmount: number }> }).winners ?? [];
@@ -716,10 +714,12 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
       totalPayouts,
     });
 
-    if (hasWinner && settlement.walletAdminCutDue > 0) {
-      mockBalance -= settlement.walletAdminCutDue;
+    if (hasWinner && settlement.walletCommissionDue > 0) {
+      mockBalance -= settlement.walletCommissionDue;
       if (currentSession?.agent) currentSession.agent.walletBalance = mockBalance;
-      mockOperatorWalletBalance += settlement.walletAdminCutDue;
+      if (settlement.platformRevenue > 0) {
+        mockOperatorWalletBalance += settlement.platformRevenue;
+      }
     }
 
     g.status = 'COMPLETED';

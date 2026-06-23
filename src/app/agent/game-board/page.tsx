@@ -958,7 +958,7 @@ export default function GameBoardPage() {
             <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-950">
               <p className="font-medium">Insufficient TBG balance for this game</p>
               <p className="mt-1">
-                Need at least {walletReserve.reserveRequired.toFixed(0)} ETB (prize {walletReserve.prize.toFixed(0)} ETB + admin share {walletReserve.adminCut.toFixed(0)} ETB). Current balance: {walletBalance.toFixed(0)} ETB.
+                Need at least {walletReserve.reserveRequired.toFixed(0)} ETB game commission in your TBG wallet (winner prize {walletReserve.prize.toFixed(0)} ETB is paid in cash). Current balance: {walletBalance.toFixed(0)} ETB.
               </p>
             </div>
           )}

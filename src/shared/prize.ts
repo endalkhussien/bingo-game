@@ -38,7 +38,7 @@ export function calculateGameEconomics(
   };
 }
 
-/** TBG wallet must cover prize payout plus admin share debit on a winning game */
+/** TBG wallet must cover the game commission debit (winner is paid in cash at the hall) */
 export function calculateWalletReserveRequired(
   betAmount: number,
   playerCount: number,
@@ -53,8 +53,9 @@ export function calculateWalletReserveRequired(
   );
   return {
     prize: economics.prize,
+    commission: economics.agentGrossCommission,
     adminCut: economics.adminCut,
-    reserveRequired: economics.prize + economics.adminCut,
+    reserveRequired: economics.agentGrossCommission,
   };
 }
 
@@ -81,7 +82,8 @@ export interface GameSettlement {
   platformRevenue: number;
   agentRevenue: number;
   commissionRevenue: number;
-  walletAdminCutDue: number;
+  /** Debited from TBG wallet when a winner is validated and game ends */
+  walletCommissionDue: number;
 }
 
 /** Single source of truth for end-of-game profit and revenue rows */
@@ -114,7 +116,7 @@ export function summarizeGameSettlement(input: GameSettlementInput): GameSettlem
       platformRevenue: economics.adminCut,
       agentRevenue: economics.agentNetCommission + forfeitedStakes,
       commissionRevenue: economics.agentGrossCommission,
-      walletAdminCutDue: economics.adminCut,
+      walletCommissionDue: economics.agentGrossCommission,
     };
   }
 
@@ -127,6 +129,6 @@ export function summarizeGameSettlement(input: GameSettlementInput): GameSettlem
     platformRevenue: 0,
     agentRevenue: totalBets,
     commissionRevenue: 0,
-    walletAdminCutDue: 0,
+    walletCommissionDue: 0,
   };
 }

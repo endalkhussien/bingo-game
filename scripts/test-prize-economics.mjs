@@ -28,8 +28,9 @@ function calculateWalletReserveRequired(betAmount, playerCount, agentCommissionR
   const economics = calculateGameEconomics(betAmount, playerCount, agentCommissionRate, adminCommissionRate);
   return {
     prize: economics.prize,
+    commission: economics.agentGrossCommission,
     adminCut: economics.adminCut,
-    reserveRequired: economics.prize + economics.adminCut,
+    reserveRequired: economics.agentGrossCommission,
   };
 }
 
@@ -59,7 +60,7 @@ function summarizeGameSettlement(input) {
       economics,
       platformRevenue: economics.adminCut,
       agentRevenue: economics.agentNetCommission + forfeitedStakes,
-      walletAdminCutDue: economics.adminCut,
+      walletCommissionDue: economics.agentGrossCommission,
     };
   }
 
@@ -69,7 +70,7 @@ function summarizeGameSettlement(input) {
     economics,
     platformRevenue: 0,
     agentRevenue: totalBets,
-    walletAdminCutDue: 0,
+    walletCommissionDue: 0,
   };
 }
 
@@ -77,35 +78,39 @@ function assert(cond, msg) {
   if (!cond) throw new Error(msg);
 }
 
-const reserve = calculateWalletReserveRequired(10, 10, 20, 20);
-assert(reserve.prize === 80, `prize expected 80, got ${reserve.prize}`);
-assert(reserve.adminCut === 4, `adminCut expected 4, got ${reserve.adminCut}`);
-assert(reserve.reserveRequired === 84, `reserve expected 84, got ${reserve.reserveRequired}`);
+// User example: 10 players × 10 ETB, 10% commission
+const userExample = calculateGameEconomics(10, 10, 10, 0);
+assert(userExample.totalPot === 100, 'pot is 100');
+assert(userExample.prize === 90, 'winner gets 90');
+assert(userExample.agentGrossCommission === 10, 'commission is 10');
+assert(userExample.agentNetCommission === 10, 'agent profit is 10 when admin share is 0');
 
-const winSettlement = summarizeGameSettlement({
+const userReserve = calculateWalletReserveRequired(10, 10, 10, 0);
+assert(userReserve.reserveRequired === 10, 'wallet reserve is commission only (10)');
+assert(userReserve.prize === 90, 'prize still calculated as 90 for display');
+
+const userEnd = summarizeGameSettlement({
   betAmount: 10,
   totalJoinedPlayers: 10,
   activePlayerCount: 10,
-  agentCommissionRate: 20,
-  adminCommissionRate: 20,
+  agentCommissionRate: 10,
+  adminCommissionRate: 0,
   hasWinner: true,
 });
-assert(winSettlement.agentRevenue === 16, `agent net profit expected 16, got ${winSettlement.agentRevenue}`);
-assert(winSettlement.platformRevenue === 4, `platform expected 4, got ${winSettlement.platformRevenue}`);
+assert(userEnd.walletCommissionDue === 10, 'wallet decreases by 10 on completed game');
+assert(userEnd.agentRevenue === 10, 'agent cash profit is 10');
 
-const winWithBan = summarizeGameSettlement({
+const withAdmin = summarizeGameSettlement({
   betAmount: 10,
   totalJoinedPlayers: 10,
-  activePlayerCount: 9,
-  agentCommissionRate: 20,
+  activePlayerCount: 10,
+  agentCommissionRate: 10,
   adminCommissionRate: 20,
   hasWinner: true,
 });
-assert(winWithBan.forfeitedStakes === 10, 'forfeited stake from banned cartella');
-assert(
-  winWithBan.agentRevenue === winWithBan.economics.agentNetCommission + 10,
-  'agent keeps net commission plus forfeited stake',
-);
+assert(withAdmin.walletCommissionDue === 10, 'wallet still debits full commission (10)');
+assert(withAdmin.platformRevenue === 2, 'admin gets 2 from commission');
+assert(withAdmin.agentRevenue === 8, 'agent keeps 8 cash profit after admin share');
 
 const noWinner = summarizeGameSettlement({
   betAmount: 10,
@@ -115,7 +120,7 @@ const noWinner = summarizeGameSettlement({
   adminCommissionRate: 20,
   hasWinner: false,
 });
-assert(noWinner.agentRevenue === 80, `no-winner profit expected 80, got ${noWinner.agentRevenue}`);
-assert(noWinner.platformRevenue === 0, 'no admin cut when no winner');
+assert(noWinner.agentRevenue === 80, 'no-winner profit is full pot');
+assert(noWinner.walletCommissionDue === 0, 'no wallet debit when no winner');
 
 console.log('Prize economics tests OK');
