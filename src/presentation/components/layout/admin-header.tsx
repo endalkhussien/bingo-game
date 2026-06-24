@@ -2,12 +2,13 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
-import { User, Wallet } from 'lucide-react';
+import { Wallet } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/presentation/providers/auth-provider';
 import { APP_NAME } from '@/shared/brand';
 import { ipc } from '@/presentation/lib/ipc';
 import { SHOP_ADMIN_WALLET } from '@/shared/admin-routes';
+import { UserMenuDropdown } from '@/presentation/components/layout/user-menu-dropdown';
 
 export const BALANCE_UPDATED_EVENT = 'waliya:balance-updated';
 
@@ -62,12 +63,7 @@ export function AdminHeader() {
           <option>English</option>
           <option>አማርኛ</option>
         </select>
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-200">
-            <User className="h-4 w-4 text-gray-600" />
-          </div>
-          <span className="text-sm font-medium">{user?.fullName ?? 'Admin'}</span>
-        </div>
+        <UserMenuDropdown label={user?.fullName ?? 'Admin'} />
       </div>
     </header>
   );

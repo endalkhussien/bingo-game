@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, Users, Wallet, Gamepad2, BarChart3, Settings,
-  Bell, LogOut, Ticket, KeyRound,
+  Bell, Ticket, KeyRound,
 } from 'lucide-react';
 import { cn } from '@/presentation/lib/utils';
 import { useAuth } from '@/presentation/providers/auth-provider';
@@ -33,7 +33,7 @@ const shopAdminNav: Array<{
 
 export function AdminSidebar() {
   const pathname = usePathname();
-  const { logout, user } = useAuth();
+  const { user } = useAuth();
   const [pending, setPending] = useState(0);
   const [unread, setUnread] = useState(0);
 
@@ -66,16 +66,12 @@ export function AdminSidebar() {
           );
         })}
       </nav>
-      <div className="border-t border-white/10 px-3 py-3 space-y-1">
+      <div className="border-t border-white/10 px-3 py-3">
         <Link href="/admin/notifications"
           className="flex items-center justify-between rounded-lg px-3 py-2 text-sm text-gray-300 hover:bg-sidebar-hover">
           <span className="flex items-center gap-3"><Bell className="h-4 w-4" />Notifications</span>
           {unread > 0 && <span className="rounded-full bg-blue-500 px-2 py-0.5 text-xs">{unread}</span>}
         </Link>
-        <button type="button" onClick={() => logout()}
-          className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-300 hover:bg-sidebar-hover">
-          <LogOut className="h-4 w-4" />Logout
-        </button>
       </div>
     </aside>
   );

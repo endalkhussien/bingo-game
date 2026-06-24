@@ -1,9 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { RefreshCw, Eye, EyeOff, User } from 'lucide-react';
+import { RefreshCw, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '@/presentation/providers/auth-provider';
 import { useUiLanguage } from '@/presentation/providers/ui-language-provider';
+import { UserMenuDropdown } from '@/presentation/components/layout/user-menu-dropdown';
 
 export function AgentHeader() {
   const { user, agent, refreshBalance } = useAuth();
@@ -50,12 +51,10 @@ export function AgentHeader() {
         <option value="en">English</option>
         <option value="am">አማርኛ</option>
       </select>
-      <div className="flex items-center gap-2">
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-200">
-          <User className="h-4 w-4 text-gray-600" />
-        </div>
-        <span className="text-sm font-medium text-gray-700">{user?.fullName ?? 'Agent'}</span>
-      </div>
+      <UserMenuDropdown
+        label={user?.fullName ?? 'Agent'}
+        logoutLabel={t('logout')}
+      />
     </header>
   );
 }
