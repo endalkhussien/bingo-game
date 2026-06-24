@@ -1,6 +1,6 @@
 // In-memory mock store for browser development without Electron
 
-import { CARTELLA_MAX, DEFAULT_CALL_COOLDOWN_MS } from '@/shared/constants';
+import { CARTELLA_MAX, DEFAULT_CALL_COOLDOWN_MS, MIN_PLAYERS_TO_START } from '@/shared/constants';
 import { INITIAL_CARTELLA_COUNT } from '@/shared/brand';
 import { validateBingoGrid } from '@/domain/services/card-generator';
 import { readPersistedLiveGame } from '@/presentation/lib/live-game-sync';
@@ -490,9 +490,24 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
     if (mockBalance <= 0) {
       return { success: false, error: 'Wallet balance is 0. Recharge with a TBG code from your admin before starting a game.' };
     }
-    const c = config as { betAmount: number; selectedNumbers: number[]; voiceType?: string; language?: string; drawSpeedMs?: number; commissionRate?: number };
+    const active = mockGames.find((g) => g.status === 'RUNNING' || g.status === 'PAUSED');
+    if (active) {
+      return { success: false, error: 'You already have an active game. End it before creating a new one.' };
+    }
+    const c = config as {
+      betAmount: number;
+      selectedNumbers: number[];
+      winningPattern?: string;
+      voiceType?: string;
+      language?: string;
+      drawSpeedMs?: number;
+      commissionRate?: number;
+    };
     const playerCount = c.selectedNumbers?.length ?? 0;
     if (playerCount === 0) return { success: false, error: 'Select at least one cartella.' };
+    if (playerCount < MIN_PLAYERS_TO_START) {
+      return { success: false, error: `Select at least ${MIN_PLAYERS_TO_START} cartellas to start a game.` };
+    }
     const pot = c.betAmount * playerCount;
     const rate = c.commissionRate ?? currentSession?.agent?.commissionRate ?? 20;
     const adminRate = currentSession?.agent?.adminCommissionRate ?? 20;
@@ -515,11 +530,16 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
     if (missing.length > 0) {
       return { success: false, error: `Cartella(s) not in your deck: ${missing.slice(0, 8).join(', ')}. Add them on Bingo Cards first.` };
     }
+    if (commission > 0) {
+      mockBalance -= commission;
+      if (currentSession?.agent) currentSession.agent.walletBalance = mockBalance;
+    }
     const game = {
       id: `game-${mockGames.length + 1}`, gameCode: `TBG-${1000 + mockGames.length}`, status: 'PAUSED',
       betAmount: c.betAmount, playerCount,
       selectedNumbers: c.selectedNumbers, drawnNumbers: [], callHistory: [], voiceType: c.voiceType ?? 'AMHARIC_MALE',
-      language: c.language ?? 'am', totalPot: pot, prize, maxBalls: 75, drawSpeedMs: c.drawSpeedMs ?? DEFAULT_CALL_COOLDOWN_MS, commissionRate: rate,
+      language: c.language ?? 'am', totalPot: pot, prize, maxBalls: 75, drawSpeedMs: c.drawSpeedMs ?? DEFAULT_CALL_COOLDOWN_MS,
+      commissionRate: rate, commissionReserved: commission, winningPattern: c.winningPattern ?? 'FIRST_LINE',
       startedAt: Math.floor(Date.now() / 1000),
     };
     mockGames.push(game);
@@ -629,6 +649,8 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
       betAmount?: number;
       winningPattern?: string;
       bannedCartellas?: string[];
+      commissionRate?: number;
+      winners?: Array<{ cardNumber: string; prizeAmount: number }>;
     } | undefined;
     const banned = (g?.bannedCartellas ?? []).map(String);
     if (banned.includes(num)) {
@@ -663,20 +685,32 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
         grid: card.grid,
       };
     }
-    const rate = currentSession?.agent?.commissionRate ?? 20;
-    const playerCount = g.selectedNumbers?.length ?? 1;
+    const prevWinners = g.winners ?? [];
+    if (prevWinners.length > 0) {
+      return {
+        success: true,
+        valid: false,
+        message: `Winner already declared (cartella #${prevWinners[0].cardNumber}). End the game to finish.`,
+        cardNumber: num,
+        calledNumbers: drawn,
+        grid: card.grid,
+      };
+    }
+    const rate = g.commissionRate ?? currentSession?.agent?.commissionRate ?? 20;
+    const totalJoined = g.selectedNumbers?.length ?? 1;
+    const bannedCount = g.bannedCartellas?.length ?? 0;
+    const activeCount = Math.max(1, totalJoined - bannedCount);
     const betAmount = g.betAmount ?? 10;
-    const { totalPot, prize } = calculateWinnerPrize(betAmount, playerCount, rate);
+    const { totalPot, prize } = calculateWinnerPrize(betAmount, activeCount, rate);
     if (g) {
       (g as { status?: string }).status = 'PAUSED';
-      const prev = (g as { winners?: Array<{ cardNumber: string; prizeAmount: number }> }).winners ?? [];
-      (g as { winners: typeof prev }).winners = [...prev, { cardNumber: num, prizeAmount: prize }];
+      (g as { winners: typeof prevWinners }).winners = [{ cardNumber: num, prizeAmount: prize }];
       touchMockActiveGame(g as MockActiveGame);
     }
     return {
       success: true, valid: true,
       message: `Cartella #${num} wins ${prize.toFixed(0)} ETB!`,
-      cardNumber: num, prizeAmount: prize, playerCount, betAmount, totalPot,
+      cardNumber: num, prizeAmount: prize, playerCount: activeCount, betAmount, totalPot,
       calledNumbers: drawn, grid: card.grid,
       calledCountAtWin: drawn.length, winningPattern: g.winningPattern,
     };
@@ -687,6 +721,7 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
       playerCount?: number;
       selectedNumbers?: number[];
       commissionRate?: number;
+      commissionReserved?: number;
       winners?: Array<{ prizeAmount: number }>;
       bannedCartellas?: string[];
       status?: string;
@@ -714,8 +749,31 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
       totalPayouts,
     });
 
-    if (hasWinner && settlement.walletCommissionDue > 0) {
+    const reservedCommission = g.commissionReserved ?? calculateWinnerPrize(betAmount, totalJoined, agentRate).commission;
+
+    if (reservedCommission > 0) {
+      if (hasWinner) {
+        const actualDue = settlement.walletCommissionDue;
+        if (actualDue < reservedCommission) {
+          mockBalance += reservedCommission - actualDue;
+        } else if (actualDue > reservedCommission) {
+          mockBalance -= actualDue - reservedCommission;
+          if (mockBalance < 0) {
+            return { success: false, error: `Insufficient balance for game commission (${actualDue.toFixed(0)} ETB)` };
+          }
+        }
+        if (settlement.platformRevenue > 0) {
+          mockOperatorWalletBalance += settlement.platformRevenue;
+        }
+      } else {
+        mockBalance += reservedCommission;
+      }
+      if (currentSession?.agent) currentSession.agent.walletBalance = mockBalance;
+    } else if (hasWinner && settlement.walletCommissionDue > 0) {
       mockBalance -= settlement.walletCommissionDue;
+      if (mockBalance < 0) {
+        return { success: false, error: `Insufficient balance for game commission (${settlement.walletCommissionDue.toFixed(0)} ETB)` };
+      }
       if (currentSession?.agent) currentSession.agent.walletBalance = mockBalance;
       if (settlement.platformRevenue > 0) {
         mockOperatorWalletBalance += settlement.platformRevenue;

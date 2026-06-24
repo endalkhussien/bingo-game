@@ -338,6 +338,26 @@ export async function deductGameCommission(agentId: string, amount: number, game
   }
 }
 
+export async function reserveGameCommission(agentId: string, amount: number, gameCode: string) {
+  if (amount <= 0) return { success: true, data: { newBalance: await getBalance(agentId) } };
+  try {
+    const balance = await adjustWallet(agentId, -amount, 'GAME_COMMISSION_RESERVE', `Game commission reserved: ${gameCode}`);
+    return { success: true, data: { newBalance: balance } };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Insufficient balance' };
+  }
+}
+
+export async function refundGameCommission(agentId: string, amount: number, gameCode: string) {
+  if (amount <= 0) return { success: true, data: { newBalance: await getBalance(agentId) } };
+  try {
+    const balance = await adjustWallet(agentId, amount, 'GAME_COMMISSION_REFUND', `Game commission refunded: ${gameCode}`);
+    return { success: true, data: { newBalance: balance } };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Could not refund commission' };
+  }
+}
+
 export async function deductAdminCommission(agentId: string, amount: number, gameCode: string) {
   if (amount <= 0) return { success: true, data: { newBalance: await getBalance(agentId) } };
   try {

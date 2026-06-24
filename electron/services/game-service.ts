@@ -6,10 +6,10 @@ import {
 } from '../../src/infrastructure/database/schema';
 import { CallingEngine } from '../../src/domain/services/calling-engine';
 import { normalizeWinningPattern } from '../../src/domain/services/winner-verification';
-import { MIN_BET, CARTELLA_MAX } from '../../src/shared/constants';
+import { MIN_BET, CARTELLA_MAX, MIN_PLAYERS_TO_START } from '../../src/shared/constants';
 import { DRAW_BALL_COUNT } from '../../src/shared/brand';
 import { calculateTotalPot, calculateWinnerPrize, calculateWalletReserveRequired, summarizeGameSettlement } from '../../src/shared/prize';
-import { deductGameCommission } from './wallet-service';
+import { deductGameCommission, refundGameCommission, reserveGameCommission } from './wallet-service';
 import { creditOperatorWallet } from './operator-wallet-service';
 import { parseCardData } from '../../src/domain/services/card-generator';
 import { verifyTicketForGame } from './winner-service';
@@ -54,6 +54,23 @@ export async function createGame(agentId: string, config: {
   if (playerCount === 0) {
     return { success: false, error: 'Select at least one cartella.' };
   }
+  if (playerCount < MIN_PLAYERS_TO_START) {
+    return {
+      success: false,
+      error: `Select at least ${MIN_PLAYERS_TO_START} cartellas to start a game.`,
+    };
+  }
+
+  const activeGame = await db.select().from(games)
+    .where(and(eq(games.agentId, agentId), inArray(games.status, ['RUNNING', 'PAUSED'])))
+    .orderBy(desc(games.createdAt))
+    .get();
+  if (activeGame) {
+    return {
+      success: false,
+      error: 'You already have an active game. End it before creating a new one.',
+    };
+  }
 
   const commissionRate = config.commissionRate ?? agent.commissionRate ?? 20;
   if (commissionRate < 0 || commissionRate > 100) {
@@ -78,6 +95,16 @@ export async function createGame(agentId: string, config: {
   const id = uuid();
   const gameCode = generateGameCode();
 
+  if (commission > 0) {
+    const reserve = await reserveGameCommission(agentId, commission, gameCode);
+    if (!reserve.success) {
+      return {
+        success: false,
+        error: reserve.error ?? `Insufficient wallet balance to reserve game commission (${commission.toFixed(0)} ETB).`,
+      };
+    }
+  }
+
   const allCards = await db.select().from(bingoCards).where(eq(bingoCards.agentId, agentId)).all();
   const cardByNumber = new Map(allCards.map((c) => [c.cardNumber, c]));
   const missing = config.selectedNumbers.filter((n) => !cardByNumber.has(String(n)));
@@ -90,6 +117,7 @@ export async function createGame(agentId: string, config: {
     };
   }
 
+  try {
   await db.insert(games).values({
     id,
     gameCode,
@@ -104,6 +132,7 @@ export async function createGame(agentId: string, config: {
     numberRangeMax: DRAW_BALL_COUNT,
     maxPlayers: CARTELLA_MAX,
     commissionRate,
+    commissionReserved: commission,
     status: 'PAUSED',
     selectedNumbers: JSON.stringify(config.selectedNumbers),
     startedAt: now,
@@ -125,6 +154,15 @@ export async function createGame(agentId: string, config: {
 
   if (gameCardInserts.length > 0) {
     await db.insert(gameCards).values(gameCardInserts);
+  }
+  } catch (err) {
+    if (commission > 0) {
+      await refundGameCommission(agentId, commission, gameCode);
+    }
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Failed to create game',
+    };
   }
 
   return {
@@ -355,6 +393,20 @@ export async function validateWinner(gameId: string, agentId: string, cardNumber
     };
   }
 
+  if (existing.length > 0) {
+    const existingCard = existing[0];
+    const existingCardRow = await db.select().from(bingoCards).where(eq(bingoCards.id, existingCard.cardId)).get();
+    return {
+      success: true,
+      valid: false,
+      message: `Winner already declared (cartella #${existingCardRow?.cardNumber ?? '?'}). End the game to finish.`,
+      cardNumber,
+      calledNumbers,
+      grid,
+      verificationResult: 'INVALID',
+    };
+  }
+
   const now = Math.floor(Date.now() / 1000);
   const drawn = await db.select().from(drawnNumbers).where(eq(drawnNumbers.gameId, gameId)).all();
   const drawOrder = drawn.length;
@@ -429,7 +481,44 @@ export async function endGame(gameId: string, agentId: string) {
     totalPayouts,
   });
 
-  if (hasWinner && settlement.walletCommissionDue > 0) {
+  const reservedCommission = game.commissionReserved ?? calculateWinnerPrize(
+    game.betAmount,
+    totalJoinedPlayers,
+    agentCommissionRate,
+  ).commission;
+
+  if (reservedCommission > 0) {
+    if (hasWinner) {
+      const actualDue = settlement.walletCommissionDue;
+      if (actualDue < reservedCommission) {
+        const refund = await refundGameCommission(agentId, reservedCommission - actualDue, game.gameCode);
+        if (!refund.success) {
+          return { success: false, error: refund.error ?? 'Could not adjust reserved commission' };
+        }
+      } else if (actualDue > reservedCommission) {
+        const extra = await deductGameCommission(agentId, actualDue - reservedCommission, game.gameCode);
+        if (!extra.success) {
+          return {
+            success: false,
+            error: extra.error ?? `Insufficient balance for game commission (${actualDue.toFixed(0)} ETB)`,
+          };
+        }
+      }
+      if (settlement.platformRevenue > 0) {
+        await creditOperatorWallet(
+          settlement.platformRevenue,
+          `Admin share from game ${game.gameCode}`,
+          'game_commission',
+          gameId,
+        );
+      }
+    } else {
+      const refund = await refundGameCommission(agentId, reservedCommission, game.gameCode);
+      if (!refund.success) {
+        return { success: false, error: refund.error ?? 'Could not refund reserved commission' };
+      }
+    }
+  } else if (hasWinner && settlement.walletCommissionDue > 0) {
     const commissionDebit = await deductGameCommission(agentId, settlement.walletCommissionDue, game.gameCode);
     if (!commissionDebit.success) {
       return {

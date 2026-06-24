@@ -129,4 +129,16 @@ const noWinner = summarizeGameSettlement({
 assert(noWinner.agentRevenue === 80, 'no-winner profit is full pot');
 assert(noWinner.walletCommissionDue === 0, 'no wallet debit when no winner');
 
+function calculateMaxAffordablePlayers(walletBalance, betAmount, agentCommissionRate, maxPlayers = 150) {
+  if (walletBalance <= 0 || betAmount <= 0) return 0;
+  if (agentCommissionRate <= 0) return maxPlayers;
+  const commissionPerPlayer = betAmount * (agentCommissionRate / 100);
+  if (commissionPerPlayer <= 0) return maxPlayers;
+  return Math.min(maxPlayers, Math.floor(walletBalance / commissionPerPlayer));
+}
+
+assert(calculateMaxAffordablePlayers(10, 10, 10) === 10, '10 ETB covers 10 players at 10% of 10 ETB bet');
+assert(calculateMaxAffordablePlayers(5, 10, 10) === 5, '5 ETB covers 5 players');
+assert(calculateMaxAffordablePlayers(0, 10, 10) === 0, 'zero balance covers nobody');
+
 console.log('Prize economics tests OK');

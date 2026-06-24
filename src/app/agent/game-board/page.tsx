@@ -12,7 +12,7 @@ import { DRAW_BALL_COUNT, INITIAL_CARTELLA_COUNT } from '@/shared/brand';
 import { speakBallCall, speakCartella, speakGameStarted, speakShuffle, loadVoices } from '@/presentation/lib/tts';
 import { stopCurrentAudio, preloadBallCallClips, preloadGameEventClips, playGameContinuedClip, playGameStoppedClip, playWinnerClip, playNotWinnerClip, playCartellaLockedClip } from '@/presentation/lib/amharic-audio';
 import { AudioSyncManager, runAutoCallLoop } from '@/presentation/lib/audio-sync-manager';
-import { calculateTotalPot, calculateGameEconomics, calculateWinnerPrize, calculateWalletReserveRequired } from '@/shared/prize';
+import { calculateTotalPot, calculateGameEconomics, calculateWinnerPrize, calculateWalletReserveRequired, calculateMaxAffordablePlayers, canAffordGamePlayers } from '@/shared/prize';
 import { broadcastLiveGame, subscribeGameControl, toHallSnapshot, type LiveGameSnapshot, type CallingPhase, type LiveGameAnnouncement } from '@/presentation/lib/live-game-sync';
 import { CallerDisplay, HallModeOverlay } from '@/presentation/components/caller/caller-display';
 import { cn } from '@/presentation/lib/utils';
@@ -112,7 +112,7 @@ export default function GameBoardPage() {
   const [checkModalOpen, setCheckModalOpen] = useState(false);
   const [bingoClaimActive, setBingoClaimActive] = useState(false);
   const [gameWinners, setGameWinners] = useState<GameWinner[]>([]);
-  const [commissionPercent, setCommissionPercent] = useState('10');
+  const [commissionPercent, setCommissionPercent] = useState('20');
   const [commissionPickerOpen, setCommissionPickerOpen] = useState(false);
   const commissionPickerRef = useRef<HTMLDivElement>(null);
   const commissionInitializedRef = useRef(false);
@@ -156,25 +156,39 @@ export default function GameBoardPage() {
 
   const playerCount = activeGame?.playerCount ?? activeGame?.selectedNumbers?.length ?? selected.length;
   const totalPot = activeGame?.totalPot ?? calculateTotalPot(parseFloat(betAmount || '0') || 0, playerCount);
-  const effectiveCommissionRate = activeGame?.commissionRate ?? (parseFloat(commissionPercent || '0') || 0);
+  const effectiveCommissionRate = activeGame?.commissionRate ?? (parseFloat(commissionPercent || '0') || (agent?.commissionRate ?? 20));
   const gameEconomics = useMemo(() => calculateGameEconomics(
-    parseFloat(betAmount || '0') || 0,
-    playerCount,
-    effectiveCommissionRate,
-    adminCommissionRate,
-  ), [betAmount, playerCount, effectiveCommissionRate, adminCommissionRate]);
-  const walletReserve = useMemo(() => calculateWalletReserveRequired(
     parseFloat(betAmount || '0') || 0,
     selected.length || playerCount,
     effectiveCommissionRate,
     adminCommissionRate,
   ), [betAmount, selected.length, playerCount, effectiveCommissionRate, adminCommissionRate]);
+  const walletReserve = useMemo(() => calculateWalletReserveRequired(
+    parseFloat(betAmount || '0') || 0,
+    selected.length,
+    effectiveCommissionRate,
+    adminCommissionRate,
+  ), [betAmount, selected.length, effectiveCommissionRate, adminCommissionRate]);
+  const maxAffordablePlayers = useMemo(() => calculateMaxAffordablePlayers(
+    walletBalance,
+    parseFloat(betAmount || '0') || 0,
+    effectiveCommissionRate,
+    INITIAL_CARTELLA_COUNT,
+  ), [walletBalance, betAmount, effectiveCommissionRate]);
   const displayProfit = profit > 0 ? profit : gameEconomics.agentGrossCommission;
 
   const hasWinner = gameWinners.length > 0;
   const canPickCartellas = !activeGame && walletBalance > 0;
-  const canCreateGame = canPickCartellas && selected.length >= MIN_PLAYERS_TO_START && !creating
-    && walletBalance >= walletReserve.reserveRequired;
+  const canCreateGame = canPickCartellas
+    && selected.length >= MIN_PLAYERS_TO_START
+    && selected.length <= maxAffordablePlayers
+    && !creating
+    && canAffordGamePlayers(
+      walletBalance,
+      parseFloat(betAmount || '0') || 0,
+      selected.length,
+      effectiveCommissionRate,
+    );
 
   const selectedSet = useMemo(() => new Set(selected), [selected]);
   const bannedSet = useMemo(() => new Set(bannedCartellas.map(String)), [bannedCartellas]);
@@ -230,6 +244,10 @@ export default function GameBoardPage() {
     });
   }, [activeGame]);
   useEffect(() => { void refreshBalance(); }, [refreshBalance]);
+  useEffect(() => {
+    const timer = window.setInterval(() => { void refreshBalance(); }, 15000);
+    return () => window.clearInterval(timer);
+  }, [refreshBalance]);
   useEffect(() => { syncManagerRef.current.setCooldownMs(interval); intervalRef.current = interval; }, [interval]);
   useEffect(() => { voiceRef.current = voice; }, [voice]);
   useEffect(() => { languageRef.current = language; }, [language]);
@@ -309,6 +327,17 @@ export default function GameBoardPage() {
       if (prev.includes(num)) {
         return prev.filter((n) => n !== num);
       }
+      const bet = parseFloat(betAmount || '0') || 0;
+      const nextCount = prev.length + 1;
+      if (nextCount > maxAffordablePlayers) {
+        setBetError(`TBG wallet can only cover ${maxAffordablePlayers} cartellas at ${effectiveCommissionRate}% commission.`);
+        return prev;
+      }
+      if (!canAffordGamePlayers(walletBalance, bet, nextCount, effectiveCommissionRate)) {
+        setBetError(`Insufficient TBG balance for ${nextCount} cartellas. Need ${calculateWalletReserveRequired(bet, nextCount, effectiveCommissionRate, adminCommissionRate).reserveRequired.toFixed(0)} ETB commission in wallet.`);
+        return prev;
+      }
+      setBetError('');
       if (!cartellaVoiceMuted) {
         speakCartella(num, voice, language);
       }
@@ -464,9 +493,18 @@ export default function GameBoardPage() {
       setBetError('Commission must be between 0% and 100%.');
       return;
     }
+    if (!canAffordGamePlayers(walletBalance, bet, selected.length, commission)) {
+      setBetError(`Insufficient TBG balance. Need at least ${walletReserve.reserveRequired.toFixed(0)} ETB commission for ${selected.length} cartellas.`);
+      return;
+    }
+    if (selected.length > maxAffordablePlayers) {
+      setBetError(`Your TBG wallet can only cover ${maxAffordablePlayers} cartellas at this bet and commission rate.`);
+      return;
+    }
     setBetError('');
     setDrawError('');
     setCreating(true);
+    await refreshBalance();
 
     const result = await ipc<{
       success: boolean;
@@ -586,6 +624,9 @@ export default function GameBoardPage() {
 
   const handleValidateCard = async (cardNumber: string) => {
     if (!activeGame) return { valid: false, message: 'No active game' };
+    if (gameWinners.length > 0) {
+      return { valid: false, message: 'Winner already declared. End the game to finish.' };
+    }
     const result = await ipc<{
       success: boolean;
       valid: boolean;
@@ -707,7 +748,6 @@ export default function GameBoardPage() {
     if (!game) return;
     if (!confirm('End this game and return to Game Board?')) return;
 
-    gameEndedRef.current = true;
     autoDrawRef.current = false;
     setAutoDraw(false);
     callingLoopIdRef.current += 1;
@@ -719,11 +759,12 @@ export default function GameBoardPage() {
     if (languageRef.current === 'am') {
       await playGameStoppedClip(voiceRef.current);
     }
-    setCallingPhase('ended');
-    callingPhaseRef.current = 'ended';
 
-    const result = await ipc<{ success: boolean; data?: { agentRevenue: number } }>('games:end', game.id);
+    const result = await ipc<{ success: boolean; data?: { agentRevenue: number }; error?: string }>('games:end', game.id);
     if (result.success && result.data) {
+      gameEndedRef.current = true;
+      setCallingPhase('ended');
+      callingPhaseRef.current = 'ended';
       setProfit(result.data.agentRevenue);
       setActiveGame(null);
       activeGameRef.current = null;
@@ -740,6 +781,11 @@ export default function GameBoardPage() {
       broadcastLiveGame({ type: 'game-ended' });
       await ipc('window:close-caller-display').catch(() => {});
       await refreshBalance();
+    } else {
+      gameEndedRef.current = false;
+      setCallingPhase('paused');
+      callingPhaseRef.current = 'paused';
+      setBetError(result.error ?? 'Could not end game. Check TBG wallet balance and try again.');
     }
   }, [refreshBalance]);
 
@@ -949,7 +995,16 @@ export default function GameBoardPage() {
             </div>
           )}
 
-          {!activeGame && walletBalance > 0 && selected.length >= MIN_PLAYERS_TO_START && walletBalance < walletReserve.reserveRequired && (
+          {!activeGame && walletBalance > 0 && selected.length > maxAffordablePlayers && (
+            <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-950">
+              <p className="font-medium">Too many cartellas for your TBG wallet</p>
+              <p className="mt-1">
+                At {effectiveCommissionRate}% commission and {parseFloat(betAmount || '0') || 0} ETB bet, your wallet covers up to {maxAffordablePlayers} cartellas. Remove {selected.length - maxAffordablePlayers} selection(s) or ask admin for a TBG top-up.
+              </p>
+            </div>
+          )}
+
+          {!activeGame && walletBalance > 0 && selected.length >= MIN_PLAYERS_TO_START && selected.length <= maxAffordablePlayers && walletBalance < walletReserve.reserveRequired && (
             <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-950">
               <p className="font-medium">Insufficient TBG balance for this game</p>
               <p className="mt-1">

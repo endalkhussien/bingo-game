@@ -1,3 +1,5 @@
+import { CARTELLA_MAX } from './constants';
+
 /** Total stake = players × bet per cartella */
 export function calculateTotalPot(betAmount: number, playerCount: number): number {
   return betAmount * playerCount;
@@ -57,6 +59,36 @@ export function calculateWalletReserveRequired(
     adminCut: economics.adminCut,
     reserveRequired: economics.agentGrossCommission,
   };
+}
+
+/** Max cartellas this wallet can cover at the chosen bet and commission rate. */
+export function calculateMaxAffordablePlayers(
+  walletBalance: number,
+  betAmount: number,
+  agentCommissionRate: number,
+  maxPlayers = CARTELLA_MAX,
+): number {
+  if (walletBalance <= 0 || betAmount <= 0) return 0;
+  if (agentCommissionRate <= 0) return maxPlayers;
+  const commissionPerPlayer = betAmount * (agentCommissionRate / 100);
+  if (commissionPerPlayer <= 0) return maxPlayers;
+  return Math.min(maxPlayers, Math.floor(walletBalance / commissionPerPlayer));
+}
+
+export function canAffordGamePlayers(
+  walletBalance: number,
+  betAmount: number,
+  playerCount: number,
+  agentCommissionRate: number,
+): boolean {
+  if (walletBalance <= 0 || playerCount <= 0) return false;
+  const { reserveRequired } = calculateWalletReserveRequired(
+    betAmount,
+    playerCount,
+    agentCommissionRate,
+    0,
+  );
+  return walletBalance >= reserveRequired;
 }
 
 export interface GameSettlementInput {
