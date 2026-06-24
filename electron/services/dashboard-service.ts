@@ -22,17 +22,18 @@ export async function getAdminDashboard() {
   }
 
   const now = Math.floor(Date.now() / 1000);
+  const todayMidnight = Math.floor(now / 86400) * 86400;
   const trend = [];
   for (let i = 6; i >= 0; i--) {
-    const dayStart = now - i * 86400;
+    const dayStart = todayMidnight - i * 86400;
     const dayEnd = dayStart + 86400;
     let dayRev = 0;
     for (const r of revenues) {
-      if (r.calculatedAt >= dayStart - 86400 * i && r.calculatedAt < dayEnd - 86400 * i) {
+      if (r.calculatedAt >= dayStart && r.calculatedAt < dayEnd) {
         dayRev += r.totalBets;
       }
     }
-    const date = new Date((now - i * 86400) * 1000);
+    const date = new Date(dayStart * 1000);
     trend.push({ date: date.toLocaleDateString('en', { weekday: 'short' }), revenue: dayRev });
   }
 

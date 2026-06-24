@@ -328,6 +328,16 @@ export async function deductPrizePayout(agentId: string, amount: number, gameCod
   }
 }
 
+export async function deductGameCommission(agentId: string, amount: number, gameCode: string) {
+  if (amount <= 0) return { success: true, data: { newBalance: await getBalance(agentId) } };
+  try {
+    const balance = await adjustWallet(agentId, -amount, 'GAME_COMMISSION', `Game commission settled: ${gameCode}`);
+    return { success: true, data: { newBalance: balance } };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Insufficient balance' };
+  }
+}
+
 export async function deductAdminCommission(agentId: string, amount: number, gameCode: string) {
   if (amount <= 0) return { success: true, data: { newBalance: await getBalance(agentId) } };
   try {
