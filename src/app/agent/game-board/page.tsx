@@ -879,12 +879,10 @@ export default function GameBoardPage() {
                 aria-label={t('commission')}
                 aria-expanded={commissionPickerOpen}
                 className={cn(
-                  'h-14 w-[5.5rem] rounded-lg border-2 border-amber-500 bg-[#e8eaf2] text-lg font-black text-amber-900 shadow-[0_0_0_2px_rgba(245,158,11,0.35)] transition-shadow disabled:cursor-not-allowed disabled:opacity-50',
+                  'h-14 w-[5.5rem] rounded-lg border-2 border-amber-500 bg-[#e8eaf2] shadow-[0_0_0_2px_rgba(245,158,11,0.35)] transition-shadow disabled:cursor-not-allowed disabled:opacity-50',
                   !commissionPickerOpen && 'hover:border-amber-600',
                 )}
-              >
-                {effectiveCommissionRate}%
-              </button>
+              />
               {commissionPickerOpen && !activeGame && (
                 <ul
                   className="absolute left-0 top-full z-20 mt-1 min-w-[5.5rem] overflow-hidden rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
