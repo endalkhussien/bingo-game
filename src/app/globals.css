@@ -46,3 +46,13 @@
 .check-cards-claim {
   animation: check-cards-pulse 1.2s ease-in-out infinite;
 }
+
+@keyframes cartella-shuffle-wiggle {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-1.5deg); }
+  75% { transform: rotate(1.5deg); }
+}
+
+.cartella-shuffle-wiggle {
+  animation: cartella-shuffle-wiggle 0.35s ease-in-out 2;
+}

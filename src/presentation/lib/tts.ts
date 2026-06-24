@@ -1,7 +1,7 @@
 import { formatAmharicBallCall } from '@/shared/tts/amharic-ball-call';
 import { getBallCallSpeechParts } from '@/shared/tts/ball-call';
 import { buildCartellaAnnouncement, buildGameStartedAnnouncement } from '@/shared/tts/voice-map';
-import { playBallCallAudio, playCartellaClip, playGameStartedClip, playGameContinuedClip } from './amharic-audio';
+import { playBallCallAudio, playCartellaClip, playGameStartedClip, playGameContinuedClip, playShuffleClip } from './amharic-audio';
 import { ipc } from './ipc';
 import { isElectron } from '@/shared/runtime';
 
@@ -124,6 +124,12 @@ export async function speakGameStarted(voiceType: string, language: string): Pro
   }
   const payload = buildGameStartedAnnouncement(language, voiceType);
   await speakPlainText(payload.text, payload.lang, voiceType);
+}
+
+/** Cartella shuffle — Amharic uses shuffle.mp3; grid order stays fixed. */
+export function speakShuffle(voiceType: string, language: string): void {
+  if (language !== 'am') return;
+  void playShuffleClip(voiceType);
 }
 
 export async function testVoice(voiceType: string, language: string, sample = 42): Promise<string> {

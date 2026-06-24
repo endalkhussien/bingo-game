@@ -6,3 +6,4 @@ export const GAME_CONTINUED_CLIP = 'audio/game_continued.mp3';
 export const WINNER_CLIP = 'audio/winner.mp3';
 export const NOT_WINNER_CLIP = 'audio/not_winner.mp3';
 export const CARTELLA_LOCKED_CLIP = 'audio/cartella_locked.mp3';
+export const SHUFFLE_CLIP = 'audio/shuffle.mp3';

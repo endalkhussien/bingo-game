@@ -5,6 +5,7 @@ import {
   GAME_STARTED_CLIP,
   GAME_STOPPED_CLIP,
   NOT_WINNER_CLIP,
+  SHUFFLE_CLIP,
   WINNER_CLIP,
 } from './game-clips';
 
@@ -67,4 +68,5 @@ export const GAME_EVENT_CLIP_FILES = {
   winner: WINNER_CLIP.replace(/^audio\//, ''),
   notWinner: NOT_WINNER_CLIP.replace(/^audio\//, ''),
   cartellaLocked: CARTELLA_LOCKED_CLIP.replace(/^audio\//, ''),
+  shuffle: SHUFFLE_CLIP.replace(/^audio\//, ''),
 } as const;

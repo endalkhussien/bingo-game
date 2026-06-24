@@ -28,7 +28,7 @@ FILES IN EACH VOICE PACK FOLDER
      G46.mp3 … G60.mp3
      O61.mp3 … O75.mp3
 
-2) Game events — 6 MP3 files in the same folder:
+2) Game events — 7 MP3 files in the same folder:
 
      game_started.mp3      (PLAY / start calling)
      game_stopped.mp3      (pause / end game)
@@ -36,6 +36,7 @@ FILES IN EACH VOICE PACK FOLDER
      winner.mp3
      not_winner.mp3
      cartella_locked.mp3
+     shuffle.mp3           (cartella shuffle button)
 
 3) Cartella pick voice — subfolder cartella/:
 
@@ -57,6 +58,7 @@ EXAMPLE LAYOUT FOR A SECOND VOICE (male2)
   public/audio/voices/male2/winner.mp3
   public/audio/voices/male2/not_winner.mp3
   public/audio/voices/male2/cartella_locked.mp3
+  public/audio/voices/male2/shuffle.mp3
   public/audio/voices/male2/cartella/1.mp3
   public/audio/voices/male2/cartella/2.mp3
   …

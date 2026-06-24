@@ -74,6 +74,7 @@ async function main() {
     ['winner.mp3', 'አሸናፊ'],
     ['not_winner.mp3', 'አሸናፊ አይደለም'],
     ['cartella_locked.mp3', 'ካርቴላ ተቆል'],
+    ['shuffle.mp3', 'ተቀይሯል'],
   ];
   for (const [file, phrase] of events) {
     await writeIfNeeded(path.join(PACK_DIR, file), phrase, 'am');

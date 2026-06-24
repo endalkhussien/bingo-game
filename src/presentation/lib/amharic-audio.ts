@@ -9,6 +9,7 @@ import {
 import { isElectron } from '@/shared/runtime';
 
 let currentAudio: HTMLAudioElement | null = null;
+const eventClipCache = new Map<string, HTMLAudioElement>();
 
 function buildMediaUrl(relativePath: string): string {
   const clean = relativePath.replace(/^\/+/, '');
@@ -22,6 +23,16 @@ function buildMediaUrl(relativePath: string): string {
     }
   }
   return `/${clean}`;
+}
+
+function warmEventClip(relativePath: string): void {
+  if (typeof window === 'undefined') return;
+  const url = buildMediaUrl(relativePath);
+  if (eventClipCache.has(url)) return;
+  const audio = new Audio(url);
+  audio.preload = 'auto';
+  audio.load();
+  eventClipCache.set(url, audio);
 }
 
 function waitForCanPlay(audio: HTMLAudioElement, timeoutMs: number): Promise<boolean> {
@@ -107,6 +118,77 @@ async function playFirstAvailable(relativePaths: string[], readyTimeoutMs = 2500
   return false;
 }
 
+/** Play a short game event clip immediately (uses warmed cache when available). */
+function playCachedEventClip(url: string): Promise<boolean> {
+  if (typeof window === 'undefined') return Promise.resolve(false);
+
+  return new Promise((resolve) => {
+    let settled = false;
+    let audio = eventClipCache.get(url);
+    if (!audio) {
+      audio = new Audio(url);
+      audio.preload = 'auto';
+      eventClipCache.set(url, audio);
+    }
+
+    const finish = (ok: boolean) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(safetyTimer);
+      window.clearTimeout(readyTimer);
+      audio!.removeEventListener('loadeddata', onReady);
+      audio!.removeEventListener('canplay', onReady);
+      if (currentAudio === audio) currentAudio = null;
+      resolve(ok);
+    };
+
+    const safetyTimer = window.setTimeout(() => {
+      audio!.pause();
+      finish(false);
+    }, 15000);
+
+    let readyTimer = 0;
+    const onReady = () => {
+      void startPlayback();
+    };
+
+    const startPlayback = async () => {
+      try {
+        cancelBrowserSpeech();
+        if (currentAudio && currentAudio !== audio) {
+          currentAudio.pause();
+          currentAudio.currentTime = 0;
+        }
+        currentAudio = audio!;
+        audio!.onended = () => finish(true);
+        audio!.onerror = () => finish(false);
+        audio!.currentTime = 0;
+        await audio!.play();
+      } catch {
+        finish(false);
+      }
+    };
+
+    if (audio.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+      void startPlayback();
+      return;
+    }
+
+    audio.addEventListener('loadeddata', onReady, { once: true });
+    audio.addEventListener('canplay', onReady, { once: true });
+    audio.load();
+    readyTimer = window.setTimeout(() => finish(false), 400);
+  });
+}
+
+async function playEventClip(relativePaths: string[]): Promise<boolean> {
+  for (const relativePath of relativePaths) {
+    warmEventClip(relativePath);
+    if (await playCachedEventClip(buildMediaUrl(relativePath))) return true;
+  }
+  return false;
+}
+
 /** Stop any MP3 and browser/system speech so clips never overlap TTS. */
 export function cancelBrowserSpeech(): void {
   if (typeof window !== 'undefined' && window.speechSynthesis) {
@@ -143,9 +225,7 @@ export function preloadGameEventClips(voiceType?: string): void {
   for (const vt of voiceTypes) {
     for (const file of eventFiles) {
       for (const rel of eventClipCandidates(file, vt)) {
-        const audio = new Audio(buildMediaUrl(rel));
-        audio.preload = 'auto';
-        audio.load();
+        warmEventClip(rel);
       }
     }
   }
@@ -169,27 +249,31 @@ export function playCartellaClip(number: number, voiceType: string): Promise<boo
 }
 
 export function playGameStartedClip(voiceType: string): Promise<boolean> {
-  return playFirstAvailable(eventClipCandidates(GAME_EVENT_CLIP_FILES.started, voiceType), 5000);
+  return playEventClip(eventClipCandidates(GAME_EVENT_CLIP_FILES.started, voiceType));
 }
 
 export function playGameStoppedClip(voiceType: string): Promise<boolean> {
-  return playFirstAvailable(eventClipCandidates(GAME_EVENT_CLIP_FILES.stopped, voiceType), 5000);
+  return playEventClip(eventClipCandidates(GAME_EVENT_CLIP_FILES.stopped, voiceType));
 }
 
 export function playGameContinuedClip(voiceType: string): Promise<boolean> {
-  return playFirstAvailable(eventClipCandidates(GAME_EVENT_CLIP_FILES.continued, voiceType), 5000);
+  return playEventClip(eventClipCandidates(GAME_EVENT_CLIP_FILES.continued, voiceType));
 }
 
 export function playWinnerClip(voiceType: string): Promise<boolean> {
-  return playFirstAvailable(eventClipCandidates(GAME_EVENT_CLIP_FILES.winner, voiceType), 5000);
+  return playEventClip(eventClipCandidates(GAME_EVENT_CLIP_FILES.winner, voiceType));
 }
 
 export function playNotWinnerClip(voiceType: string): Promise<boolean> {
-  return playFirstAvailable(eventClipCandidates(GAME_EVENT_CLIP_FILES.notWinner, voiceType), 5000);
+  return playEventClip(eventClipCandidates(GAME_EVENT_CLIP_FILES.notWinner, voiceType));
 }
 
 export function playCartellaLockedClip(voiceType: string): Promise<boolean> {
-  return playFirstAvailable(eventClipCandidates(GAME_EVENT_CLIP_FILES.cartellaLocked, voiceType), 5000);
+  return playEventClip(eventClipCandidates(GAME_EVENT_CLIP_FILES.cartellaLocked, voiceType));
+}
+
+export function playShuffleClip(voiceType: string): Promise<boolean> {
+  return playEventClip(eventClipCandidates(GAME_EVENT_CLIP_FILES.shuffle, voiceType));
 }
 
 export async function playBallCallAudio(number: number, language: string, voiceType: string): Promise<boolean> {

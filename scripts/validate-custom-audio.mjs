@@ -17,6 +17,7 @@ const EVENT_FILES = [
   'winner.mp3',
   'not_winner.mp3',
   'cartella_locked.mp3',
+  'shuffle.mp3',
 ];
 
 const VOICE_PACKS = ['male1', 'male2', 'female1', 'female2'];
