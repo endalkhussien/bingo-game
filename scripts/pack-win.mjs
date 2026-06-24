@@ -94,6 +94,22 @@ function ensureAppIcon() {
   run('node scripts/generate-app-icon.mjs');
 }
 
+/** Copy icon into build/ — electron-builder embeds buildResources/icon.ico into Waliya.exe */
+function syncBuildResourcesIcon() {
+  const src = path.join(root, 'public', 'brand', 'icon.ico');
+  const buildDir = path.join(root, 'build');
+  const dest = path.join(buildDir, 'icon.ico');
+
+  if (!fs.existsSync(src)) {
+    console.error('\nMissing public/brand/icon.ico — run: npm run generate:icon\n');
+    process.exit(1);
+  }
+
+  fs.mkdirSync(buildDir, { recursive: true });
+  fs.copyFileSync(src, dest);
+  console.log('→ Build icon: build/icon.ico (embedded into Waliya.exe + installer)\n');
+}
+
 const brand = loadBrand();
 
 console.log('========================================');
@@ -103,6 +119,8 @@ console.log('========================================\n');
 ensureAmharicAudio();
 
 ensureAppIcon();
+
+syncBuildResourcesIcon();
 
 run('node scripts/clean-build.mjs');
 

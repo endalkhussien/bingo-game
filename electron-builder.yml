@@ -4,7 +4,7 @@ productName: Waliya
 electronVersion: 22.3.27
 directories:
   output: release
-  buildResources: public
+  buildResources: build
 files:
   - dist-electron/**/*
   - out/**/*
@@ -36,11 +36,16 @@ win:
     - target: portable
       arch:
         - x64
-  icon: brand/icon.ico
-  signAndEditExecutable: false
+  icon: icon.ico
+  # MUST stay true (default) so rcedit embeds icon + app name into Waliya.exe.
+  # signAndEditExecutable: false → generic Electron icon on desktop/taskbar.
+  sign: null
 
 nsis:
   artifactName: ${productName}-Setup-${version}.${ext}
+  installerIcon: icon.ico
+  uninstallerIcon: icon.ico
+  installerHeaderIcon: icon.ico
   oneClick: false
   allowToChangeInstallationDirectory: true
   allowElevation: true
