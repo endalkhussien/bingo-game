@@ -9,7 +9,7 @@ import {
   WINNER_CLIP,
 } from './game-clips';
 
-/** Single bundled Amharic voice — MP3 files in public/audio/ */
+/** Default bundled Amharic voice — MP3 files in public/audio/ */
 export const DEFAULT_AMHARIC_VOICE = 'AMHARIC_MALE';
 
 export function resolveVoicePackId(voiceType: string): string | null {
@@ -18,16 +18,20 @@ export function resolveVoicePackId(voiceType: string): string | null {
 }
 
 /** Candidate relative paths (under public/) — first existing file wins at playback */
-export function ballCallClipCandidates(number: number, _voiceType: string): string[] {
+export function ballCallClipCandidates(number: number, voiceType: string): string[] {
+  if (voiceType === 'ENGLISH') return [];
   const file = `${getBallCallAudioKey(number)}.mp3`;
   return [`audio/${file}`];
 }
 
-export function cartellaClipCandidates(number: number, _voiceType: string): string[] {
-  return [`audio/cartella/${number}.mp3`];
+export function cartellaClipCandidates(number: number, voiceType: string): string[] {
+  if (voiceType === 'ENGLISH') return [];
+  const file = `${number}.mp3`;
+  return [`audio/cartella/${file}`, `sounds/cartella/${file}`];
 }
 
-export function eventClipCandidates(relativeClip: string, _voiceType: string): string[] {
+export function eventClipCandidates(relativeClip: string, voiceType: string): string[] {
+  if (voiceType === 'ENGLISH') return [];
   return [`audio/${relativeClip}`];
 }
 
