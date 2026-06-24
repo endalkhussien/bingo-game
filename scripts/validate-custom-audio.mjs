@@ -55,11 +55,17 @@ function checkAudioDir(packDir, label, { requireCartella = false, cartellaMax = 
   }
 
   if (requireCartella && cartellaMax > 0) {
-    const cartellaDir = path.join(packDir, 'cartella');
+    const cartellaDirs = [
+      path.join(packDir, 'cartella'),
+      path.join(root, 'public/sounds/cartella'),
+    ];
     for (let n = 1; n <= cartellaMax; n++) {
-      const full = path.join(cartellaDir, `${n}.mp3`);
-      if (!fs.existsSync(full)) missing.push(`cartella/${n}.mp3`);
-      else if (fs.statSync(full).size < 500) empty.push(`cartella/${n}.mp3`);
+      const file = `${n}.mp3`;
+      const found = cartellaDirs.some((dir) => {
+        const full = path.join(dir, file);
+        return fs.existsSync(full) && fs.statSync(full).size >= 500;
+      });
+      if (!found) missing.push(`cartella/${n}.mp3`);
     }
   }
 

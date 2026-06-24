@@ -3,9 +3,10 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { promisify } from 'util';
-import { app } from 'electron';
 import { buildCartellaAnnouncement } from '../../src/shared/tts/voice-map';
 import { getBallCallSpeechParts } from '../../src/shared/tts/ball-call';
+import { cartellaRelativePaths } from '../../src/shared/tts/audio-paths';
+import { resolveFirstMediaFile } from '../utils/media-protocol';
 
 const execFileAsync = promisify(execFile);
 
@@ -13,33 +14,6 @@ export interface SpeakResult {
   success: boolean;
   engine?: string;
   error?: string;
-}
-
-function resolveSoundPath(...parts: string[]): string | undefined {
-  const bases: string[] = [];
-  const appPath = app.getAppPath();
-  bases.push(
-    path.join(appPath, 'out', 'audio'),
-    path.join(process.cwd(), 'out', 'audio'),
-    path.join(process.cwd(), 'public', 'audio'),
-    path.join(appPath, 'public', 'audio'),
-  );
-
-  if (app.isPackaged) {
-    const unpackedOut = path.join(process.resourcesPath, 'app.asar.unpacked', 'out');
-    bases.unshift(path.join(unpackedOut, 'audio'));
-    if (appPath.endsWith('.asar')) {
-      bases.unshift(path.join(path.dirname(appPath), 'app.asar.unpacked', 'out', 'audio'));
-    }
-  } else {
-    bases.unshift(path.join(appPath, 'public', 'audio'));
-  }
-
-  for (const base of bases) {
-    const full = path.join(base, ...parts);
-    if (fs.existsSync(full)) return full;
-  }
-  return undefined;
 }
 
 async function playAudioFile(audioPath: string): Promise<boolean> {
@@ -98,7 +72,7 @@ async function playEnglishLetter(letter: string): Promise<boolean> {
 }
 
 async function playBundledCartella(number: number, _voiceType: string): Promise<boolean> {
-  const audioPath = resolveSoundPath('cartella', `${number}.mp3`);
+  const audioPath = resolveFirstMediaFile(cartellaRelativePaths(number));
   if (audioPath && await playAudioFile(audioPath)) return true;
   return false;
 }

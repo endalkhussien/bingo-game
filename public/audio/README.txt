@@ -1,48 +1,47 @@
-Waliya Amharic audio — public/audio only
-=======================================
+Waliya Amharic audio — public/ only
+===================================
 
-All game voice files live directly under public/audio/. Do not use public/sounds/.
+All game voice files live under public/. Do not use voice pack subfolders.
 
-FILES IN public/audio/
-----------------------
+BALL CALLS (75 files)
+---------------------
+Folder: public/audio/
 
-1) Ball calls — 75 MP3 files (letter + number, one clip per ball):
+  B1.mp3 … B15.mp3
+  I16.mp3 … I30.mp3
+  N31.mp3 … N45.mp3
+  G46.mp3 … G60.mp3
+  O61.mp3 … O75.mp3
 
-     B1.mp3 … B15.mp3
-     I16.mp3 … I30.mp3
-     N31.mp3 … N45.mp3
-     G46.mp3 … G60.mp3
-     O61.mp3 … O75.mp3
+GAME EVENTS (7 files)
+---------------------
+Folder: public/audio/
 
-2) Game events — 7 MP3 files in the same folder:
+  game_started.mp3      (PLAY / start calling)
+  game_stopped.mp3      (pause / end game)
+  game_continued.mp3    (resume)
+  winner.mp3
+  not_winner.mp3
+  cartella_locked.mp3
+  shuffle.mp3
 
-     game_started.mp3      (PLAY / start calling)
-     game_stopped.mp3      (pause / end game)
-     game_continued.mp3    (resume)
-     winner.mp3
-     not_winner.mp3
-     cartella_locked.mp3
-     shuffle.mp3           (cartella shuffle button)
+CARTELLA PICK VOICE
+-------------------
+Folder: public/sounds/cartella/  (or public/audio/cartella/)
 
-3) Cartella pick voice — subfolder cartella/:
+  1.mp3 … 150.mp3  (up to your hall cartella max)
 
-     cartella/1.mp3
-     cartella/2.mp3
-     …
-     cartella/150.mp3   (or up to your hall cartella max)
+VOICE SETTING ON GAME BOARD
+---------------------------
+Choose "Amharic Male 1" and language "Amharic" to use these MP3 files.
 
 FORMAT
 ------
-
   • File type: MP3
   • Naming: exact names above (case-sensitive on Linux builds)
-  • Minimum size: ~500 bytes per file (empty files are rejected by validate:audio)
+  • Minimum size: ~500 bytes per file
 
 VALIDATE BEFORE BUILD
 ---------------------
-
   npm run validate:audio
-
-Then rebuild the installer:
-
   npm run pack:win

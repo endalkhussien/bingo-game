@@ -43,14 +43,23 @@ function run(cmd, env = {}) {
 function ensureAmharicAudio() {
   const brand = loadBrand();
   const requiredCartella = brand.initialCartellaCount ?? 150;
-  const cartellaDir = path.join(ballCallDir, 'cartella');
+  const cartellaDirs = [
+    path.join(ballCallDir, 'cartella'),
+    path.join(root, 'public', 'sounds', 'cartella'),
+  ];
 
   const rootBallCount = fs.existsSync(ballCallDir)
     ? fs.readdirSync(ballCallDir).filter((f) => /^[BINGO]\d+\.mp3$/i.test(f)).length
     : 0;
-  const cartellaCount = fs.existsSync(cartellaDir)
-    ? fs.readdirSync(cartellaDir).filter((f) => f.endsWith('.mp3')).length
-    : 0;
+  let cartellaCount = 0;
+  for (const dir of cartellaDirs) {
+    if (fs.existsSync(dir)) {
+      cartellaCount = Math.max(
+        cartellaCount,
+        fs.readdirSync(dir).filter((f) => f.endsWith('.mp3')).length,
+      );
+    }
+  }
 
   const needsBall = rootBallCount < 75;
   const needsCartella = cartellaCount < requiredCartella;

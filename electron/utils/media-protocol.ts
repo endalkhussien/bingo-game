@@ -20,7 +20,8 @@ function getMediaRoots(): string[] {
   return [...new Set(roots.map((r) => path.resolve(r)))];
 }
 
-function resolveMediaFile(relative: string): string | null {
+/** Resolve a media file from paths like audio/B1.mp3 or sounds/cartella/1.mp3 */
+export function resolveMediaFile(relative: string): string | null {
   const normalized = relative.replace(/\\/g, '/').replace(/^\/+/, '');
   const parts = normalized.split('/').filter(Boolean);
 
@@ -32,6 +33,15 @@ function resolveMediaFile(relative: string): string | null {
     }
   }
 
+  return null;
+}
+
+/** First existing file from an ordered list of relative paths. */
+export function resolveFirstMediaFile(relativePaths: string[]): string | null {
+  for (const rel of relativePaths) {
+    const found = resolveMediaFile(rel);
+    if (found) return found;
+  }
   return null;
 }
 
