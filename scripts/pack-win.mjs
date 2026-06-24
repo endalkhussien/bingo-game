@@ -119,6 +119,29 @@ function syncBuildResourcesIcon() {
   console.log('→ Build icon: build/icon.ico (embedded into Waliya.exe + installer)\n');
 }
 
+/** rcedit is required to embed the app icon when signAndEditExecutable is disabled */
+function ensureRcedit() {
+  const rceditBin = path.join(root, 'node_modules', 'rcedit', 'bin', 'rcedit-x64.exe');
+  if (fs.existsSync(rceditBin)) {
+    console.log('→ rcedit: OK (Windows app icon tool)\n');
+    return;
+  }
+
+  console.log('→ rcedit missing — installing (required for Waliya.exe icon)...\n');
+  run('npm install rcedit@^4.0.1 --save-dev --no-audit --no-fund');
+
+  if (!fs.existsSync(rceditBin)) {
+    console.error(
+      '\nCould not install rcedit. Run manually:\n' +
+      '  npm install\n' +
+      'Then:\n' +
+      '  npm run pack:win\n',
+    );
+    process.exit(1);
+  }
+  console.log('→ rcedit installed\n');
+}
+
 const brand = loadBrand();
 
 console.log('========================================');
@@ -130,6 +153,8 @@ ensureAmharicAudio();
 ensureAppIcon();
 
 syncBuildResourcesIcon();
+
+ensureRcedit();
 
 run('node scripts/clean-build.mjs');
 
