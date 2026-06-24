@@ -11,6 +11,7 @@ import { APP_NAME } from '@/shared/brand';
 import { AppLogo } from '@/presentation/components/shared/app-logo';
 import { CURRENCY_LABEL } from '@/shared/constants';
 import { broadcastGameControl, readPersistedLiveGame, type LiveGameSnapshot } from '@/presentation/lib/live-game-sync';
+import { speakShuffle } from '@/presentation/lib/tts';
 import { cn } from '@/presentation/lib/utils';
 
 interface PreviewCard {
@@ -99,17 +100,9 @@ function CallerDisplayView({
 
   const handleShufflePreview = () => {
     if (previewCards.length <= 1) return;
-    setPreviewCards((cards) => {
-      const shuffled = [...cards];
-      for (let i = shuffled.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-      }
-      return shuffled;
-    });
-    setPreviewIndex(0);
     setShuffleFlash(true);
     window.setTimeout(() => setShuffleFlash(false), 2000);
+    speakShuffle(game.voiceType ?? 'AMHARIC_MALE', game.language ?? 'am');
   };
 
   return (

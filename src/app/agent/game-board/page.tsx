@@ -9,7 +9,7 @@ import { NumberGrid } from '@/presentation/components/bingo/number-grid';
 import { CheckCardModal } from '@/presentation/components/bingo/check-card-modal';
 import { WINNING_PATTERNS, DRAW_INTERVALS, VOICE_TYPES, MIN_BET, DEFAULT_JACKPOT_MAX_CALLS, DEFAULT_CALL_COOLDOWN_MS, GAME_COMMISSION_OPTIONS, MIN_PLAYERS_TO_START } from '@/shared/constants';
 import { DRAW_BALL_COUNT, INITIAL_CARTELLA_COUNT } from '@/shared/brand';
-import { speakBallCall, speakCartella, speakGameStarted, loadVoices } from '@/presentation/lib/tts';
+import { speakBallCall, speakCartella, speakGameStarted, speakShuffle, loadVoices } from '@/presentation/lib/tts';
 import { stopCurrentAudio, preloadBallCallClips, preloadGameEventClips, playGameContinuedClip, playGameStoppedClip, playWinnerClip, playNotWinnerClip, playCartellaLockedClip } from '@/presentation/lib/amharic-audio';
 import { AudioSyncManager, runAutoCallLoop } from '@/presentation/lib/audio-sync-manager';
 import { calculateTotalPot, calculateGameEconomics, calculateWinnerPrize, calculateWalletReserveRequired } from '@/shared/prize';
@@ -193,7 +193,7 @@ export default function GameBoardPage() {
   useEffect(() => { bingoClaimActiveRef.current = bingoClaimActive; }, [bingoClaimActive]);
   useEffect(() => { gameWinnersRef.current = gameWinners; }, [gameWinners]);
 
-  useEffect(() => { loadVoices(); preloadBallCallClips(); preloadGameEventClips(); }, []);
+  useEffect(() => { loadVoices(); preloadBallCallClips(voice); preloadGameEventClips(voice); }, [voice]);
   useEffect(() => {
     if (commissionInitializedRef.current || activeGame) return;
     if (agent?.commissionRate != null) {
@@ -356,7 +356,7 @@ export default function GameBoardPage() {
     stopCurrentAudio();
 
     if (options?.playPausedClip && languageRef.current === 'am') {
-      await playGameStoppedClip();
+      await playGameStoppedClip(voiceRef.current);
     }
 
     if (!pauseOnServer || !activeGameRef.current) return;
@@ -388,9 +388,6 @@ export default function GameBoardPage() {
     syncManagerRef.current.abort();
     stopCurrentAudio();
 
-    const paceStart = Date.now();
-    const paceMs = intervalRef.current;
-
     try {
       if (!activeGameRef.current || !announcingRef.current || gameEndedRef.current) {
         setCallingPhase('paused');
@@ -398,15 +395,6 @@ export default function GameBoardPage() {
       }
 
       await speakGameStarted(voiceRef.current, languageRef.current);
-
-      const waitUntil = paceStart + paceMs;
-      while (Date.now() < waitUntil) {
-        if (!activeGameRef.current || !announcingRef.current || gameEndedRef.current) {
-          setCallingPhase('paused');
-          return;
-        }
-        await new Promise((r) => setTimeout(r, 50));
-      }
     } finally {
       announcingRef.current = false;
     }
@@ -653,7 +641,7 @@ export default function GameBoardPage() {
       setLiveAnnouncement(ann);
       window.setTimeout(() => setLiveAnnouncement(null), 8000);
       if (languageRef.current === 'am') {
-        await playWinnerClip();
+        await playWinnerClip(voiceRef.current);
       }
       await refreshBalance();
     } else if (result.banned || result.eliminated) {
@@ -672,8 +660,8 @@ export default function GameBoardPage() {
       setLiveAnnouncement(ann);
       window.setTimeout(() => setLiveAnnouncement(null), 5000);
       if (languageRef.current === 'am') {
-        if (result.banned) await playCartellaLockedClip();
-        else await playNotWinnerClip();
+        if (result.banned) await playCartellaLockedClip(voiceRef.current);
+        else await playNotWinnerClip(voiceRef.current);
       }
     }
 
@@ -708,7 +696,7 @@ export default function GameBoardPage() {
     } else {
       if (languageRef.current === 'am') {
         stopCurrentAudio();
-        await playGameContinuedClip();
+        await playGameContinuedClip(voiceRef.current);
       }
       await startCalling(true);
     }
@@ -729,7 +717,7 @@ export default function GameBoardPage() {
     syncManagerRef.current.abort();
     stopCurrentAudio();
     if (languageRef.current === 'am') {
-      await playGameStoppedClip();
+      await playGameStoppedClip(voiceRef.current);
     }
     setCallingPhase('ended');
     callingPhaseRef.current = 'ended';
@@ -981,6 +969,7 @@ export default function GameBoardPage() {
             selectedSet={selectedSet}
             onToggle={toggleNumber}
             onClear={() => setSelected([])}
+            onShuffle={() => speakShuffle(voice, language)}
             disabled={!canPickCartellas}
             lockedSet={bannedSet}
             staticMax={INITIAL_CARTELLA_COUNT}

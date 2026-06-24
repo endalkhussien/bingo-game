@@ -20,7 +20,6 @@ extraResources:
 asarUnpack:
   - "**/*.node"
   - node_modules/better-sqlite3/**/*
-  - out/sounds/**
   - out/audio/**
 
 npmRebuild: true

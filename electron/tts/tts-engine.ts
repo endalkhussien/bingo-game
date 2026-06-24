@@ -6,6 +6,7 @@ import { promisify } from 'util';
 import { app } from 'electron';
 import { buildCartellaAnnouncement } from '../../src/shared/tts/voice-map';
 import { getBallCallSpeechParts } from '../../src/shared/tts/ball-call';
+import { resolveVoicePackId } from '../../src/shared/tts/voice-packs';
 
 const execFileAsync = promisify(execFile);
 
@@ -15,55 +16,24 @@ export interface SpeakResult {
   error?: string;
 }
 
-function resolveSoundPath(folder: 'am' | 'en' | 'audio' | 'cartella', ...parts: string[]): string | undefined {
+function resolveSoundPath(...parts: string[]): string | undefined {
   const bases: string[] = [];
   const appPath = app.getAppPath();
-  if (folder === 'audio') {
-    bases.push(
-      path.join(appPath, 'out', 'audio'),
-      path.join(process.cwd(), 'out', 'audio'),
-      path.join(process.cwd(), 'public', 'audio'),
-    );
-  } else if (folder === 'cartella') {
-    bases.push(
-      path.join(appPath, 'out', 'sounds', 'cartella'),
-      path.join(process.cwd(), 'out', 'sounds', 'cartella'),
-      path.join(process.cwd(), 'public', 'sounds', 'cartella'),
-      path.join(appPath, 'public', 'sounds', 'cartella'),
-    );
-  }
-  if (folder !== 'audio' && folder !== 'cartella') {
-    bases.push(
-      path.join(appPath, 'out', 'sounds', folder),
-      path.join(process.cwd(), 'out', 'sounds', folder),
-      path.join(process.cwd(), 'public', 'sounds', folder),
-      path.join(appPath, 'public', 'sounds', folder),
-    );
-  }
+  bases.push(
+    path.join(appPath, 'out', 'audio'),
+    path.join(process.cwd(), 'out', 'audio'),
+    path.join(process.cwd(), 'public', 'audio'),
+    path.join(appPath, 'public', 'audio'),
+  );
 
   if (app.isPackaged) {
     const unpackedOut = path.join(process.resourcesPath, 'app.asar.unpacked', 'out');
-    if (folder === 'audio') {
-      bases.unshift(path.join(unpackedOut, 'audio'));
-    } else if (folder === 'cartella') {
-      bases.unshift(path.join(unpackedOut, 'sounds', 'cartella'));
-    } else {
-      bases.unshift(path.join(unpackedOut, 'sounds', folder));
-    }
+    bases.unshift(path.join(unpackedOut, 'audio'));
     if (appPath.endsWith('.asar')) {
-      const siblingUnpacked = path.join(path.dirname(appPath), 'app.asar.unpacked', 'out');
-      if (folder === 'audio') {
-        bases.unshift(path.join(siblingUnpacked, 'audio'));
-      } else if (folder === 'cartella') {
-        bases.unshift(path.join(siblingUnpacked, 'sounds', 'cartella'));
-      } else {
-        bases.unshift(path.join(siblingUnpacked, 'sounds', folder));
-      }
+      bases.unshift(path.join(path.dirname(appPath), 'app.asar.unpacked', 'out', 'audio'));
     }
-  } else if (folder === 'audio') {
+  } else {
     bases.unshift(path.join(appPath, 'public', 'audio'));
-  } else if (folder === 'cartella') {
-    bases.unshift(path.join(appPath, 'public', 'sounds', 'cartella'));
   }
 
   for (const base of bases) {
@@ -72,9 +42,6 @@ function resolveSoundPath(folder: 'am' | 'en' | 'audio' | 'cartella', ...parts: 
   }
   return undefined;
 }
-
-const resolveAmharicPath = (...parts: string[]) => resolveSoundPath('am', ...parts);
-const resolveEnglishPath = (...parts: string[]) => resolveSoundPath('en', ...parts);
 
 async function playAudioFile(audioPath: string): Promise<boolean> {
   if (!fs.existsSync(audioPath)) return false;
@@ -126,23 +93,22 @@ $media.Close()
   return false;
 }
 
-async function playBundledAmharic(number: number): Promise<boolean> {
-  const audioPath = resolveAmharicPath(`${number}.mp3`);
-  if (!audioPath) return false;
-  return playAudioFile(audioPath);
-}
-
 async function playEnglishLetter(letter: string): Promise<boolean> {
-  const english = resolveEnglishPath('letters', `${letter}.mp3`);
-  if (english && await playAudioFile(english)) return true;
-  const fallback = resolveAmharicPath('letters', `${letter}.mp3`);
-  return fallback ? playAudioFile(fallback) : false;
+  if (await speakWindowsSapi(letter, 'en-US')) return true;
+  return speakEspeak(letter, 'en', false);
 }
 
-async function playBundledCartella(number: number): Promise<boolean> {
-  const audioPath = resolveSoundPath('cartella', `${number}.mp3`);
-  if (!audioPath) return false;
-  return playAudioFile(audioPath);
+async function playBundledCartella(number: number, voiceType: string): Promise<boolean> {
+  const pack = resolveVoicePackId(voiceType) ?? 'male1';
+  const candidates = [
+    ['voices', pack, 'cartella', `${number}.mp3`],
+    ...(pack === 'male1' ? [['cartella', `${number}.mp3`]] : []),
+  ];
+  for (const parts of candidates) {
+    const audioPath = resolveSoundPath(...parts);
+    if (audioPath && await playAudioFile(audioPath)) return true;
+  }
+  return false;
 }
 
 async function speakWindowsSapi(text: string, lang: string): Promise<boolean> {
@@ -242,7 +208,7 @@ export async function speakNumber(
   const payload = buildCartellaAnnouncement(number, voiceType, language);
 
   if (payload.isAmharic) {
-    if (await playBundledCartella(number)) {
+    if (await playBundledCartella(number, voiceType)) {
       return { success: true, engine: 'bundled-mp3' };
     }
     return { success: false, error: 'Cartella MP3 missing.' };

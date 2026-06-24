@@ -38,7 +38,9 @@ export const GAME_COMMISSION_OPTIONS = [10, 20, 25, 30, 35, 40] as const;
 
 export const VOICE_TYPES = [
   { value: 'AMHARIC_MALE', label: 'Amharic Male 1' },
+  { value: 'AMHARIC_MALE_2', label: 'Amharic Male 2' },
   { value: 'AMHARIC_FEMALE', label: 'Amharic Female 1' },
+  { value: 'AMHARIC_FEMALE_2', label: 'Amharic Female 2' },
   { value: 'ENGLISH', label: 'English' },
 ] as const;
 

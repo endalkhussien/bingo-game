@@ -1,16 +1,15 @@
 import { getBallLetter } from '@/domain/services/bingo-engine';
 import { formatAmharicBallCall, getBallCallAudioKey } from '@/shared/tts/amharic-ball-call';
 import {
-  CARTELLA_LOCKED_CLIP,
-  GAME_CONTINUED_CLIP,
-  GAME_STARTED_CLIP,
-  GAME_STOPPED_CLIP,
-  NOT_WINNER_CLIP,
-  WINNER_CLIP,
-} from '@/shared/tts/game-clips';
+  ballCallClipCandidates,
+  cartellaClipCandidates,
+  eventClipCandidates,
+  GAME_EVENT_CLIP_FILES,
+} from '@/shared/tts/voice-packs';
 import { isElectron } from '@/shared/runtime';
 
 let currentAudio: HTMLAudioElement | null = null;
+const eventClipCache = new Map<string, HTMLAudioElement>();
 
 function buildMediaUrl(relativePath: string): string {
   const clean = relativePath.replace(/^\/+/, '');
@@ -26,24 +25,14 @@ function buildMediaUrl(relativePath: string): string {
   return `/${clean}`;
 }
 
-export function amharicAudioUrl(number: number): string {
-  return buildMediaUrl(`sounds/am/${number}.mp3`);
-}
-
-export function ballCallAudioUrl(number: number): string {
-  return buildMediaUrl(`audio/${getBallCallAudioKey(number)}.mp3`);
-}
-
-export function cartellaAudioUrl(number: number): string {
-  return buildMediaUrl(`sounds/cartella/${number}.mp3`);
-}
-
-function englishLetterUrl(letter: string): string {
-  return buildMediaUrl(`sounds/en/letters/${letter}.mp3`);
-}
-
-function legacyLetterUrl(letter: string): string {
-  return buildMediaUrl(`sounds/am/letters/${letter}.mp3`);
+function warmEventClip(relativePath: string): void {
+  if (typeof window === 'undefined') return;
+  const url = buildMediaUrl(relativePath);
+  if (eventClipCache.has(url)) return;
+  const audio = new Audio(url);
+  audio.preload = 'auto';
+  audio.load();
+  eventClipCache.set(url, audio);
 }
 
 function waitForCanPlay(audio: HTMLAudioElement, timeoutMs: number): Promise<boolean> {
@@ -122,6 +111,84 @@ function playUrl(url: string, readyTimeoutMs = 2500): Promise<boolean> {
   });
 }
 
+async function playFirstAvailable(relativePaths: string[], readyTimeoutMs = 2500): Promise<boolean> {
+  for (const relativePath of relativePaths) {
+    if (await playUrl(buildMediaUrl(relativePath), readyTimeoutMs)) return true;
+  }
+  return false;
+}
+
+/** Play a short game event clip immediately (uses warmed cache when available). */
+function playCachedEventClip(url: string): Promise<boolean> {
+  if (typeof window === 'undefined') return Promise.resolve(false);
+
+  return new Promise((resolve) => {
+    let settled = false;
+    let audio = eventClipCache.get(url);
+    if (!audio) {
+      audio = new Audio(url);
+      audio.preload = 'auto';
+      eventClipCache.set(url, audio);
+    }
+
+    const finish = (ok: boolean) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(safetyTimer);
+      window.clearTimeout(readyTimer);
+      audio!.removeEventListener('loadeddata', onReady);
+      audio!.removeEventListener('canplay', onReady);
+      if (currentAudio === audio) currentAudio = null;
+      resolve(ok);
+    };
+
+    const safetyTimer = window.setTimeout(() => {
+      audio!.pause();
+      finish(false);
+    }, 15000);
+
+    let readyTimer = 0;
+    const onReady = () => {
+      void startPlayback();
+    };
+
+    const startPlayback = async () => {
+      try {
+        cancelBrowserSpeech();
+        if (currentAudio && currentAudio !== audio) {
+          currentAudio.pause();
+          currentAudio.currentTime = 0;
+        }
+        currentAudio = audio!;
+        audio!.onended = () => finish(true);
+        audio!.onerror = () => finish(false);
+        audio!.currentTime = 0;
+        await audio!.play();
+      } catch {
+        finish(false);
+      }
+    };
+
+    if (audio.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+      void startPlayback();
+      return;
+    }
+
+    audio.addEventListener('loadeddata', onReady, { once: true });
+    audio.addEventListener('canplay', onReady, { once: true });
+    audio.load();
+    readyTimer = window.setTimeout(() => finish(false), 400);
+  });
+}
+
+async function playEventClip(relativePaths: string[]): Promise<boolean> {
+  for (const relativePath of relativePaths) {
+    warmEventClip(relativePath);
+    if (await playCachedEventClip(buildMediaUrl(relativePath))) return true;
+  }
+  return false;
+}
+
 /** Stop any MP3 and browser/system speech so clips never overlap TTS. */
 export function cancelBrowserSpeech(): void {
   if (typeof window !== 'undefined' && window.speechSynthesis) {
@@ -129,32 +196,38 @@ export function cancelBrowserSpeech(): void {
   }
 }
 
-/** Warm browser cache for all 75 ball-call clips (call once when game board loads). */
-export function preloadBallCallClips(): void {
+/** Warm browser cache for ball-call clips of one or all voice packs. */
+export function preloadBallCallClips(voiceType?: string): void {
   if (typeof window === 'undefined') return;
-  for (let n = 1; n <= 75; n++) {
-    const audio = new Audio(ballCallAudioUrl(n));
-    audio.preload = 'auto';
-    audio.load();
+  const voiceTypes = voiceType
+    ? [voiceType]
+    : ['AMHARIC_MALE', 'AMHARIC_MALE_2', 'AMHARIC_FEMALE', 'AMHARIC_FEMALE_2'];
+
+  for (const vt of voiceTypes) {
+    for (let n = 1; n <= 75; n++) {
+      for (const rel of ballCallClipCandidates(n, vt)) {
+        const audio = new Audio(buildMediaUrl(rel));
+        audio.preload = 'auto';
+        audio.load();
+      }
+    }
   }
 }
 
-const GAME_EVENT_CLIPS = [
-  GAME_STARTED_CLIP,
-  GAME_STOPPED_CLIP,
-  GAME_CONTINUED_CLIP,
-  WINNER_CLIP,
-  NOT_WINNER_CLIP,
-  CARTELLA_LOCKED_CLIP,
-] as const;
-
-/** Warm cache for game event clips so game_started plays on first Play click. */
-export function preloadGameEventClips(): void {
+/** Warm cache for game event clips. */
+export function preloadGameEventClips(voiceType?: string): void {
   if (typeof window === 'undefined') return;
-  for (const clip of GAME_EVENT_CLIPS) {
-    const audio = new Audio(eventClipUrl(clip));
-    audio.preload = 'auto';
-    audio.load();
+  const voiceTypes = voiceType
+    ? [voiceType]
+    : ['AMHARIC_MALE', 'AMHARIC_MALE_2', 'AMHARIC_FEMALE', 'AMHARIC_FEMALE_2'];
+  const eventFiles = Object.values(GAME_EVENT_CLIP_FILES);
+
+  for (const vt of voiceTypes) {
+    for (const file of eventFiles) {
+      for (const rel of eventClipCandidates(file, vt)) {
+        warmEventClip(rel);
+      }
+    }
   }
 }
 
@@ -167,64 +240,62 @@ export function stopCurrentAudio(): void {
   }
 }
 
-export function playBallCallClip(number: number): Promise<boolean> {
-  return playUrl(ballCallAudioUrl(number));
+export function playBallCallClip(number: number, voiceType: string): Promise<boolean> {
+  return playFirstAvailable(ballCallClipCandidates(number, voiceType));
 }
 
-export function playCartellaClip(number: number): Promise<boolean> {
-  return playUrl(cartellaAudioUrl(number));
+export function playCartellaClip(number: number, voiceType: string): Promise<boolean> {
+  return playFirstAvailable(cartellaClipCandidates(number, voiceType));
 }
 
-function eventClipUrl(relativePath: string): string {
-  return buildMediaUrl(relativePath);
+export function playGameStartedClip(voiceType: string): Promise<boolean> {
+  return playEventClip(eventClipCandidates(GAME_EVENT_CLIP_FILES.started, voiceType));
 }
 
-export async function playEventClip(relativePath: string): Promise<boolean> {
-  return playUrl(eventClipUrl(relativePath), 5000);
+export function playGameStoppedClip(voiceType: string): Promise<boolean> {
+  return playEventClip(eventClipCandidates(GAME_EVENT_CLIP_FILES.stopped, voiceType));
 }
 
-export function playGameStartedClip(): Promise<boolean> {
-  return playEventClip(GAME_STARTED_CLIP);
+export function playGameContinuedClip(voiceType: string): Promise<boolean> {
+  return playEventClip(eventClipCandidates(GAME_EVENT_CLIP_FILES.continued, voiceType));
 }
 
-export function playGameStoppedClip(): Promise<boolean> {
-  return playEventClip(GAME_STOPPED_CLIP);
+export function playWinnerClip(voiceType: string): Promise<boolean> {
+  return playEventClip(eventClipCandidates(GAME_EVENT_CLIP_FILES.winner, voiceType));
 }
 
-export function playGameContinuedClip(): Promise<boolean> {
-  return playEventClip(GAME_CONTINUED_CLIP);
+export function playNotWinnerClip(voiceType: string): Promise<boolean> {
+  return playEventClip(eventClipCandidates(GAME_EVENT_CLIP_FILES.notWinner, voiceType));
 }
 
-export function playWinnerClip(): Promise<boolean> {
-  return playEventClip(WINNER_CLIP);
+export function playCartellaLockedClip(voiceType: string): Promise<boolean> {
+  return playEventClip(eventClipCandidates(GAME_EVENT_CLIP_FILES.cartellaLocked, voiceType));
 }
 
-export function playNotWinnerClip(): Promise<boolean> {
-  return playEventClip(NOT_WINNER_CLIP);
+export function playShuffleClip(voiceType: string): Promise<boolean> {
+  return playEventClip(eventClipCandidates(GAME_EVENT_CLIP_FILES.shuffle, voiceType));
 }
 
-export function playCartellaLockedClip(): Promise<boolean> {
-  return playEventClip(CARTELLA_LOCKED_CLIP);
-}
-
-export function playAmharicBall(number: number): Promise<boolean> {
-  return playUrl(amharicAudioUrl(number));
-}
-
-export async function playEnglishBingoLetter(letter: string): Promise<boolean> {
-  if (await playUrl(englishLetterUrl(letter))) return true;
-  return playUrl(legacyLetterUrl(letter));
-}
-
-export async function playBallCallAudio(number: number, language: string): Promise<boolean> {
+export async function playBallCallAudio(number: number, language: string, voiceType: string): Promise<boolean> {
   if (language === 'am') {
-    return playBallCallClip(number);
+    return playBallCallClip(number, voiceType);
   }
 
   const letter = getBallLetter(number);
   if (!letter) return false;
 
-  return playEnglishBingoLetter(letter);
+  return speakEnglishLetterBrowser(letter);
+}
+
+async function speakEnglishLetterBrowser(letter: string): Promise<boolean> {
+  if (typeof window === 'undefined' || !window.speechSynthesis) return false;
+  return new Promise((resolve) => {
+    const u = new SpeechSynthesisUtterance(letter);
+    u.lang = 'en-US';
+    u.onend = () => resolve(true);
+    u.onerror = () => resolve(false);
+    window.speechSynthesis.speak(u);
+  });
 }
 
 export function getBallCallDisplayText(number: number, language: string): string {
@@ -233,4 +304,4 @@ export function getBallCallDisplayText(number: number, language: string): string
   return letter ? `${letter} ${number}` : String(number);
 }
 
-export { formatAmharicBallCall };
+export { formatAmharicBallCall, getBallCallAudioKey };

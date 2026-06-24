@@ -22,25 +22,6 @@ interface NumberGridProps {
   shuffledLabel?: string;
 }
 
-function shuffleArray<T>(arr: T[]): T[] {
-  const copy = [...arr];
-  for (let i = copy.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [copy[i], copy[j]] = [copy[j], copy[i]];
-  }
-  return copy;
-}
-
-function mergeOrder(customOrder: number[] | null, slots: number[]): number[] {
-  if (!customOrder || customOrder.length === 0) return slots;
-  const slotSet = new Set(slots);
-  const kept = customOrder.filter((n) => slotSet.has(n));
-  const keptSet = new Set(kept);
-  const added = slots.filter((n) => !keptSet.has(n));
-  const merged = [...kept, ...added];
-  return merged.length > 0 ? merged : slots;
-}
-
 /** Bold cartella picker — large cells, green = selected, grey = available */
 export function NumberGrid({
   availableNumbers,
@@ -57,7 +38,6 @@ export function NumberGrid({
   shuffleLabel = 'Shuffle',
   shuffledLabel = 'Shuffled!',
 }: NumberGridProps) {
-  const [customOrder, setCustomOrder] = useState<number[] | null>(null);
   const [justShuffled, setJustShuffled] = useState(false);
 
   const sortedAvailable = useMemo(
@@ -67,20 +47,14 @@ export function NumberGrid({
 
   const availableSet = useMemo(() => new Set(sortedAvailable), [sortedAvailable]);
 
-  const slotNumbers = useMemo(() => {
+  const numbers = useMemo(() => {
     if (!staticMax) return sortedAvailable;
     const base = Array.from({ length: staticMax }, (_, i) => i + 1);
     const extras = sortedAvailable.filter((n) => n > staticMax);
     return [...base, ...extras];
   }, [sortedAvailable, staticMax]);
 
-  const numbers = useMemo(
-    () => mergeOrder(customOrder, slotNumbers),
-    [customOrder, slotNumbers],
-  );
-
   const handleShuffle = () => {
-    setCustomOrder(shuffleArray(slotNumbers));
     setJustShuffled(true);
     window.setTimeout(() => setJustShuffled(false), 2000);
     onShuffle?.();
@@ -96,7 +70,7 @@ export function NumberGrid({
               {shuffledLabel}
             </span>
           )}
-          {!disabled && slotNumbers.length > 0 && (
+          {!disabled && numbers.length > 0 && (
             <button
               type="button"
               onClick={handleShuffle}
@@ -130,7 +104,12 @@ export function NumberGrid({
           </p>
         </div>
       ) : (
-        <div className="overflow-y-auto rounded-xl border-[3px] border-gray-300 bg-white p-4 shadow-md">
+        <div
+          className={cn(
+            'overflow-y-auto rounded-xl border-[3px] border-gray-300 bg-white p-4 shadow-md transition-transform',
+            justShuffled && 'cartella-shuffle-wiggle',
+          )}
+        >
           <div
             className="grid gap-1.5 sm:gap-2"
             style={{ gridTemplateColumns: 'repeat(15, minmax(0, 1fr))' }}

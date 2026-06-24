@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Check that your custom recordings are named and placed correctly.
+ * Check that custom recordings are named and placed correctly under public/audio/.
  * Run: npm run validate:audio
  */
 import fs from 'fs';
@@ -10,14 +10,17 @@ import { fileURLToPath } from 'url';
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const audioDir = path.join(root, 'public', 'audio');
 
-const EVENT_CLIPS = [
-  { label: 'Game start (PLAY)', paths: ['public/audio/game_started.mp3'] },
-  { label: 'End game', paths: ['public/audio/game_stopped.mp3'] },
-  { label: 'Resume game', paths: ['public/audio/game_continued.mp3'] },
-  { label: 'Winner', paths: ['public/audio/winner.mp3'] },
-  { label: 'Not winner', paths: ['public/audio/not_winner.mp3'] },
-  { label: 'Cartella locked', paths: ['public/audio/cartella_locked.mp3'] },
+const EVENT_FILES = [
+  'game_started.mp3',
+  'game_stopped.mp3',
+  'game_continued.mp3',
+  'winner.mp3',
+  'not_winner.mp3',
+  'cartella_locked.mp3',
+  'shuffle.mp3',
 ];
+
+const VOICE_PACKS = ['male1', 'male2', 'female1', 'female2'];
 
 function getBallLetter(n) {
   if (n <= 15) return 'B';
@@ -28,74 +31,111 @@ function getBallLetter(n) {
   return '';
 }
 
-function expectedName(n) {
-  const letter = getBallLetter(n);
-  return `${letter}${n}.mp3`;
+function expectedBallName(n) {
+  return `${getBallLetter(n)}${n}.mp3`;
 }
 
-console.log('Checking custom ball-call audio in public/audio/\n');
+function checkPackDir(packDir, label, { requireCartella = false, cartellaMax = 0 } = {}) {
+  let missing = [];
+  let empty = [];
+
+  if (!fs.existsSync(packDir)) {
+    return { label, missing: ['(folder missing)'], empty, ok: false };
+  }
+
+  for (let n = 1; n <= 75; n++) {
+    const name = expectedBallName(n);
+    const full = path.join(packDir, name);
+    if (!fs.existsSync(full)) missing.push(name);
+    else if (fs.statSync(full).size < 500) empty.push(name);
+  }
+
+  for (const file of EVENT_FILES) {
+    const full = path.join(packDir, file);
+    if (!fs.existsSync(full)) missing.push(file);
+    else if (fs.statSync(full).size < 500) empty.push(file);
+  }
+
+  if (requireCartella && cartellaMax > 0) {
+    const cartellaDir = path.join(packDir, 'cartella');
+    for (let n = 1; n <= cartellaMax; n++) {
+      const full = path.join(cartellaDir, `${n}.mp3`);
+      if (!fs.existsSync(full)) missing.push(`cartella/${n}.mp3`);
+      else if (fs.statSync(full).size < 500) empty.push(`cartella/${n}.mp3`);
+    }
+  }
+
+  return { label, missing, empty, ok: missing.length === 0 && empty.length === 0 };
+}
+
+console.log('Checking Amharic audio under public/audio/\n');
+console.log('See public/audio/README.txt for how to add voice alternatives.\n');
 
 if (!fs.existsSync(audioDir)) {
   console.error('✗ Folder missing: public/audio/');
-  console.error('  Create it and put your 75 MP3 files there.');
   process.exit(1);
 }
 
-const files = new Set(fs.readdirSync(audioDir).filter((f) => f.endsWith('.mp3')));
-let missing = [];
-let empty = [];
+const brand = JSON.parse(fs.readFileSync(path.join(root, 'brand.config.json'), 'utf8'));
+const cartellaMax = brand.initialCartellaCount ?? 150;
 
-for (let n = 1; n <= 75; n++) {
-  const name = expectedName(n);
-  if (!files.has(name)) {
-    missing.push(name);
-    continue;
+const legacy = checkPackDir(audioDir, 'Legacy default (public/audio/ root → male1)', {
+  requireCartella: false,
+});
+
+const voiceResults = VOICE_PACKS.map((pack) => {
+  const dir = path.join(audioDir, 'voices', pack);
+  const requireAll = pack === 'male1';
+  return checkPackDir(dir, `Voice pack: ${pack}`, {
+    requireCartella: requireAll,
+    cartellaMax: requireAll ? cartellaMax : 0,
+  });
+});
+
+const male1Ok = legacy.ok || voiceResults.find((r) => r.label.includes('male1'))?.ok;
+let failed = 0;
+
+function report(result, { legacyOk = false } = {}) {
+  if (result.ok) {
+    console.log(`✓ ${result.label}`);
+    return;
   }
-  const stat = fs.statSync(path.join(audioDir, name));
-  if (stat.size < 500) empty.push(name);
-}
-
-let eventMissing = [];
-let eventEmpty = [];
-
-for (const { label, paths: clipPaths } of EVENT_CLIPS) {
-  const found = clipPaths.find((p) => fs.existsSync(path.join(root, p)));
-  if (!found) {
-    eventMissing.push(`${label} (${clipPaths.join(' or ')})`);
-    continue;
+  if (result.missing[0] === '(folder missing)') {
+    const packId = result.label.startsWith('Voice pack: ')
+      ? result.label.slice('Voice pack: '.length)
+      : '';
+    if (packId === 'male1' && legacyOk) {
+      console.log(`○ ${result.label} — using legacy files in public/audio/ root`);
+      return;
+    }
+    if (packId && packId !== 'male1') {
+      console.log(`○ ${result.label} — optional (not added yet)`);
+      return;
+    }
   }
-  const stat = fs.statSync(path.join(root, found));
-  if (stat.size < 500) eventEmpty.push(`${label} (${found})`);
+  failed++;
+  console.error(`✗ ${result.label}`);
+  if (result.missing.length) {
+    console.error(`  Missing ${result.missing.length} file(s):`);
+    result.missing.slice(0, 8).forEach((f) => console.error(`    ${f}`));
+    if (result.missing.length > 8) console.error(`    … and ${result.missing.length - 8} more`);
+  }
+  if (result.empty.length) {
+    console.error(`  Too small: ${result.empty.slice(0, 5).join(', ')}${result.empty.length > 5 ? '…' : ''}`);
+  }
 }
 
-const hasBallIssues = missing.length > 0 || empty.length > 0;
-const hasEventIssues = eventMissing.length > 0 || eventEmpty.length > 0;
+report(legacy);
+for (const r of voiceResults) report(r, { legacyOk: legacy.ok });
 
-if (!hasBallIssues && !hasEventIssues) {
-  console.log('✓ All 75 ball-call files found and look OK.');
-  console.log('✓ All game event clips found.');
-  console.log('  Next: npm run pack:win  (to build installer with your voice)');
-  process.exit(0);
+if (!male1Ok) {
+  console.error('\n✗ At least one complete male1 voice is required (public/audio/ root OR public/audio/voices/male1/).');
+  failed++;
 }
 
-if (missing.length > 0) {
-  console.error(`✗ Missing ${missing.length} file(s):`);
-  missing.slice(0, 10).forEach((f) => console.error(`    ${f}`));
-  if (missing.length > 10) console.error(`    … and ${missing.length - 10} more`);
+console.log('');
+if (failed > 0) {
+  console.error(`${failed} required check(s) failed.`);
+  process.exit(1);
 }
-
-if (empty.length > 0) {
-  console.error(`✗ Too small (maybe empty recording): ${empty.join(', ')}`);
-}
-
-if (eventMissing.length > 0) {
-  console.error(`✗ Missing ${eventMissing.length} event clip(s):`);
-  eventMissing.forEach((f) => console.error(`    ${f}`));
-}
-
-if (eventEmpty.length > 0) {
-  console.error(`✗ Event clip too small: ${eventEmpty.join(', ')}`);
-}
-
-console.error('\nRun  npm run recording:script  for the full list of names and phrases.');
-process.exit(1);
+console.log('Audio validation OK. Next: npm run pack:win');
