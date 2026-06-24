@@ -193,7 +193,7 @@ export default function GameBoardPage() {
   useEffect(() => { bingoClaimActiveRef.current = bingoClaimActive; }, [bingoClaimActive]);
   useEffect(() => { gameWinnersRef.current = gameWinners; }, [gameWinners]);
 
-  useEffect(() => { loadVoices(); preloadBallCallClips(); preloadGameEventClips(); }, []);
+  useEffect(() => { loadVoices(); preloadBallCallClips(voice); preloadGameEventClips(voice); }, [voice]);
   useEffect(() => {
     if (commissionInitializedRef.current || activeGame) return;
     if (agent?.commissionRate != null) {
@@ -356,7 +356,7 @@ export default function GameBoardPage() {
     stopCurrentAudio();
 
     if (options?.playPausedClip && languageRef.current === 'am') {
-      await playGameStoppedClip();
+      await playGameStoppedClip(voiceRef.current);
     }
 
     if (!pauseOnServer || !activeGameRef.current) return;
@@ -653,7 +653,7 @@ export default function GameBoardPage() {
       setLiveAnnouncement(ann);
       window.setTimeout(() => setLiveAnnouncement(null), 8000);
       if (languageRef.current === 'am') {
-        await playWinnerClip();
+        await playWinnerClip(voiceRef.current);
       }
       await refreshBalance();
     } else if (result.banned || result.eliminated) {
@@ -672,8 +672,8 @@ export default function GameBoardPage() {
       setLiveAnnouncement(ann);
       window.setTimeout(() => setLiveAnnouncement(null), 5000);
       if (languageRef.current === 'am') {
-        if (result.banned) await playCartellaLockedClip();
-        else await playNotWinnerClip();
+        if (result.banned) await playCartellaLockedClip(voiceRef.current);
+        else await playNotWinnerClip(voiceRef.current);
       }
     }
 
@@ -708,7 +708,7 @@ export default function GameBoardPage() {
     } else {
       if (languageRef.current === 'am') {
         stopCurrentAudio();
-        await playGameContinuedClip();
+        await playGameContinuedClip(voiceRef.current);
       }
       await startCalling(true);
     }
@@ -729,7 +729,7 @@ export default function GameBoardPage() {
     syncManagerRef.current.abort();
     stopCurrentAudio();
     if (languageRef.current === 'am') {
-      await playGameStoppedClip();
+      await playGameStoppedClip(voiceRef.current);
     }
     setCallingPhase('ended');
     callingPhaseRef.current = 'ended';

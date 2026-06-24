@@ -15,8 +15,6 @@ import { ensureBrandLogoImported, getBrandLogoPath } from './brand-logo.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, '..');
-const soundsDir = path.join(root, 'public', 'sounds', 'am');
-const cartellaDir = path.join(root, 'public', 'sounds', 'cartella');
 const ballCallDir = path.join(root, 'public', 'audio');
 
 const buildEnv = {
@@ -36,28 +34,30 @@ function run(cmd, env = {}) {
 function ensureAmharicAudio() {
   const brand = loadBrand();
   const requiredCartella = brand.initialCartellaCount ?? 150;
+  const male1Dir = path.join(ballCallDir, 'voices', 'male1');
+  const male1Cartella = path.join(male1Dir, 'cartella');
 
-  const ballCallCount = fs.existsSync(ballCallDir)
-    ? fs.readdirSync(ballCallDir).filter((f) => f.endsWith('.mp3')).length
+  const rootBallCount = fs.existsSync(ballCallDir)
+    ? fs.readdirSync(ballCallDir).filter((f) => /^[BINGO]\d+\.mp3$/i.test(f)).length
     : 0;
-  const fallbackCount = fs.existsSync(soundsDir)
-    ? fs.readdirSync(soundsDir).filter((f) => f.endsWith('.mp3')).length
+  const packBallCount = fs.existsSync(male1Dir)
+    ? fs.readdirSync(male1Dir).filter((f) => /^[BINGO]\d+\.mp3$/i.test(f)).length
     : 0;
-  const cartellaCount = fs.existsSync(cartellaDir)
-    ? fs.readdirSync(cartellaDir).filter((f) => f.endsWith('.mp3')).length
+  const cartellaCount = fs.existsSync(male1Cartella)
+    ? fs.readdirSync(male1Cartella).filter((f) => f.endsWith('.mp3')).length
     : 0;
 
-  const needsBall = ballCallCount < 75 || fallbackCount < 75;
+  const needsBall = rootBallCount < 75 && packBallCount < 75;
   const needsCartella = cartellaCount < requiredCartella;
 
   if (needsBall || needsCartella) {
     console.log(
-      `\n→ Audio: ${ballCallCount}/75 ball, ${fallbackCount}/75 fallback, ${cartellaCount}/${requiredCartella} cartella — generating...\n`,
+      `\n→ Audio: ${rootBallCount}/75 root ball, ${packBallCount}/75 male1 ball, ${cartellaCount}/${requiredCartella} male1 cartella — generating...\n`,
     );
     run('node scripts/generate-amharic-audio.mjs');
   } else {
     console.log(
-      `\n→ Audio OK: ${ballCallCount} ball + ${fallbackCount} fallback + ${cartellaCount} cartella\n`,
+      `\n→ Audio OK: ${Math.max(rootBallCount, packBallCount)} ball + ${cartellaCount} cartella (public/audio)\n`,
     );
   }
 }

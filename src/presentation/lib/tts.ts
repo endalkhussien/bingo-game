@@ -60,13 +60,13 @@ async function speakBrowser(text: string, lang: string, preferFemale: boolean): 
 /** Play ball call — Amharic uses bundled MP3 only (no system TTS). */
 export async function speakBallCall(number: number, voiceType: string, language: string): Promise<boolean> {
   if (language === 'am') {
-    return playBallCallAudio(number, language);
+    return playBallCallAudio(number, language, voiceType);
   }
 
   const preferFemale = voiceType.includes('FEMALE');
   const { letter, numberText } = getBallCallSpeechParts(number, language);
 
-  if (await playBallCallAudio(number, language)) return true;
+  if (await playBallCallAudio(number, language, voiceType)) return true;
 
   if (isElectron()) {
     try {
@@ -87,7 +87,7 @@ export async function speakBallCall(number: number, voiceType: string, language:
 export function speakCartella(number: number, voiceType: string, language: string): void {
   queue = queue.then(async () => {
     if (language === 'am') {
-      await playCartellaClip(number);
+      await playCartellaClip(number, voiceType);
       return;
     }
 
@@ -116,9 +116,9 @@ export async function speakPlainText(text: string, lang: string, voiceType: stri
 /** Announce game start — Amharic uses game_started.mp3 only. */
 export async function speakGameStarted(voiceType: string, language: string): Promise<void> {
   if (language === 'am') {
-    const played = await playGameStartedClip();
+    const played = await playGameStartedClip(voiceType);
     if (!played) {
-      await playGameContinuedClip();
+      await playGameContinuedClip(voiceType);
     }
     return;
   }

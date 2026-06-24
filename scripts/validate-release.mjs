@@ -32,18 +32,19 @@ check('better-sqlite3 9.6 (Electron 22 ABI)', pkg.dependencies?.['better-sqlite3
 const browserslist = JSON.stringify(pkg.browserslist ?? []);
 check('Chromium 108 target (Electron 22 / Win 8+)', browserslist.includes('108'), browserslist);
 
-const audioCount = fs.existsSync(path.join(root, 'public/audio'))
-  ? fs.readdirSync(path.join(root, 'public/audio')).filter((f) => f.endsWith('.mp3')).length
+const audioDir = path.join(root, 'public/audio');
+const ballCallCount = fs.existsSync(audioDir)
+  ? fs.readdirSync(audioDir).filter((f) => /^[BINGO]\d+\.mp3$/i.test(f)).length
   : 0;
-check('Combined ball-call audio (75)', audioCount >= 75, `${audioCount}/75`);
-
-const fallbackCount = fs.existsSync(path.join(root, 'public/sounds/am'))
-  ? fs.readdirSync(path.join(root, 'public/sounds/am')).filter((f) => f.endsWith('.mp3')).length
+const male1Dir = path.join(audioDir, 'voices', 'male1');
+const male1BallCount = fs.existsSync(male1Dir)
+  ? fs.readdirSync(male1Dir).filter((f) => /^[BINGO]\d+\.mp3$/i.test(f)).length
   : 0;
-check('Amharic fallback audio (75)', fallbackCount >= 75, `${fallbackCount}/75`);
+check('Combined ball-call audio (75)', ballCallCount >= 75 || male1BallCount >= 75, `${ballCallCount} root + ${male1BallCount} male1`);
 
-const cartellaCount = fs.existsSync(path.join(root, 'public/sounds/cartella'))
-  ? fs.readdirSync(path.join(root, 'public/sounds/cartella')).filter((f) => f.endsWith('.mp3')).length
+const cartellaDir = path.join(male1Dir, 'cartella');
+const cartellaCount = fs.existsSync(cartellaDir)
+  ? fs.readdirSync(cartellaDir).filter((f) => f.endsWith('.mp3')).length
   : 0;
 check(`Cartella voice audio (${requiredCartella})`, cartellaCount >= requiredCartella, `${cartellaCount}/${requiredCartella}`);
 

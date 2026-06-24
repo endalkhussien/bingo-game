@@ -48,15 +48,10 @@ RUN A GAME
 
 VOICE QUALITY (optional — for your own recordings)
 --------------------------------------------------
-  Best quality: record your own voice once, then rebuild the installer.
-    npm run recording:script   -> checklist of all phrases
-    Put ball calls in:         public/audio/   (B1.mp3 … O75.mp3)
-    Put cartella picks in:     public/sounds/cartella/  (1.mp3 … 500.mp3)
-    npm run validate:audio && npm run pack:win
-
-  Fallback without recording: app ships auto-generated Amharic clips
-  (Google TTS at build time). Windows Amharic language pack improves
-  speech fallback if a clip is missing.
+  See public/audio/README.txt for folder layout and alternative voices.
+  npm run recording:script   -> checklist of all phrases
+  Put each voice pack in:    public/audio/voices/male1/  (or male2, female1, female2)
+  npm run validate:audio && npm run pack:win
 
 ------------
   Windows 8, 8.1, 10, or 11 (64-bit)
