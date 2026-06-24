@@ -38,11 +38,20 @@ const ballCallCount = fs.existsSync(audioDir)
   : 0;
 check('Ball-call audio (75)', ballCallCount >= 75, `${ballCallCount}/75 in public/audio/`);
 
-const cartellaDir = path.join(audioDir, 'cartella');
-const cartellaCount = fs.existsSync(cartellaDir)
-  ? fs.readdirSync(cartellaDir).filter((f) => f.endsWith('.mp3')).length
-  : 0;
-check(`Cartella voice audio (${requiredCartella})`, cartellaCount >= requiredCartella, `${cartellaCount}/${requiredCartella} in public/audio/cartella/`);
+const cartellaDirs = [
+  path.join(audioDir, 'cartella'),
+  path.join(root, 'public/sounds/cartella'),
+];
+let cartellaCount = 0;
+for (const dir of cartellaDirs) {
+  if (fs.existsSync(dir)) {
+    cartellaCount = Math.max(
+      cartellaCount,
+      fs.readdirSync(dir).filter((f) => f.endsWith('.mp3')).length,
+    );
+  }
+}
+check(`Cartella voice audio (${requiredCartella})`, cartellaCount >= requiredCartella, `${cartellaCount}/${requiredCartella} in public/audio/cartella/ or public/sounds/cartella/`);
 
 check('dist-electron/main.js', fs.existsSync(path.join(root, 'dist-electron/electron/main.js')));
 check('out/index.html', fs.existsSync(path.join(root, 'out/index.html')));

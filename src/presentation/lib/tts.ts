@@ -87,7 +87,13 @@ export async function speakBallCall(number: number, voiceType: string, language:
 export function speakCartella(number: number, voiceType: string, language: string): void {
   queue = queue.then(async () => {
     if (language === 'am') {
-      await playCartellaClip(number, voiceType);
+      if (await playCartellaClip(number, voiceType)) return;
+      if (isElectron()) {
+        const result = await ipc<{ success: boolean }>('tts:speak', number, voiceType, language, 'cartella');
+        if (result?.success) return;
+      }
+      const payload = buildCartellaAnnouncement(number, voiceType, language);
+      await speakBrowser(payload.text, payload.lang, payload.preferFemale);
       return;
     }
 

@@ -21,6 +21,7 @@ asarUnpack:
   - "**/*.node"
   - node_modules/better-sqlite3/**/*
   - out/audio/**
+  - out/sounds/**
 
 npmRebuild: true
 buildDependenciesFromSource: false

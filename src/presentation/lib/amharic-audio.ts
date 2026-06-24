@@ -178,7 +178,7 @@ function playCachedEventClip(url: string): Promise<boolean> {
     audio.addEventListener('loadeddata', onReady, { once: true });
     audio.addEventListener('canplay', onReady, { once: true });
     audio.load();
-    readyTimer = window.setTimeout(() => finish(false), 400);
+    readyTimer = window.setTimeout(() => finish(false), 2500);
   });
 }
 

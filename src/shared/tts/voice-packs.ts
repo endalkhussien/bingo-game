@@ -1,4 +1,8 @@
-import { getBallCallAudioKey } from './amharic-ball-call';
+import {
+  ballCallRelativePaths,
+  cartellaRelativePaths,
+  gameEventRelativePaths,
+} from './audio-paths';
 import {
   CARTELLA_LOCKED_CLIP,
   GAME_CONTINUED_CLIP,
@@ -20,19 +24,17 @@ export function resolveVoicePackId(voiceType: string): string | null {
 /** Candidate relative paths (under public/) — first existing file wins at playback */
 export function ballCallClipCandidates(number: number, voiceType: string): string[] {
   if (voiceType === 'ENGLISH') return [];
-  const file = `${getBallCallAudioKey(number)}.mp3`;
-  return [`audio/${file}`];
+  return ballCallRelativePaths(number);
 }
 
 export function cartellaClipCandidates(number: number, voiceType: string): string[] {
   if (voiceType === 'ENGLISH') return [];
-  const file = `${number}.mp3`;
-  return [`audio/cartella/${file}`, `sounds/cartella/${file}`];
+  return cartellaRelativePaths(number);
 }
 
 export function eventClipCandidates(relativeClip: string, voiceType: string): string[] {
   if (voiceType === 'ENGLISH') return [];
-  return [`audio/${relativeClip}`];
+  return gameEventRelativePaths(relativeClip);
 }
 
 export const GAME_EVENT_CLIP_FILES = {
