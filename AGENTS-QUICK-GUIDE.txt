@@ -48,9 +48,9 @@ RUN A GAME
 
 VOICE QUALITY (optional — for your own recordings)
 --------------------------------------------------
-  See public/audio/README.txt for folder layout and alternative voices.
+  See public/audio/README.txt for the required MP3 layout.
   npm run recording:script   -> checklist of all phrases
-  Put each voice pack in:    public/audio/voices/male1/  (or male2, female1, female2)
+  Put your recordings in:    public/audio/  (and public/audio/cartella/)
   npm run validate:audio && npm run pack:win
 
 ------------

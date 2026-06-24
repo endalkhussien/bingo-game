@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Generates placeholder Amharic audio under public/audio/voices/male1/ only.
+ * Generates placeholder Amharic audio under public/audio/.
  * Prefer recording your own MP3s — see public/audio/README.txt
  *
  * Run: npm run generate:amharic-audio
@@ -14,9 +14,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, '..');
 const brand = JSON.parse(fs.readFileSync(path.join(root, 'brand.config.json'), 'utf8'));
 
-const PACK_DIR = path.join(root, 'public/audio/voices/male1');
-const CARTELLA_DIR = path.join(PACK_DIR, 'cartella');
-const LEGACY_AUDIO_DIR = path.join(root, 'public/audio');
+const AUDIO_DIR = path.join(root, 'public/audio');
+const CARTELLA_DIR = path.join(AUDIO_DIR, 'cartella');
 
 const AMHARIC_LETTERS = { B: 'ቢ', I: 'አይ', N: 'ኤን', G: 'ጂ', O: 'ኦ' };
 
@@ -54,17 +53,17 @@ async function writeIfNeeded(dest, text, lang = 'am') {
 }
 
 async function main() {
-  fs.mkdirSync(PACK_DIR, { recursive: true });
+  fs.mkdirSync(AUDIO_DIR, { recursive: true });
   fs.mkdirSync(CARTELLA_DIR, { recursive: true });
 
   const cartellaMax = Number(process.env.CARTELLA_AUDIO_MAX) || brand.initialCartellaCount || 150;
 
-  console.log('Generating male1 voice pack under public/audio/voices/male1/ …');
+  console.log('Generating Amharic audio under public/audio/ …');
   console.log('(Record your own clips — see public/audio/README.txt)\n');
 
   for (let n = 1; n <= 75; n++) {
     const key = `${getBallLetter(n)}${n}`;
-    await writeIfNeeded(path.join(PACK_DIR, `${key}.mp3`), formatAmharicBallCall(n), 'am');
+    await writeIfNeeded(path.join(AUDIO_DIR, `${key}.mp3`), formatAmharicBallCall(n), 'am');
   }
 
   const events = [
@@ -77,7 +76,7 @@ async function main() {
     ['shuffle.mp3', 'ተቀይሯል'],
   ];
   for (const [file, phrase] of events) {
-    await writeIfNeeded(path.join(PACK_DIR, file), phrase, 'am');
+    await writeIfNeeded(path.join(AUDIO_DIR, file), phrase, 'am');
   }
 
   console.log(`Cartella clips (1–${cartellaMax})…`);
@@ -85,9 +84,7 @@ async function main() {
     await writeIfNeeded(path.join(CARTELLA_DIR, `${n}.mp3`), formatCartellaPhrase(n), 'am');
   }
 
-  console.log('\nDone. Add more voices by copying the folder structure to public/audio/voices/male2/, female1/, etc.');
-  console.log('Legacy files in public/audio/ (root) still work as male1 fallback.');
-  void LEGACY_AUDIO_DIR;
+  console.log('\nDone. Replace placeholders with your own recordings in public/audio/.');
 }
 
 main().catch((err) => {

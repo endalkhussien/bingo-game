@@ -6,7 +6,6 @@ import { promisify } from 'util';
 import { app } from 'electron';
 import { buildCartellaAnnouncement } from '../../src/shared/tts/voice-map';
 import { getBallCallSpeechParts } from '../../src/shared/tts/ball-call';
-import { resolveVoicePackId } from '../../src/shared/tts/voice-packs';
 
 const execFileAsync = promisify(execFile);
 
@@ -98,16 +97,9 @@ async function playEnglishLetter(letter: string): Promise<boolean> {
   return speakEspeak(letter, 'en', false);
 }
 
-async function playBundledCartella(number: number, voiceType: string): Promise<boolean> {
-  const pack = resolveVoicePackId(voiceType) ?? 'male1';
-  const candidates = [
-    ['voices', pack, 'cartella', `${number}.mp3`],
-    ...(pack === 'male1' ? [['cartella', `${number}.mp3`]] : []),
-  ];
-  for (const parts of candidates) {
-    const audioPath = resolveSoundPath(...parts);
-    if (audioPath && await playAudioFile(audioPath)) return true;
-  }
+async function playBundledCartella(number: number, _voiceType: string): Promise<boolean> {
+  const audioPath = resolveSoundPath('cartella', `${number}.mp3`);
+  if (audioPath && await playAudioFile(audioPath)) return true;
   return false;
 }
 

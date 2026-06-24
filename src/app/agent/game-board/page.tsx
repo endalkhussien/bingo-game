@@ -7,7 +7,7 @@ import { useAuth } from '@/presentation/providers/auth-provider';
 import { useUiLanguage } from '@/presentation/providers/ui-language-provider';
 import { NumberGrid } from '@/presentation/components/bingo/number-grid';
 import { CheckCardModal } from '@/presentation/components/bingo/check-card-modal';
-import { WINNING_PATTERNS, DRAW_INTERVALS, VOICE_TYPES, MIN_BET, DEFAULT_JACKPOT_MAX_CALLS, DEFAULT_CALL_COOLDOWN_MS, GAME_COMMISSION_OPTIONS, MIN_PLAYERS_TO_START } from '@/shared/constants';
+import { WINNING_PATTERNS, DRAW_INTERVALS, MIN_BET, DEFAULT_JACKPOT_MAX_CALLS, DEFAULT_CALL_COOLDOWN_MS, GAME_COMMISSION_OPTIONS, MIN_PLAYERS_TO_START } from '@/shared/constants';
 import { DRAW_BALL_COUNT, INITIAL_CARTELLA_COUNT } from '@/shared/brand';
 import { speakBallCall, speakCartella, speakGameStarted, speakShuffle, loadVoices } from '@/presentation/lib/tts';
 import { stopCurrentAudio, preloadBallCallClips, preloadGameEventClips, playGameContinuedClip, playGameStoppedClip, playWinnerClip, playNotWinnerClip, playCartellaLockedClip } from '@/presentation/lib/amharic-audio';
@@ -273,19 +273,10 @@ export default function GameBoardPage() {
     });
   }, [activeGame, called, callHistory, commissionPercent, callingPhase, bingoClaimActive, bannedCartellas, gameWinners, liveAnnouncement]);
 
-  const handleLanguageChange = (lang: string) => {
-    setLanguage(lang);
-    if (lang === 'en') {
-      setVoice('ENGLISH');
-    } else if (voice === 'ENGLISH') {
-      setVoice('AMHARIC_MALE');
-    }
-  };
-
-  const handleVoiceChange = (v: string) => {
-    setVoice(v);
-    if (v === 'ENGLISH') setLanguage('en');
-    else setLanguage('am');
+  const handleLanguageChange = (_lang: string) => {
+    // UI language is separate; game always uses your Amharic MP3 in public/audio/
+    setLanguage('am');
+    setVoice('AMHARIC_MALE');
   };
 
   useEffect(() => {
@@ -301,8 +292,8 @@ export default function GameBoardPage() {
         const paused = game.status === 'PAUSED';
         setIsPaused(paused);
         isPausedRef.current = paused;
-        if (game.voiceType) setVoice(game.voiceType);
-        if (game.language) setLanguage(game.language);
+        if (game.voiceType) setVoice('AMHARIC_MALE');
+        setLanguage('am');
         if (game.drawSpeedMs != null) setInterval_(game.drawSpeedMs);
         if (game.commissionRate != null) setCommissionPercent(String(game.commissionRate));
         setGameWinners(game.winners ?? []);
@@ -889,18 +880,6 @@ export default function GameBoardPage() {
                 className="h-14 min-w-[8rem] rounded-lg border-2 border-gray-300 bg-white px-2 text-center text-lg font-bold text-gray-900 focus:border-amber-500 focus:outline-none disabled:bg-gray-100"
               >
                 {WINNING_PATTERNS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
-              </select>
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Voice</span>
-              <select
-                value={voice}
-                onChange={(e) => handleVoiceChange(e.target.value)}
-                disabled={!!activeGame}
-                className="h-14 min-w-[9rem] rounded-lg border-2 border-gray-300 bg-white px-2 text-center text-lg font-bold text-gray-900 focus:border-amber-500 focus:outline-none disabled:bg-gray-100"
-              >
-                {VOICE_TYPES.map((v) => <option key={v.value} value={v.value}>{v.label}</option>)}
               </select>
             </div>
 
