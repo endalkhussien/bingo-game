@@ -47,6 +47,7 @@ interface ActiveGame {
   winners?: GameWinner[];
   bannedCartellas?: string[];
   winningPattern?: string;
+  commissionRate?: number;
 }
 
 function buildLiveSnapshot(
@@ -111,9 +112,10 @@ export default function GameBoardPage() {
   const [checkModalOpen, setCheckModalOpen] = useState(false);
   const [bingoClaimActive, setBingoClaimActive] = useState(false);
   const [gameWinners, setGameWinners] = useState<GameWinner[]>([]);
-  const [commissionPercent, setCommissionPercent] = useState('20');
+  const [commissionPercent, setCommissionPercent] = useState('10');
   const [commissionPickerOpen, setCommissionPickerOpen] = useState(false);
   const commissionPickerRef = useRef<HTMLDivElement>(null);
+  const commissionInitializedRef = useRef(false);
   const [cartellaVoiceMuted, setCartellaVoiceMuted] = useState(false);
 
   const CARTELLA_VOICE_KEY = 'waliya-cartella-voice-muted';
@@ -154,19 +156,20 @@ export default function GameBoardPage() {
 
   const playerCount = activeGame?.playerCount ?? activeGame?.selectedNumbers?.length ?? selected.length;
   const totalPot = activeGame?.totalPot ?? calculateTotalPot(parseFloat(betAmount || '0') || 0, playerCount);
+  const effectiveCommissionRate = activeGame?.commissionRate ?? (parseFloat(commissionPercent || '0') || 0);
   const gameEconomics = useMemo(() => calculateGameEconomics(
     parseFloat(betAmount || '0') || 0,
     playerCount,
-    parseFloat(commissionPercent || '0') || 0,
+    effectiveCommissionRate,
     adminCommissionRate,
-  ), [betAmount, playerCount, commissionPercent, adminCommissionRate]);
+  ), [betAmount, playerCount, effectiveCommissionRate, adminCommissionRate]);
   const walletReserve = useMemo(() => calculateWalletReserveRequired(
     parseFloat(betAmount || '0') || 0,
     selected.length || playerCount,
-    parseFloat(commissionPercent || '0') || 0,
+    effectiveCommissionRate,
     adminCommissionRate,
-  ), [betAmount, selected.length, playerCount, commissionPercent, adminCommissionRate]);
-  const displayProfit = profit > 0 ? profit : gameEconomics.agentNetCommission;
+  ), [betAmount, selected.length, playerCount, effectiveCommissionRate, adminCommissionRate]);
+  const displayProfit = profit > 0 ? profit : gameEconomics.agentGrossCommission;
 
   const hasWinner = gameWinners.length > 0;
   const canPickCartellas = !activeGame && walletBalance > 0;
@@ -178,7 +181,7 @@ export default function GameBoardPage() {
 
   const hallSnapshot = useMemo(() => {
     if (!activeGame) return null;
-    const rate = parseFloat(commissionPercent) || 20;
+    const rate = activeGame.commissionRate ?? (parseFloat(commissionPercent) || 20);
     return toHallSnapshot(buildLiveSnapshot(activeGame, called, callHistory, rate, callingPhase, {
       bingoClaimActive,
       bannedCartellas,
@@ -192,8 +195,10 @@ export default function GameBoardPage() {
 
   useEffect(() => { loadVoices(); preloadBallCallClips(); preloadGameEventClips(); }, []);
   useEffect(() => {
-    if (agent?.commissionRate != null && !activeGame) {
+    if (commissionInitializedRef.current || activeGame) return;
+    if (agent?.commissionRate != null) {
       setCommissionPercent(String(agent.commissionRate));
+      commissionInitializedRef.current = true;
     }
   }, [agent?.commissionRate, activeGame]);
   useEffect(() => {
@@ -238,7 +243,7 @@ export default function GameBoardPage() {
 
   useEffect(() => {
     if (!activeGame) return;
-    const rate = parseFloat(commissionPercent) || 20;
+    const rate = activeGame.commissionRate ?? (parseFloat(commissionPercent) || 20);
     broadcastLiveGame({
       type: 'game-update',
       payload: toHallSnapshot(buildLiveSnapshot(activeGame, called, callHistory, rate, callingPhaseRef.current, {
@@ -281,6 +286,7 @@ export default function GameBoardPage() {
         if (game.voiceType) setVoice(game.voiceType);
         if (game.language) setLanguage(game.language);
         if (game.drawSpeedMs != null) setInterval_(game.drawSpeedMs);
+        if (game.commissionRate != null) setCommissionPercent(String(game.commissionRate));
         setGameWinners(game.winners ?? []);
         setBannedCartellas((game.bannedCartellas ?? []).map(String));
         setHallMode(true);
@@ -500,6 +506,7 @@ export default function GameBoardPage() {
         playerCount: selected.length,
         totalPot: calculateTotalPot(bet, selected.length),
         winningPattern: pattern,
+        commissionRate: commission,
       };
       setActiveGame(game);
       activeGameRef.current = game;
@@ -958,7 +965,7 @@ export default function GameBoardPage() {
             <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-950">
               <p className="font-medium">Insufficient TBG balance for this game</p>
               <p className="mt-1">
-                Need at least {walletReserve.reserveRequired.toFixed(0)} ETB game commission in your TBG wallet (winner prize {walletReserve.prize.toFixed(0)} ETB is paid in cash). Current balance: {walletBalance.toFixed(0)} ETB.
+                Need at least {walletReserve.reserveRequired.toFixed(0)} ETB commission in TBG wallet (winner gets {walletReserve.prize.toFixed(0)} ETB cash). Current balance: {walletBalance.toFixed(0)} ETB.
               </p>
             </div>
           )}

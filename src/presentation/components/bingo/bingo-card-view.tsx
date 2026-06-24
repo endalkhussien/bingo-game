@@ -95,7 +95,7 @@ export function BingoCardView({ cardNumber, grid, onSave, onUpdate, onDelete, co
                       max={max}
                       value={cell || ''}
                       onChange={(e) => handleCellChange(ri, ci, e.target.value)}
-                      className="h-full w-full border-0 bg-yellow-50 text-center text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-amber-500"
+                      className="input-no-spinner h-full w-full border-0 bg-yellow-50 text-center text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-amber-500"
                     />
                   ) : isFree ? (
                     <Star className="h-3 w-3 fill-white text-white" />

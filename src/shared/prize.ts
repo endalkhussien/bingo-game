@@ -114,7 +114,7 @@ export function summarizeGameSettlement(input: GameSettlementInput): GameSettlem
       forfeitedStakes,
       economics,
       platformRevenue: economics.adminCut,
-      agentRevenue: economics.agentNetCommission + forfeitedStakes,
+      agentRevenue: economics.agentGrossCommission + forfeitedStakes,
       commissionRevenue: economics.agentGrossCommission,
       walletCommissionDue: economics.agentGrossCommission,
     };
