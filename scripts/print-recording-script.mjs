@@ -41,13 +41,9 @@ const lines = [
   `${brand.appName} — Recording checklist`,
   '====================================',
   '',
-  'VOICE PACKS — copy this full set into each folder:',
-  '  public/audio/voices/male1/   (Amharic Male 1 — default)',
-  '  public/audio/voices/male2/   (Amharic Male 2 — alternative)',
-  '  public/audio/voices/female1/ (Amharic Female 1)',
-  '  public/audio/voices/female2/ (Amharic Female 2 — alternative)',
+  'FOLDER: public/audio/',
   '',
-  'BALL CALLS (75 files per voice pack)',
+  'BALL CALLS (75 files)',
   '------------------------------------------------',
   'Record each phrase below. Filename must match exactly.',
   '',
@@ -60,7 +56,7 @@ for (let n = 1; n <= 75; n++) {
 }
 
 lines.push('');
-lines.push(`CARTELLA PICK VOICE (1–${cartellaMax}) — folder: public/audio/voices/<pack>/cartella/`);
+lines.push(`CARTELLA PICK VOICE (1–${cartellaMax}) — folder: public/audio/cartella/`);
 lines.push('------------------------------------------------');
 lines.push('When agent taps a cartella on the game board, play this clip.');
 lines.push('Say the full phrase including "ካርቴላ".');

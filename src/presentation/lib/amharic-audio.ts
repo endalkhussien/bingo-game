@@ -5,6 +5,7 @@ import {
   cartellaClipCandidates,
   eventClipCandidates,
   GAME_EVENT_CLIP_FILES,
+  DEFAULT_AMHARIC_VOICE,
 } from '@/shared/tts/voice-packs';
 import { isElectron } from '@/shared/runtime';
 
@@ -199,9 +200,7 @@ export function cancelBrowserSpeech(): void {
 /** Warm browser cache for ball-call clips of one or all voice packs. */
 export function preloadBallCallClips(voiceType?: string): void {
   if (typeof window === 'undefined') return;
-  const voiceTypes = voiceType
-    ? [voiceType]
-    : ['AMHARIC_MALE', 'AMHARIC_MALE_2', 'AMHARIC_FEMALE', 'AMHARIC_FEMALE_2'];
+  const voiceTypes = voiceType ? [voiceType] : [DEFAULT_AMHARIC_VOICE];
 
   for (const vt of voiceTypes) {
     for (let n = 1; n <= 75; n++) {
@@ -217,9 +216,7 @@ export function preloadBallCallClips(voiceType?: string): void {
 /** Warm cache for game event clips. */
 export function preloadGameEventClips(voiceType?: string): void {
   if (typeof window === 'undefined') return;
-  const voiceTypes = voiceType
-    ? [voiceType]
-    : ['AMHARIC_MALE', 'AMHARIC_MALE_2', 'AMHARIC_FEMALE', 'AMHARIC_FEMALE_2'];
+  const voiceTypes = voiceType ? [voiceType] : [DEFAULT_AMHARIC_VOICE];
   const eventFiles = Object.values(GAME_EVENT_CLIP_FILES);
 
   for (const vt of voiceTypes) {

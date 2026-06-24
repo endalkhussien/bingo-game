@@ -1,24 +1,10 @@
 Waliya Amharic audio — public/audio only
 =======================================
 
-All game voice files live under public/audio/. Do not use public/sounds/.
+All game voice files live directly under public/audio/. Do not use public/sounds/.
 
-VOICE ALTERNATIVES (multiple Amharic recordings)
-------------------------------------------------
-
-Create one folder per voice under:
-
-  public/audio/voices/<pack-id>/
-
-Registered pack IDs (match the Voice dropdown on Game Board):
-
-  male1       → Amharic Male 1   (default; legacy files in public/audio/ root also work)
-  male2       → Amharic Male 2
-  female1     → Amharic Female 1
-  female2     → Amharic Female 2
-
-FILES IN EACH VOICE PACK FOLDER
--------------------------------
+FILES IN public/audio/
+----------------------
 
 1) Ball calls — 75 MP3 files (letter + number, one clip per ball):
 
@@ -44,24 +30,6 @@ FILES IN EACH VOICE PACK FOLDER
      cartella/2.mp3
      …
      cartella/150.mp3   (or up to your hall cartella max)
-
-EXAMPLE LAYOUT FOR A SECOND VOICE (male2)
------------------------------------------
-
-  public/audio/voices/male2/B1.mp3
-  public/audio/voices/male2/B2.mp3
-  …
-  public/audio/voices/male2/O75.mp3
-  public/audio/voices/male2/game_started.mp3
-  public/audio/voices/male2/game_stopped.mp3
-  public/audio/voices/male2/game_continued.mp3
-  public/audio/voices/male2/winner.mp3
-  public/audio/voices/male2/not_winner.mp3
-  public/audio/voices/male2/cartella_locked.mp3
-  public/audio/voices/male2/shuffle.mp3
-  public/audio/voices/male2/cartella/1.mp3
-  public/audio/voices/male2/cartella/2.mp3
-  …
 
 FORMAT
 ------

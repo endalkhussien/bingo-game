@@ -20,8 +20,6 @@ const EVENT_FILES = [
   'shuffle.mp3',
 ];
 
-const VOICE_PACKS = ['male1', 'male2', 'female1', 'female2'];
-
 function getBallLetter(n) {
   if (n <= 15) return 'B';
   if (n <= 30) return 'I';
@@ -35,7 +33,7 @@ function expectedBallName(n) {
   return `${getBallLetter(n)}${n}.mp3`;
 }
 
-function checkPackDir(packDir, label, { requireCartella = false, cartellaMax = 0 } = {}) {
+function checkAudioDir(packDir, label, { requireCartella = false, cartellaMax = 0 } = {}) {
   let missing = [];
   let empty = [];
 
@@ -69,7 +67,7 @@ function checkPackDir(packDir, label, { requireCartella = false, cartellaMax = 0
 }
 
 console.log('Checking Amharic audio under public/audio/\n');
-console.log('See public/audio/README.txt for how to add voice alternatives.\n');
+console.log('See public/audio/README.txt for the required file layout.\n');
 
 if (!fs.existsSync(audioDir)) {
   console.error('✗ Folder missing: public/audio/');
@@ -79,40 +77,16 @@ if (!fs.existsSync(audioDir)) {
 const brand = JSON.parse(fs.readFileSync(path.join(root, 'brand.config.json'), 'utf8'));
 const cartellaMax = brand.initialCartellaCount ?? 150;
 
-const legacy = checkPackDir(audioDir, 'Legacy default (public/audio/ root → male1)', {
-  requireCartella: false,
+const result = checkAudioDir(audioDir, 'Amharic voice (public/audio/)', {
+  requireCartella: true,
+  cartellaMax,
 });
 
-const voiceResults = VOICE_PACKS.map((pack) => {
-  const dir = path.join(audioDir, 'voices', pack);
-  const requireAll = pack === 'male1';
-  return checkPackDir(dir, `Voice pack: ${pack}`, {
-    requireCartella: requireAll,
-    cartellaMax: requireAll ? cartellaMax : 0,
-  });
-});
-
-const male1Ok = legacy.ok || voiceResults.find((r) => r.label.includes('male1'))?.ok;
 let failed = 0;
 
-function report(result, { legacyOk = false } = {}) {
-  if (result.ok) {
-    console.log(`✓ ${result.label}`);
-    return;
-  }
-  if (result.missing[0] === '(folder missing)') {
-    const packId = result.label.startsWith('Voice pack: ')
-      ? result.label.slice('Voice pack: '.length)
-      : '';
-    if (packId === 'male1' && legacyOk) {
-      console.log(`○ ${result.label} — using legacy files in public/audio/ root`);
-      return;
-    }
-    if (packId && packId !== 'male1') {
-      console.log(`○ ${result.label} — optional (not added yet)`);
-      return;
-    }
-  }
+if (result.ok) {
+  console.log(`✓ ${result.label}`);
+} else {
   failed++;
   console.error(`✗ ${result.label}`);
   if (result.missing.length) {
@@ -123,14 +97,6 @@ function report(result, { legacyOk = false } = {}) {
   if (result.empty.length) {
     console.error(`  Too small: ${result.empty.slice(0, 5).join(', ')}${result.empty.length > 5 ? '…' : ''}`);
   }
-}
-
-report(legacy);
-for (const r of voiceResults) report(r, { legacyOk: legacy.ok });
-
-if (!male1Ok) {
-  console.error('\n✗ At least one complete male1 voice is required (public/audio/ root OR public/audio/voices/male1/).');
-  failed++;
 }
 
 console.log('');
