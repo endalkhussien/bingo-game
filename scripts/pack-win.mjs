@@ -43,31 +43,25 @@ function run(cmd, env = {}) {
 function ensureAmharicAudio() {
   const brand = loadBrand();
   const requiredCartella = brand.initialCartellaCount ?? 150;
-  const male1Dir = path.join(ballCallDir, 'voices', 'male1');
-  const male1Cartella = path.join(male1Dir, 'cartella');
+  const cartellaDir = path.join(ballCallDir, 'cartella');
 
   const rootBallCount = fs.existsSync(ballCallDir)
     ? fs.readdirSync(ballCallDir).filter((f) => /^[BINGO]\d+\.mp3$/i.test(f)).length
     : 0;
-  const packBallCount = fs.existsSync(male1Dir)
-    ? fs.readdirSync(male1Dir).filter((f) => /^[BINGO]\d+\.mp3$/i.test(f)).length
-    : 0;
-  const cartellaCount = fs.existsSync(male1Cartella)
-    ? fs.readdirSync(male1Cartella).filter((f) => f.endsWith('.mp3')).length
+  const cartellaCount = fs.existsSync(cartellaDir)
+    ? fs.readdirSync(cartellaDir).filter((f) => f.endsWith('.mp3')).length
     : 0;
 
-  const needsBall = rootBallCount < 75 && packBallCount < 75;
+  const needsBall = rootBallCount < 75;
   const needsCartella = cartellaCount < requiredCartella;
 
   if (needsBall || needsCartella) {
     console.log(
-      `\n→ Audio: ${rootBallCount}/75 root ball, ${packBallCount}/75 male1 ball, ${cartellaCount}/${requiredCartella} male1 cartella — generating...\n`,
+      `\n→ Audio: ${rootBallCount}/75 ball, ${cartellaCount}/${requiredCartella} cartella in public/audio/ — generating placeholders...\n`,
     );
     run('node scripts/generate-amharic-audio.mjs');
   } else {
-    console.log(
-      `\n→ Audio OK: ${Math.max(rootBallCount, packBallCount)} ball + ${cartellaCount} cartella (public/audio)\n`,
-    );
+    console.log(`\n→ Audio OK: ${rootBallCount} ball + ${cartellaCount} cartella (public/audio/)\n`);
   }
 }
 
