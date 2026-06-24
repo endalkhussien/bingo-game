@@ -61,6 +61,12 @@ check('AGENTS-QUICK-GUIDE.txt', fs.existsSync(path.join(root, 'AGENTS-QUICK-GUID
 check('electron-builder config', fs.existsSync(path.join(root, 'electron-builder.yml')));
 check('Windows app icon (icon.ico)', fs.existsSync(path.join(root, 'public/brand/icon.ico')));
 check('App icon PNG (icon.png)', fs.existsSync(path.join(root, 'public/brand/icon.png')));
+check(
+  'Build resources icon (build/icon.ico)',
+  fs.existsSync(path.join(root, 'build/icon.ico')) || fs.existsSync(path.join(root, 'public/brand/icon.ico')),
+  'missing build/icon.ico — pack:win copies from public/brand/icon.ico',
+);
+check('afterPack icon hook', fs.existsSync(path.join(root, 'scripts/after-pack-win-icon.cjs')));
 
 try {
   execSync('npm run typecheck', { cwd: root, stdio: 'pipe' });
