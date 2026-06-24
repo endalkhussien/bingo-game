@@ -7,6 +7,7 @@ import {
   GAME_EVENT_CLIP_FILES,
   DEFAULT_AMHARIC_VOICE,
 } from '@/shared/tts/voice-packs';
+import { isAmharicBundledVoice } from '@/shared/tts/amharic-voice';
 import { isElectron } from '@/shared/runtime';
 
 let currentAudio: HTMLAudioElement | null = null;
@@ -14,14 +15,15 @@ const eventClipCache = new Map<string, HTMLAudioElement>();
 
 function buildMediaUrl(relativePath: string): string {
   const clean = relativePath.replace(/^\/+/, '');
-  if (isElectron()) {
-    return `waliya-media://${clean}`;
-  }
+  // Prefer same-origin HTTP — Electron serves out/ via the embedded static server (reliable for MP3).
   if (typeof window !== 'undefined') {
     const origin = window.location?.origin;
     if (origin && origin !== 'null' && origin.startsWith('http')) {
       return `${origin}/${clean}`;
     }
+  }
+  if (isElectron()) {
+    return `waliya-media:///${clean}`;
   }
   return `/${clean}`;
 }
@@ -242,40 +244,53 @@ export function playBallCallClip(number: number, voiceType: string): Promise<boo
 }
 
 export function playCartellaClip(number: number, voiceType: string): Promise<boolean> {
-  return playFirstAvailable(cartellaClipCandidates(number, voiceType));
+  if (!isAmharicBundledVoice(voiceType, 'am')) return Promise.resolve(false);
+  return playFirstAvailable(cartellaClipCandidates(number, DEFAULT_AMHARIC_VOICE));
+}
+
+/** Play bundled MP3 clips for game events (Amharic Male 1). */
+function playBundledEventClip(filename: string): Promise<boolean> {
+  return playEventClip(eventClipCandidates(filename, DEFAULT_AMHARIC_VOICE));
 }
 
 export function playGameStartedClip(voiceType: string): Promise<boolean> {
-  return playEventClip(eventClipCandidates(GAME_EVENT_CLIP_FILES.started, voiceType));
+  if (!isAmharicBundledVoice(voiceType, 'am')) return Promise.resolve(false);
+  return playBundledEventClip(GAME_EVENT_CLIP_FILES.started);
 }
 
 export function playGameStoppedClip(voiceType: string): Promise<boolean> {
-  return playEventClip(eventClipCandidates(GAME_EVENT_CLIP_FILES.stopped, voiceType));
+  if (!isAmharicBundledVoice(voiceType, 'am')) return Promise.resolve(false);
+  return playBundledEventClip(GAME_EVENT_CLIP_FILES.stopped);
 }
 
 export function playGameContinuedClip(voiceType: string): Promise<boolean> {
-  return playEventClip(eventClipCandidates(GAME_EVENT_CLIP_FILES.continued, voiceType));
+  if (!isAmharicBundledVoice(voiceType, 'am')) return Promise.resolve(false);
+  return playBundledEventClip(GAME_EVENT_CLIP_FILES.continued);
 }
 
 export function playWinnerClip(voiceType: string): Promise<boolean> {
-  return playEventClip(eventClipCandidates(GAME_EVENT_CLIP_FILES.winner, voiceType));
+  if (!isAmharicBundledVoice(voiceType, 'am')) return Promise.resolve(false);
+  return playBundledEventClip(GAME_EVENT_CLIP_FILES.winner);
 }
 
 export function playNotWinnerClip(voiceType: string): Promise<boolean> {
-  return playEventClip(eventClipCandidates(GAME_EVENT_CLIP_FILES.notWinner, voiceType));
+  if (!isAmharicBundledVoice(voiceType, 'am')) return Promise.resolve(false);
+  return playBundledEventClip(GAME_EVENT_CLIP_FILES.notWinner);
 }
 
 export function playCartellaLockedClip(voiceType: string): Promise<boolean> {
-  return playEventClip(eventClipCandidates(GAME_EVENT_CLIP_FILES.cartellaLocked, voiceType));
+  if (!isAmharicBundledVoice(voiceType, 'am')) return Promise.resolve(false);
+  return playBundledEventClip(GAME_EVENT_CLIP_FILES.cartellaLocked);
 }
 
 export function playShuffleClip(voiceType: string): Promise<boolean> {
-  return playEventClip(eventClipCandidates(GAME_EVENT_CLIP_FILES.shuffle, voiceType));
+  if (!isAmharicBundledVoice(voiceType, 'am')) return Promise.resolve(false);
+  return playBundledEventClip(GAME_EVENT_CLIP_FILES.shuffle);
 }
 
 export async function playBallCallAudio(number: number, language: string, voiceType: string): Promise<boolean> {
-  if (language === 'am') {
-    return playBallCallClip(number, voiceType);
+  if (isAmharicBundledVoice(voiceType, language)) {
+    return playBallCallClip(number, DEFAULT_AMHARIC_VOICE);
   }
 
   const letter = getBallLetter(number);

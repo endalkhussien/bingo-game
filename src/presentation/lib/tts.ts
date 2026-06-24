@@ -1,4 +1,6 @@
 import { formatAmharicBallCall } from '@/shared/tts/amharic-ball-call';
+import { isAmharicBundledVoice } from '@/shared/tts/amharic-voice';
+import { DEFAULT_AMHARIC_VOICE } from '@/shared/tts/voice-packs';
 import { getBallCallSpeechParts } from '@/shared/tts/ball-call';
 import { buildCartellaAnnouncement, buildGameStartedAnnouncement } from '@/shared/tts/voice-map';
 import { playBallCallAudio, playCartellaClip, playGameStartedClip, playGameContinuedClip, playShuffleClip } from './amharic-audio';
@@ -57,10 +59,10 @@ async function speakBrowser(text: string, lang: string, preferFemale: boolean): 
   });
 }
 
-/** Play ball call — Amharic uses bundled MP3 only (no system TTS). */
+/** Play ball call — Amharic Male 1 uses bundled MP3 from public/audio/. */
 export async function speakBallCall(number: number, voiceType: string, language: string): Promise<boolean> {
-  if (language === 'am') {
-    return playBallCallAudio(number, language, voiceType);
+  if (isAmharicBundledVoice(voiceType, language)) {
+    return playBallCallAudio(number, language, DEFAULT_AMHARIC_VOICE);
   }
 
   const preferFemale = voiceType.includes('FEMALE');
@@ -86,8 +88,8 @@ export async function speakBallCall(number: number, voiceType: string, language:
 
 export function speakCartella(number: number, voiceType: string, language: string): void {
   queue = queue.then(async () => {
-    if (language === 'am') {
-      if (await playCartellaClip(number, voiceType)) return;
+    if (isAmharicBundledVoice(voiceType, language)) {
+      if (await playCartellaClip(number, DEFAULT_AMHARIC_VOICE)) return;
       if (isElectron()) {
         const result = await ipc<{ success: boolean }>('tts:speak', number, voiceType, language, 'cartella');
         if (result?.success) return;
@@ -119,9 +121,9 @@ export async function speakPlainText(text: string, lang: string, voiceType: stri
   await speakBrowser(text, lang, preferFemale);
 }
 
-/** Announce game start — Amharic uses game_started.mp3 only. */
+/** Announce game start — Amharic Male 1 uses game_started.mp3 from public/audio/. */
 export async function speakGameStarted(voiceType: string, language: string): Promise<void> {
-  if (language === 'am') {
+  if (isAmharicBundledVoice(voiceType, language)) {
     const played = await playGameStartedClip(voiceType);
     if (!played) {
       await playGameContinuedClip(voiceType);
@@ -132,9 +134,9 @@ export async function speakGameStarted(voiceType: string, language: string): Pro
   await speakPlainText(payload.text, payload.lang, voiceType);
 }
 
-/** Cartella shuffle — Amharic uses shuffle.mp3; grid order stays fixed. */
+/** Cartella shuffle — Amharic Male 1 uses shuffle.mp3; grid order stays fixed. */
 export function speakShuffle(voiceType: string, language: string): void {
-  if (language !== 'am') return;
+  if (!isAmharicBundledVoice(voiceType, language)) return;
   void playShuffleClip(voiceType);
 }
 
