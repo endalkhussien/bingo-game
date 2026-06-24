@@ -137,6 +137,7 @@ export async function createGame(agentId: string, config: {
       status: 'PAUSED',
       totalPot,
       maxBalls: DRAW_BALL_COUNT,
+      commissionRate,
     },
   };
 }

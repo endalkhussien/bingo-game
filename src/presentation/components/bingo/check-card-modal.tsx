@@ -112,7 +112,7 @@ export function CheckCardModal({
             min={1}
             value={cardNumber}
             onChange={(e) => setCardNumber(e.target.value)}
-            className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-xl font-bold focus:border-blue-500 focus:outline-none"
+            className="input-no-spinner flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-xl font-bold focus:border-blue-500 focus:outline-none"
             autoFocus
             onKeyDown={(e) => e.key === 'Enter' && handleCheck()}
           />

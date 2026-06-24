@@ -59,7 +59,7 @@ function summarizeGameSettlement(input) {
       forfeitedStakes,
       economics,
       platformRevenue: economics.adminCut,
-      agentRevenue: economics.agentNetCommission + forfeitedStakes,
+      agentRevenue: economics.agentGrossCommission + forfeitedStakes,
       walletCommissionDue: economics.agentGrossCommission,
     };
   }
@@ -110,7 +110,13 @@ const withAdmin = summarizeGameSettlement({
 });
 assert(withAdmin.walletCommissionDue === 10, 'wallet still debits full commission (10)');
 assert(withAdmin.platformRevenue === 2, 'admin gets 2 from commission');
-assert(withAdmin.agentRevenue === 8, 'agent keeps 8 cash profit after admin share');
+assert(withAdmin.agentRevenue === 10, 'agent profit shown as gross commission (10)');
+
+const hallExample = calculateGameEconomics(10, 4, 10, 0);
+assert(hallExample.totalPot === 40, 'pot is 40');
+assert(hallExample.prize === 36, 'winner gets 36');
+assert(hallExample.agentGrossCommission === 4, 'commission is 4');
+assert(calculateWalletReserveRequired(10, 4, 10, 0).reserveRequired === 4, 'wallet reserve is 4');
 
 const noWinner = summarizeGameSettlement({
   betAmount: 10,
