@@ -3,11 +3,11 @@
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
-import { LogOut } from 'lucide-react';
 import { useAuth } from '@/presentation/providers/auth-provider';
 import { AdminSidebar } from '@/presentation/components/layout/admin-sidebar';
 import { AdminHeader } from '@/presentation/components/layout/admin-header';
 import { AdminBalanceBanner } from '@/presentation/components/layout/admin-balance-banner';
+import { UserMenuDropdown } from '@/presentation/components/layout/user-menu-dropdown';
 import { ipc } from '@/presentation/lib/ipc';
 import { APP_NAME } from '@/shared/brand';
 import { AppLogo } from '@/presentation/components/shared/app-logo';
@@ -22,7 +22,7 @@ import {
 
 /** Shop admin only — vendor uses /vendor, agents use /agent. */
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  const { user, isLoading, logout } = useAuth();
+  const { user, isLoading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const onSetupPage = isAdminSetupPath(pathname);
@@ -137,13 +137,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 <p className="text-sm text-amber-200/70">Shop Admin Setup</p>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={() => logout()}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-amber-800/50 px-3 py-2 text-sm font-medium text-amber-100 hover:bg-amber-900/30"
-            >
-              <LogOut className="h-4 w-4" /> Logout
-            </button>
+            <UserMenuDropdown variant="dark" />
           </div>
         </header>
         <main>{children}</main>

@@ -2,16 +2,16 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { LogOut } from 'lucide-react';
 import { useAuth } from '@/presentation/providers/auth-provider';
 import { APP_NAME } from '@/shared/brand';
 import { AppLogo } from '@/presentation/components/shared/app-logo';
 import { isVendorRole, getShopAdminEntryPath, type ShopLicenseStatus } from '@/shared/roles';
 import { ipc } from '@/presentation/lib/ipc';
 import { VendorSidebar } from '@/presentation/components/layout/vendor-sidebar';
+import { UserMenuDropdown } from '@/presentation/components/layout/user-menu-dropdown';
 
 export default function VendorLayout({ children }: { children: React.ReactNode }) {
-  const { user, isLoading, logout } = useAuth();
+  const { user, isLoading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -48,13 +48,7 @@ export default function VendorLayout({ children }: { children: React.ReactNode }
                 <p className="text-xs text-violet-300">Vendor portal — TAK activation & TVP top-ups</p>
               </div>
             </div>
-            <div className="flex items-center gap-4">
-              <span className="text-sm text-violet-200">{user.fullName}</span>
-              <button type="button" onClick={() => logout()}
-                className="inline-flex items-center gap-2 rounded-lg border border-violet-500/40 px-3 py-1.5 text-sm hover:bg-violet-900">
-                <LogOut className="h-4 w-4" /> Logout
-              </button>
-            </div>
+            <UserMenuDropdown variant="dark" label={user.fullName} />
           </div>
         </header>
         <main className="flex-1 px-6 py-8">{children}</main>
