@@ -25,6 +25,7 @@ jobs:
         env:
           # electron-builder auto-detects CI and tries to publish without this
           ELECTRON_BUILDER_PUBLISH: never
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
         run: npm run pack:win
 
       - name: Upload installer artifacts

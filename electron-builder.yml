@@ -36,9 +36,14 @@ win:
       arch:
         - x64
   icon: icon.ico
-  # MUST stay true (default) so rcedit embeds icon + app name into Waliya.exe.
-  # signAndEditExecutable: false → generic Electron icon on desktop/taskbar.
   sign: null
+  signDlls: false
+  verifyUpdateCodeSignature: false
+  # Avoid winCodeSign cache extract (symlink privilege error on Windows without Developer Mode).
+  # Icon is embedded via scripts/after-pack-win-icon.cjs using rcedit instead.
+  signAndEditExecutable: false
+
+afterPack: scripts/after-pack-win-icon.cjs
 
 nsis:
   artifactName: ${productName}-Setup-${version}.${ext}

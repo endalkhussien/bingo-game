@@ -90,6 +90,8 @@ Or set env vars `CSC_LINK` and `CSC_KEY_PASSWORD` before `npm run pack:win`.
 
 | Problem | Fix |
 |---------|-----|
+| `Cannot create symbolic link` / winCodeSign extract error | Fixed in current repo: `signAndEditExecutable: false` + `after-pack-win-icon.cjs`. Pull latest, run `npm install`, then `npm run pack:win`. Optional: enable **Windows Settings → System → For developers → Developer Mode** |
+| Generic Electron icon on desktop | Run full `npm run pack:win` (copies `build/icon.ico` and embeds via rcedit). Do not skip the pack script |
 | `better-sqlite3` compile error | Install Visual Studio Build Tools (C++), rerun `npm install` |
 | Missing Amharic audio | Script auto-runs `generate:amharic-audio` (needs internet once) |
 | `electron-builder` not found | `npm install` |

@@ -28,7 +28,16 @@ function loadBrand() {
 }
 
 function run(cmd, env = {}) {
-  execSync(cmd, { cwd: root, stdio: 'inherit', env: { ...process.env, ...buildEnv, ...env } });
+  execSync(cmd, {
+    cwd: root,
+    stdio: 'inherit',
+    env: {
+      ...process.env,
+      ...buildEnv,
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false',
+      ...env,
+    },
+  });
 }
 
 function ensureAmharicAudio() {
