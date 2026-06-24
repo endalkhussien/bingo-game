@@ -60,10 +60,28 @@ export function registerWaliyaMediaScheme(): void {
   ]);
 }
 
+function extractMediaRelativePath(url: string): string {
+  const stripped = url.replace(/^waliya-media:\/\//i, '');
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol === 'waliya-media:') {
+      const host = parsed.hostname;
+      const pathPart = parsed.pathname.replace(/^\/+/, '');
+      if (host && host !== 'localhost') {
+        return pathPart ? `${host}/${pathPart}` : host;
+      }
+      return pathPart;
+    }
+  } catch {
+    // fall through
+  }
+  return stripped.replace(/^\/+/, '');
+}
+
 export function registerWaliyaMediaProtocol(): void {
   protocol.registerFileProtocol('waliya-media', (request, callback) => {
     try {
-      const relative = decodeURIComponent(request.url.replace(/^waliya-media:\/\//i, ''));
+      const relative = decodeURIComponent(extractMediaRelativePath(request.url));
       const filePath = resolveMediaFile(relative);
       if (!filePath) {
         callback({ error: -6 });

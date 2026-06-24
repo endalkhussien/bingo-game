@@ -98,7 +98,7 @@ export const games = sqliteTable('games', {
   jackpotMaximumCalls: integer('jackpot_maximum_calls').default(45),
   drawSpeedMs: integer('draw_speed_ms').notNull().default(4000),
   voiceType: text('voice_type').notNull().default('AMHARIC_MALE'),
-  language: text('language').notNull().default('en'),
+  language: text('language').notNull().default('am'),
   numberRangeMax: integer('number_range_max').notNull().default(75),
   maxPlayers: integer('max_players').notNull().default(150),
   commissionRate: real('commission_rate').notNull().default(20),
