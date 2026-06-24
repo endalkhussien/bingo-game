@@ -5,20 +5,35 @@ import { Volume2, Info } from 'lucide-react';
 import { ipc } from '@/presentation/lib/ipc';
 import { testVoice } from '@/presentation/lib/tts';
 import { PageHeader } from '@/presentation/components/shared/page-header';
+import { VOICE_TYPES } from '@/shared/constants';
 
 export default function VoiceSettingsPage() {
+  const [settings, setSettings] = useState<Record<string, string>>({});
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState('');
   const [installedVoices, setInstalledVoices] = useState<string[]>([]);
 
   useEffect(() => {
+    ipc<Record<string, string>>('settings:get').then(setSettings);
     ipc<string[]>('tts:list-voices').then(setInstalledVoices).catch(() => {});
   }, []);
+
+  const save = async () => {
+    await ipc('settings:update', {
+      default_voice: settings.default_voice,
+      default_language: settings.default_language,
+    });
+    alert('Voice settings saved');
+  };
 
   const handleTest = async () => {
     setTesting(true);
     setTestResult('');
-    const msg = await testVoice('AMHARIC_MALE', 'am', 42);
+    const msg = await testVoice(
+      settings.default_voice ?? 'AMHARIC_MALE',
+      settings.default_language ?? 'am',
+      42,
+    );
     setTestResult(msg);
     setTesting(false);
   };
@@ -28,13 +43,23 @@ export default function VoiceSettingsPage() {
       <PageHeader title="Voice Settings" backHref="/admin/settings" backLabel="Back to Settings" />
       <div className="rounded-xl bg-white p-6 shadow-sm border space-y-4">
         <div>
-          <label className="mb-1 block text-sm font-medium">Game voice</label>
-          <p className="rounded-lg border bg-gray-50 px-3 py-2 text-sm text-gray-800">
-            Amharic — your MP3 recordings in <code className="text-xs">public/audio/</code>
-          </p>
+          <label className="mb-1 block text-sm font-medium">Default Voice</label>
+          <select value={settings.default_voice ?? 'AMHARIC_MALE'} onChange={(e) => setSettings({ ...settings, default_voice: e.target.value })}
+            className="w-full rounded-lg border px-3 py-2 text-sm">
+            {VOICE_TYPES.map((v) => <option key={v.value} value={v.value}>{v.label}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="mb-1 block text-sm font-medium">Default Language</label>
+          <select value={settings.default_language ?? 'am'} onChange={(e) => setSettings({ ...settings, default_language: e.target.value })}
+            className="w-full rounded-lg border px-3 py-2 text-sm">
+            <option value="am">Amharic (አማርኛ)</option>
+            <option value="en">English</option>
+          </select>
         </div>
 
-        <div>
+        <div className="flex gap-2">
+          <button onClick={save} className="rounded-lg bg-blue-600 px-6 py-2 text-sm text-white">Save</button>
           <button onClick={handleTest} disabled={testing}
             className="inline-flex items-center gap-1 rounded-lg border px-6 py-2 text-sm hover:bg-gray-50 disabled:opacity-50">
             <Volume2 className="h-4 w-4" /> {testing ? 'Speaking...' : 'Test Voice'}
@@ -48,11 +73,11 @@ export default function VoiceSettingsPage() {
         <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
           <p className="mb-2 flex items-center gap-2 font-semibold"><Info className="h-4 w-4" /> Amharic voice</p>
           <p className="mb-2">
-            Ball calls use your bundled MP3 files (English letter + Amharic number). Replace files under{' '}
-            <strong>public/audio/</strong> and rebuild the installer.
+            <strong>Amharic Male 1</strong> uses your MP3 recordings in <strong>public/audio/</strong>.
+            Ball calls: English letter + Amharic number. English uses Windows speech when no bundled clip is set.
           </p>
           <p className="text-xs text-emerald-800">
-            Windows speech or espeak-ng are only used if a bundled clip is missing.
+            Replace files under public/audio/ and rebuild the installer. No extra voice folders needed.
           </p>
           {installedVoices.length > 0 && (
             <details className="mt-2">

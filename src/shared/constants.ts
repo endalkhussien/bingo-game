@@ -37,7 +37,8 @@ export const DRAW_INTERVALS = [
 export const GAME_COMMISSION_OPTIONS = [10, 20, 25, 30, 35, 40] as const;
 
 export const VOICE_TYPES = [
-  { value: 'AMHARIC_MALE', label: 'Amharic' },
+  { value: 'AMHARIC_MALE', label: 'Amharic Male 1' },
+  { value: 'ENGLISH', label: 'English' },
 ] as const;
 
 export const BINGO_COLUMNS = ['B', 'I', 'N', 'G', 'O'] as const;
