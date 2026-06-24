@@ -67,6 +67,11 @@ check(
   'missing build/icon.ico — pack:win copies from public/brand/icon.ico',
 );
 check('afterPack icon hook', fs.existsSync(path.join(root, 'scripts/after-pack-win-icon.cjs')));
+check(
+  'rcedit (Windows icon tool)',
+  fs.existsSync(path.join(root, 'node_modules/rcedit/bin/rcedit-x64.exe')),
+  'run npm install',
+);
 
 try {
   execSync('npm run typecheck', { cwd: root, stdio: 'pipe' });
