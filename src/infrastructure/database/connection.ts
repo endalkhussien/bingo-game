@@ -158,6 +158,9 @@ export function runMigrations(database: BetterSQLite3Database<typeof schema>) {
   if (!gameCols.some((c) => c.name === 'jackpot_maximum_calls')) {
     client.exec(`ALTER TABLE games ADD COLUMN jackpot_maximum_calls INTEGER DEFAULT 45`);
   }
+  if (!gameCols.some((c) => c.name === 'commission_reserved')) {
+    client.exec(`ALTER TABLE games ADD COLUMN commission_reserved REAL NOT NULL DEFAULT 0`);
+  }
 
   const gameCardCols = client.prepare(`PRAGMA table_info(game_cards)`).all() as { name: string }[];
   if (!gameCardCols.some((c) => c.name === 'status')) {
