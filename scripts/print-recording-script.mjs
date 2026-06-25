@@ -69,6 +69,20 @@ for (let n = 1; n <= cartellaMax; n++) {
 }
 
 lines.push('');
+lines.push('GAME EVENTS (7 required) — folder: public/audio/');
+lines.push('------------------------------------------------');
+lines.push('FILENAME              |  WHEN IT PLAYS');
+lines.push('----------------------|------------------------------------------');
+lines.push('game_started.mp3      |  Play (first start calling)');
+lines.push('game_continued.mp3    |  Resume after pause');
+lines.push('game_paused.mp3       |  Pause (optional — uses game_stopped if missing)');
+lines.push('game_stopped.mp3      |  End Game');
+lines.push('winner.mp3            |  Valid BINGO winner');
+lines.push('not_winner.mp3        |  False BINGO / eliminated cartella');
+lines.push('cartella_locked.mp3   |  Banned cartella');
+lines.push('shuffle.mp3           |  Shuffle button');
+
+lines.push('');
 lines.push('TIPS');
 lines.push('- Quiet room, same mic distance for all clips.');
 lines.push('- MP3 format, about 1–3 seconds each.');

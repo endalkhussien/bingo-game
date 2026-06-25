@@ -68,7 +68,8 @@ async function main() {
 
   const events = [
     ['game_started.mp3', 'ጨዋታ ጀመረች'],
-    ['game_stopped.mp3', 'ጨዋታ ቆመ'],
+    ['game_paused.mp3', 'ጨዋታ ቆመ'],
+    ['game_stopped.mp3', 'ጨዋታ አለቀ'],
     ['game_continued.mp3', 'ጨዋታ ቀጠለ'],
     ['winner.mp3', 'አሸናፊ'],
     ['not_winner.mp3', 'አሸናፊ አይደለም'],

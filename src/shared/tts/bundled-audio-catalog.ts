@@ -11,6 +11,7 @@ import manifest from './audio-manifest.json';
 
 export type GameEventKey =
   | 'started'
+  | 'paused'
   | 'stopped'
   | 'continued'
   | 'winner'
@@ -20,6 +21,7 @@ export type GameEventKey =
 
 export const GAME_EVENT_FILENAMES: Record<GameEventKey, string> = {
   started: 'game_started.mp3',
+  paused: 'game_paused.mp3',
   stopped: 'game_stopped.mp3',
   continued: 'game_continued.mp3',
   winner: 'winner.mp3',
@@ -53,6 +55,14 @@ export function computeGameEventPath(event: GameEventKey): string {
   return `audio/${GAME_EVENT_FILENAMES[event]}`;
 }
 
+/** Ordered candidates — first existing file wins at playback (see audio-manifest scan). */
+export function computeGameEventPaths(event: GameEventKey): string[] {
+  if (event === 'paused') {
+    return ['audio/game_paused.mp3', 'audio/game_stopped.mp3'];
+  }
+  return [computeGameEventPath(event)];
+}
+
 /** All ball-call paths to preload (from manifest when present, else computed 1–75). */
 export function allBallCallPaths(): string[] {
   if (manifest.ballCalls.length >= BUNDLED_BALL_COUNT) {
@@ -70,7 +80,9 @@ export function allGameEventPaths(): string[] {
   if (manifest.gameEvents.length > 0) {
     return [...manifest.gameEvents];
   }
-  return (Object.keys(GAME_EVENT_FILENAMES) as GameEventKey[]).map(computeGameEventPath);
+  return (Object.keys(GAME_EVENT_FILENAMES) as GameEventKey[])
+    .filter((key) => key !== 'paused')
+    .map(computeGameEventPath);
 }
 
 /** Summary for diagnostics (admin / console). */
