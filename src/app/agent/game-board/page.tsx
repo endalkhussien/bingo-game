@@ -7,7 +7,7 @@ import { useAuth } from '@/presentation/providers/auth-provider';
 import { useUiLanguage } from '@/presentation/providers/ui-language-provider';
 import { NumberGrid } from '@/presentation/components/bingo/number-grid';
 import { CheckCardModal } from '@/presentation/components/bingo/check-card-modal';
-import { WINNING_PATTERNS, DRAW_INTERVALS, VOICE_TYPES, MIN_BET, DEFAULT_JACKPOT_MAX_CALLS, DEFAULT_CALL_COOLDOWN_MS, GAME_COMMISSION_OPTIONS, MIN_PLAYERS_TO_START } from '@/shared/constants';
+import { WINNING_PATTERNS, DRAW_INTERVALS, VOICE_TYPES, MIN_BET, DEFAULT_JACKPOT_MAX_CALLS, DEFAULT_CALL_COOLDOWN_MS, GAME_COMMISSION_OPTIONS, MIN_PLAYERS_TO_START, DEFAULT_AGENT_COMMISSION_RATE } from '@/shared/constants';
 import { isAmharicBundledVoice } from '@/shared/tts/amharic-voice';
 import { DRAW_BALL_COUNT, INITIAL_CARTELLA_COUNT } from '@/shared/brand';
 import { speakBallCall, speakCartella, speakGameStarted, speakShuffle, loadVoices } from '@/presentation/lib/tts';
@@ -91,7 +91,7 @@ function buildLiveSnapshot(
 }
 
 export default function GameBoardPage() {
-  const { agent, refreshBalance } = useAuth();
+  const { agent, refreshBalance, refreshAgent } = useAuth();
   const { t } = useUiLanguage();
   const [betAmount, setBetAmount] = useState('10');
   const [interval, setInterval_] = useState(DEFAULT_CALL_COOLDOWN_MS);
@@ -113,7 +113,7 @@ export default function GameBoardPage() {
   const [checkModalOpen, setCheckModalOpen] = useState(false);
   const [bingoClaimActive, setBingoClaimActive] = useState(false);
   const [gameWinners, setGameWinners] = useState<GameWinner[]>([]);
-  const [commissionPercent, setCommissionPercent] = useState('20');
+  const [commissionPercent, setCommissionPercent] = useState(String(DEFAULT_AGENT_COMMISSION_RATE));
   const [commissionPickerOpen, setCommissionPickerOpen] = useState(false);
   const commissionPickerRef = useRef<HTMLDivElement>(null);
   const commissionInitializedRef = useRef(false);
@@ -157,7 +157,7 @@ export default function GameBoardPage() {
 
   const playerCount = activeGame?.playerCount ?? activeGame?.selectedNumbers?.length ?? selected.length;
   const totalPot = activeGame?.totalPot ?? calculateTotalPot(parseFloat(betAmount || '0') || 0, playerCount);
-  const effectiveCommissionRate = activeGame?.commissionRate ?? (parseFloat(commissionPercent || '0') || (agent?.commissionRate ?? 20));
+  const effectiveCommissionRate = activeGame?.commissionRate ?? (parseFloat(commissionPercent || '0') || (agent?.commissionRate ?? DEFAULT_AGENT_COMMISSION_RATE));
   const gameEconomics = useMemo(() => calculateGameEconomics(
     parseFloat(betAmount || '0') || 0,
     selected.length || playerCount,
@@ -176,7 +176,7 @@ export default function GameBoardPage() {
     effectiveCommissionRate,
     INITIAL_CARTELLA_COUNT,
   ), [walletBalance, betAmount, effectiveCommissionRate]);
-  const displayProfit = profit > 0 ? profit : gameEconomics.agentGrossCommission;
+  const displayProfit = profit > 0 ? profit : gameEconomics.agentNetCommission;
 
   const hasWinner = gameWinners.length > 0;
   const canPickCartellas = !activeGame && walletBalance > 0;
@@ -196,7 +196,7 @@ export default function GameBoardPage() {
 
   const hallSnapshot = useMemo(() => {
     if (!activeGame) return null;
-    const rate = activeGame.commissionRate ?? (parseFloat(commissionPercent) || 20);
+    const rate = activeGame.commissionRate ?? (parseFloat(commissionPercent) || DEFAULT_AGENT_COMMISSION_RATE);
     return toHallSnapshot(buildLiveSnapshot(activeGame, called, callHistory, rate, callingPhase, {
       bingoClaimActive,
       bannedCartellas,
@@ -211,10 +211,9 @@ export default function GameBoardPage() {
   useEffect(() => { loadVoices(); preloadBallCallClips(voice); preloadGameEventClips(voice); }, [voice]);
   useEffect(() => {
     if (commissionInitializedRef.current || activeGame) return;
-    if (agent?.commissionRate != null) {
-      setCommissionPercent(String(agent.commissionRate));
-      commissionInitializedRef.current = true;
-    }
+    const rate = agent?.commissionRate ?? DEFAULT_AGENT_COMMISSION_RATE;
+    setCommissionPercent(String(rate));
+    commissionInitializedRef.current = true;
   }, [agent?.commissionRate, activeGame]);
   useEffect(() => {
     if (activeGame) {
@@ -259,7 +258,7 @@ export default function GameBoardPage() {
 
   useEffect(() => {
     if (!activeGame) return;
-    const rate = activeGame.commissionRate ?? (parseFloat(commissionPercent) || 20);
+    const rate = activeGame.commissionRate ?? (parseFloat(commissionPercent) || DEFAULT_AGENT_COMMISSION_RATE);
     broadcastLiveGame({
       type: 'game-update',
       payload: toHallSnapshot(buildLiveSnapshot(activeGame, called, callHistory, rate, callingPhaseRef.current, {
@@ -276,6 +275,15 @@ export default function GameBoardPage() {
     if (v === 'ENGLISH') setLanguage('en');
     else setLanguage('am');
   };
+
+  const handleCommissionChange = useCallback((pct: number) => {
+    setCommissionPercent(String(pct));
+    setCommissionPickerOpen(false);
+    setBetError('');
+    void ipc<{ success: boolean }>('agents:update-own-commission', pct).then((result) => {
+      if (result?.success) void refreshAgent();
+    });
+  }, [refreshAgent]);
 
   useEffect(() => {
     ipc<ActiveGame | null>('games:active').then((game) => {
@@ -362,7 +370,7 @@ export default function GameBoardPage() {
     });
   }, []);
 
-  const stopCalling = useCallback(async (
+  const stopCalling = useCallback((
     pauseOnServer = true,
     options?: { playPausedClip?: boolean },
   ) => {
@@ -377,21 +385,24 @@ export default function GameBoardPage() {
     stopCurrentAudio();
 
     if (options?.playPausedClip && isAmharicBundledVoice(voiceRef.current, languageRef.current)) {
-      await playGameStoppedClip(voiceRef.current, languageRef.current);
+      void playGameStoppedClip(voiceRef.current, languageRef.current);
     }
 
     if (!pauseOnServer || !activeGameRef.current) return;
 
-    await ipc('games:pause', activeGameRef.current.id);
-    setActiveGame((g) => g ? { ...g, status: 'PAUSED' } : g);
+    const gameId = activeGameRef.current.id;
+    void ipc('games:pause', gameId).then(() => {
+      setActiveGame((g) => g ? { ...g, status: 'PAUSED' } : g);
+    });
   }, []);
 
-  const startCalling = useCallback(async (resumeOnServer = false) => {
-    if (!activeGameRef.current || bingoClaimActiveRef.current || announcingRef.current || gameWinnersRef.current.length > 0 || gameEndedRef.current) return;
+  const startCalling = useCallback((resumeOnServer = false) => {
+    if (!activeGameRef.current || bingoClaimActiveRef.current || gameWinnersRef.current.length > 0 || gameEndedRef.current) return;
 
-    if (resumeOnServer) {
-      await ipc('games:resume', activeGameRef.current.id);
-      setActiveGame((g) => g ? { ...g, status: 'RUNNING' } : g);
+    if (resumeOnServer && activeGameRef.current) {
+      void ipc('games:resume', activeGameRef.current.id).then(() => {
+        setActiveGame((g) => g ? { ...g, status: 'RUNNING' } : g);
+      });
     }
 
     isPausedRef.current = false;
@@ -401,35 +412,19 @@ export default function GameBoardPage() {
     setCallingPhase('calling');
   }, []);
 
-  const beginCalling = useCallback(async () => {
-    if (!activeGameRef.current || autoDrawRef.current || bingoClaimActiveRef.current || announcingRef.current || gameWinnersRef.current.length > 0 || gameEndedRef.current) return;
+  const beginCalling = useCallback(() => {
+    if (!activeGameRef.current || autoDrawRef.current || bingoClaimActiveRef.current || gameWinnersRef.current.length > 0 || gameEndedRef.current) return;
 
-    announcingRef.current = true;
-    setCallingPhase('announcing');
     syncManagerRef.current.abort();
     stopCurrentAudio();
 
-    try {
-      if (!activeGameRef.current || !announcingRef.current || gameEndedRef.current) {
-        setCallingPhase('paused');
-        return;
-      }
-
-      await speakGameStarted(voiceRef.current, languageRef.current);
-    } finally {
-      announcingRef.current = false;
-    }
-
-    if (!activeGameRef.current || gameEndedRef.current) {
-      setCallingPhase('paused');
-      return;
-    }
-    await startCalling(true);
+    void speakGameStarted(voiceRef.current, languageRef.current);
+    void startCalling(true);
   }, [startCalling]);
 
   const drawFromServer = useCallback(async () => {
     const game = activeGameRef.current;
-    if (!game || isPausedRef.current || !autoDrawRef.current || announcingRef.current || bingoClaimActiveRef.current || gameWinnersRef.current.length > 0 || gameEndedRef.current) return null;
+    if (!game || isPausedRef.current || !autoDrawRef.current || bingoClaimActiveRef.current || gameWinnersRef.current.length > 0 || gameEndedRef.current) return null;
 
     const result = await ipc<{
       success: boolean;
@@ -496,7 +491,7 @@ export default function GameBoardPage() {
     setBetError('');
     setDrawError('');
     setCreating(true);
-    await refreshBalance();
+    void refreshBalance();
 
     const result = await ipc<{
       success: boolean;
@@ -541,8 +536,8 @@ export default function GameBoardPage() {
       setBannedCartellas([]);
       setLiveAnnouncement(null);
       setBingoClaimActive(false);
-      await refreshBalance();
-      const rate = parseFloat(commissionPercent) || 20;
+      void refreshBalance();
+      const rate = parseFloat(commissionPercent) || DEFAULT_AGENT_COMMISSION_RATE;
       const snapshot = toHallSnapshot(buildLiveSnapshot(game, [], [], rate, 'ready', {
         bingoClaimActive: false,
         bannedCartellas: [],
@@ -580,7 +575,6 @@ export default function GameBoardPage() {
         && autoDrawRef.current
         && !!activeGameRef.current
         && !isPausedRef.current
-        && !announcingRef.current
         && !gameEndedRef.current
         && callingPhaseRef.current !== 'ended'
         && gameWinnersRef.current.length === 0,
@@ -679,9 +673,9 @@ export default function GameBoardPage() {
       setLiveAnnouncement(ann);
       window.setTimeout(() => setLiveAnnouncement(null), 8000);
       if (isAmharicBundledVoice(voiceRef.current, languageRef.current)) {
-        await playWinnerClip(voiceRef.current, languageRef.current);
+        void playWinnerClip(voiceRef.current, languageRef.current);
       }
-      await refreshBalance();
+      void refreshBalance();
     } else if (result.banned || result.eliminated) {
       setBannedCartellas((prev) => (
         prev.includes(normalizedCard) ? prev : [...prev, normalizedCard]
@@ -698,8 +692,8 @@ export default function GameBoardPage() {
       setLiveAnnouncement(ann);
       window.setTimeout(() => setLiveAnnouncement(null), 5000);
       if (isAmharicBundledVoice(voiceRef.current, languageRef.current)) {
-        if (result.banned) await playCartellaLockedClip(voiceRef.current, languageRef.current);
-        else await playNotWinnerClip(voiceRef.current, languageRef.current);
+        if (result.banned) void playCartellaLockedClip(voiceRef.current, languageRef.current);
+        else void playNotWinnerClip(voiceRef.current, languageRef.current);
       }
     }
 
@@ -726,17 +720,16 @@ export default function GameBoardPage() {
     bingoClaimActiveRef.current = false;
   };
 
-  const handleResume = useCallback(async () => {
+  const handleResume = useCallback(() => {
     if (!activeGameRef.current || bingoClaimActiveRef.current || gameWinnersRef.current.length > 0) return;
     setCheckModalOpen(false);
     if (getEffectiveDrawCount() === 0) {
-      await beginCalling();
-    } else {
-      if (isAmharicBundledVoice(voiceRef.current, languageRef.current)) {
-        stopCurrentAudio();
-        await playGameContinuedClip(voiceRef.current, languageRef.current);
-      }
-      await startCalling(true);
+      beginCalling();
+      return;
+    }
+    void startCalling(true);
+    if (isAmharicBundledVoice(voiceRef.current, languageRef.current)) {
+      void playGameContinuedClip(voiceRef.current, languageRef.current);
     }
   }, [beginCalling, startCalling, getEffectiveDrawCount]);
 
@@ -754,7 +747,7 @@ export default function GameBoardPage() {
     syncManagerRef.current.abort();
     stopCurrentAudio();
     if (isAmharicBundledVoice(voiceRef.current, languageRef.current)) {
-      await playGameStoppedClip(voiceRef.current, languageRef.current);
+      void playGameStoppedClip(voiceRef.current, languageRef.current);
     }
 
     const result = await ipc<{ success: boolean; data?: { agentRevenue: number }; error?: string }>('games:end', game.id);
@@ -776,8 +769,8 @@ export default function GameBoardPage() {
       setCheckModalOpen(false);
       setHallMode(false);
       broadcastLiveGame({ type: 'game-ended' });
-      await ipc('window:close-caller-display').catch(() => {});
-      await refreshBalance();
+      void ipc('window:close-caller-display').catch(() => {});
+      void refreshBalance();
     } else {
       gameEndedRef.current = false;
       setCallingPhase('paused');
@@ -910,10 +903,12 @@ export default function GameBoardPage() {
                 aria-label={t('commission')}
                 aria-expanded={commissionPickerOpen}
                 className={cn(
-                  'h-14 w-[5.5rem] rounded-lg border-2 border-amber-500 bg-[#e8eaf2] shadow-[0_0_0_2px_rgba(245,158,11,0.35)] transition-shadow disabled:cursor-not-allowed disabled:opacity-50',
+                  'flex h-14 w-[5.5rem] items-center justify-center rounded-lg border-2 border-amber-500 bg-[#e8eaf2] text-2xl font-black text-gray-900 shadow-[0_0_0_2px_rgba(245,158,11,0.35)] transition-shadow disabled:cursor-not-allowed disabled:opacity-50',
                   !commissionPickerOpen && 'hover:border-amber-600',
                 )}
-              />
+              >
+                {commissionPercent}%
+              </button>
               {commissionPickerOpen && !activeGame && (
                 <ul
                   className="absolute left-0 top-full z-20 mt-1 min-w-[5.5rem] overflow-hidden rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
@@ -927,10 +922,7 @@ export default function GameBoardPage() {
                           'w-full px-4 py-2.5 text-left text-base font-bold hover:bg-amber-50',
                           commissionPercent === String(pct) ? 'bg-amber-100 text-amber-900' : 'text-gray-900',
                         )}
-                        onClick={() => {
-                          setCommissionPercent(String(pct));
-                          setCommissionPickerOpen(false);
-                        }}
+                        onClick={() => handleCommissionChange(pct)}
                       >
                         {pct}%
                       </button>
@@ -952,21 +944,34 @@ export default function GameBoardPage() {
             </button>
           </div>
 
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2 text-sm">
-              <span className="font-bold text-blue-600">{t('profit')}:</span>
-              <span className="font-bold text-blue-600">
-                {showProfit ? `${displayProfit.toFixed(2)} ETB` : '******'}
-              </span>
-              <button
-                type="button"
-                onClick={() => setShowProfit(!showProfit)}
-                className="rounded p-0.5 text-blue-600 hover:bg-blue-50"
-                title={showProfit ? t('hide') : t('show')}
-                aria-label={showProfit ? t('hide') : t('show')}
-              >
-                {showProfit ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-4 text-sm">
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-gray-700">{t('balance')}:</span>
+                <span className="font-bold text-gray-900">{walletBalance.toFixed(0)} ETB</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-blue-600">{t('profit')}:</span>
+                <span className="font-bold text-blue-600">
+                  {showProfit ? `${displayProfit.toFixed(2)} ETB` : '******'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowProfit(!showProfit)}
+                  className="rounded p-0.5 text-blue-600 hover:bg-blue-50"
+                  title={showProfit ? t('hide') : t('show')}
+                  aria-label={showProfit ? t('hide') : t('show')}
+                >
+                  {showProfit ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              {!activeGame && selected.length > 0 && (
+                <div className="text-gray-600">
+                  TBG reserve: <span className="font-semibold text-gray-900">{walletReserve.reserveRequired.toFixed(0)} ETB</span>
+                  {' · '}
+                  Prize: <span className="font-semibold text-gray-900">{walletReserve.prize.toFixed(0)} ETB</span>
+                </div>
+              )}
             </div>
             {!activeGame && (
               <button

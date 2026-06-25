@@ -33,6 +33,9 @@ export const DRAW_INTERVALS = [
   { value: 6000, label: '6 seconds' },
 ] as const;
 
+/** Default agent game commission % (deducted from pot before winner prize). */
+export const DEFAULT_AGENT_COMMISSION_RATE = 10;
+
 /** Agent game commission % options on game board. */
 export const GAME_COMMISSION_OPTIONS = [10, 20, 25, 30, 35, 40] as const;
 

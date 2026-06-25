@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ipc } from '@/presentation/lib/ipc';
 import { calculateWinnerPrize } from '@/shared/prize';
+import { DEFAULT_AGENT_COMMISSION_RATE } from '@/shared/constants';
 import {
   mergeLiveGameSnapshots,
   readPersistedLiveGame,
@@ -40,7 +41,7 @@ function snapshotFromPersisted(): LiveGameSnapshot | null {
 
 function toSnapshot(game: ActiveGameRow | null, prev?: LiveGameSnapshot | null): LiveGameSnapshot | null {
   if (!game) return null;
-  const commissionRate = game.commissionRate ?? 20;
+  const commissionRate = game.commissionRate ?? DEFAULT_AGENT_COMMISSION_RATE;
   const prize = game.prize ?? calculateWinnerPrize(game.betAmount, game.playerCount, commissionRate).prize;
   return {
     id: game.id,

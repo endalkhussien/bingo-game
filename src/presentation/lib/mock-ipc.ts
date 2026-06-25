@@ -1,6 +1,6 @@
 // In-memory mock store for browser development without Electron
 
-import { CARTELLA_MAX, DEFAULT_CALL_COOLDOWN_MS, MIN_PLAYERS_TO_START } from '@/shared/constants';
+import { CARTELLA_MAX, DEFAULT_CALL_COOLDOWN_MS, MIN_PLAYERS_TO_START, DEFAULT_AGENT_COMMISSION_RATE } from '@/shared/constants';
 import { INITIAL_CARTELLA_COUNT } from '@/shared/brand';
 import { validateBingoGrid } from '@/domain/services/card-generator';
 import { readPersistedLiveGame } from '@/presentation/lib/live-game-sync';
@@ -235,7 +235,7 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
   },
   'dashboard:agent': async () => {
     requireSession();
-    return { walletBalance: mockBalance, activeGames: mockGames.filter(g => g.status === 'RUNNING').length, totalGames: mockGames.length, totalRevenue: 2000, totalProfit: 800, commissionRate: 20, adminCommissionRate: 20 };
+    return { walletBalance: mockBalance, activeGames: mockGames.filter(g => g.status === 'RUNNING').length, totalGames: mockGames.length, totalRevenue: 2000, totalProfit: 800, commissionRate: DEFAULT_AGENT_COMMISSION_RATE, adminCommissionRate: 20 };
   },
 
   'agents:profile': async () => {
@@ -260,7 +260,7 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
     mockAgents.push({
       id, userId: `u${mockAgents.length + 1}`,
       fullName: d.fullName, username, phone: d.phone ?? '',
-      commissionRate: 20, adminCommissionRate: d.adminCommissionRate ?? 20,
+      commissionRate: DEFAULT_AGENT_COMMISSION_RATE, adminCommissionRate: d.adminCommissionRate ?? 20,
       walletBalance: 0,
       status: 'ACTIVE', userStatus: 'ACTIVE', totalGames: 0, totalProfit: 0, createdAt: Math.floor(Date.now() / 1000),
     });
@@ -509,7 +509,13 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
       return { success: false, error: `Select at least ${MIN_PLAYERS_TO_START} cartellas to start a game.` };
     }
     const pot = c.betAmount * playerCount;
-    const rate = c.commissionRate ?? currentSession?.agent?.commissionRate ?? 20;
+    const agentId = getCurrentAgentId();
+    ensureMockDeck(agentId);
+    const missing = (c.selectedNumbers ?? []).filter((n) => !agentCards(agentId).some((card) => card.cardNumber === String(n)));
+    if (missing.length > 0) {
+      return { success: false, error: `Cartella(s) not in your deck: ${missing.slice(0, 8).join(', ')}. Add them on Bingo Cards first.` };
+    }
+    const rate = c.commissionRate ?? currentSession?.agent?.commissionRate ?? DEFAULT_AGENT_COMMISSION_RATE;
     const adminRate = currentSession?.agent?.adminCommissionRate ?? 20;
     const { prize } = calculateWinnerPrize(c.betAmount, playerCount, rate);
     const { reserveRequired, commission } = calculateWalletReserveRequired(
@@ -523,12 +529,6 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
         success: false,
         error: `Insufficient wallet balance (${mockBalance.toFixed(0)} ETB). Need at least ${reserveRequired.toFixed(0)} ETB commission (${commission.toFixed(0)} ETB). Winner prize (${prize.toFixed(0)} ETB) is paid in cash.`,
       };
-    }
-    const agentId = getCurrentAgentId();
-    ensureMockDeck(agentId);
-    const missing = (c.selectedNumbers ?? []).filter((n) => !agentCards(agentId).some((card) => card.cardNumber === String(n)));
-    if (missing.length > 0) {
-      return { success: false, error: `Cartella(s) not in your deck: ${missing.slice(0, 8).join(', ')}. Add them on Bingo Cards first.` };
     }
     if (commission > 0) {
       mockBalance -= commission;
@@ -567,7 +567,7 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
     const format = (src: typeof g) => {
       if (!src) return null;
       const drawn = src.drawnNumbers ?? [];
-      const rate = src.commissionRate ?? 20;
+      const rate = src.commissionRate ?? DEFAULT_AGENT_COMMISSION_RATE;
       const pot = src.totalPot ?? src.betAmount * src.playerCount;
       const prize = src.prize ?? pot - pot * (rate / 100);
       return {
@@ -696,7 +696,7 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
         grid: card.grid,
       };
     }
-    const rate = g.commissionRate ?? currentSession?.agent?.commissionRate ?? 20;
+    const rate = g.commissionRate ?? currentSession?.agent?.commissionRate ?? DEFAULT_AGENT_COMMISSION_RATE;
     const totalJoined = g.selectedNumbers?.length ?? 1;
     const bannedCount = g.bannedCartellas?.length ?? 0;
     const activeCount = Math.max(1, totalJoined - bannedCount);
@@ -733,7 +733,7 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
     const bannedCount = g.bannedCartellas?.length ?? 0;
     const activeCount = Math.max(0, totalJoined - bannedCount);
     const betAmount = g.betAmount ?? 10;
-    const agentRate = g.commissionRate ?? currentSession?.agent?.commissionRate ?? 20;
+    const agentRate = g.commissionRate ?? currentSession?.agent?.commissionRate ?? DEFAULT_AGENT_COMMISSION_RATE;
     const adminRate = currentSession?.agent?.adminCommissionRate ?? 20;
     const winners = g.winners ?? [];
     const totalPayouts = winners.reduce((s, w) => s + w.prizeAmount, 0);
