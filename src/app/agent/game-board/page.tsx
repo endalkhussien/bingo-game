@@ -11,7 +11,7 @@ import { WINNING_PATTERNS, DRAW_INTERVALS, VOICE_TYPES, MIN_BET, DEFAULT_JACKPOT
 import { isAmharicBundledVoice } from '@/shared/tts/amharic-voice';
 import { DRAW_BALL_COUNT, INITIAL_CARTELLA_COUNT } from '@/shared/brand';
 import { speakBallCall, speakCartella, speakGameStarted, speakShuffle, loadVoices } from '@/presentation/lib/tts';
-import { stopCurrentAudio, preloadBallCallClips, preloadGameEventClips, playGameContinuedClip, playGameStoppedClip, playWinnerClip, playNotWinnerClip, playCartellaLockedClip } from '@/presentation/lib/amharic-audio';
+import { stopCurrentAudio, preloadBallCallClips, preloadGameEventClips, playGameContinuedClip, playGamePausedClip, playGameStoppedClip, playWinnerClip, playNotWinnerClip, playCartellaLockedClip } from '@/presentation/lib/amharic-audio';
 import { AudioSyncManager, runAutoCallLoop } from '@/presentation/lib/audio-sync-manager';
 import { calculateTotalPot, calculateGameEconomics, calculateWinnerPrize, calculateWalletReserveRequired, calculateMaxAffordablePlayers, canAffordGamePlayers } from '@/shared/prize';
 import { broadcastLiveGame, subscribeGameControl, toHallSnapshot, type LiveGameSnapshot, type CallingPhase, type LiveGameAnnouncement } from '@/presentation/lib/live-game-sync';
@@ -362,7 +362,7 @@ export default function GameBoardPage() {
     });
   }, []);
 
-  const stopCalling = useCallback(async (
+  const stopCalling = useCallback((
     pauseOnServer = true,
     options?: { playPausedClip?: boolean },
   ) => {
@@ -377,21 +377,24 @@ export default function GameBoardPage() {
     stopCurrentAudio();
 
     if (options?.playPausedClip && isAmharicBundledVoice(voiceRef.current, languageRef.current)) {
-      await playGameStoppedClip(voiceRef.current, languageRef.current);
+      void playGamePausedClip(voiceRef.current, languageRef.current);
     }
 
     if (!pauseOnServer || !activeGameRef.current) return;
 
-    await ipc('games:pause', activeGameRef.current.id);
-    setActiveGame((g) => g ? { ...g, status: 'PAUSED' } : g);
+    const gameId = activeGameRef.current.id;
+    void ipc('games:pause', gameId).then(() => {
+      setActiveGame((g) => g ? { ...g, status: 'PAUSED' } : g);
+    });
   }, []);
 
-  const startCalling = useCallback(async (resumeOnServer = false) => {
-    if (!activeGameRef.current || bingoClaimActiveRef.current || announcingRef.current || gameWinnersRef.current.length > 0 || gameEndedRef.current) return;
+  const startCalling = useCallback((resumeOnServer = false) => {
+    if (!activeGameRef.current || bingoClaimActiveRef.current || gameWinnersRef.current.length > 0 || gameEndedRef.current) return;
 
-    if (resumeOnServer) {
-      await ipc('games:resume', activeGameRef.current.id);
-      setActiveGame((g) => g ? { ...g, status: 'RUNNING' } : g);
+    if (resumeOnServer && activeGameRef.current) {
+      void ipc('games:resume', activeGameRef.current.id).then(() => {
+        setActiveGame((g) => g ? { ...g, status: 'RUNNING' } : g);
+      });
     }
 
     isPausedRef.current = false;
@@ -401,35 +404,19 @@ export default function GameBoardPage() {
     setCallingPhase('calling');
   }, []);
 
-  const beginCalling = useCallback(async () => {
-    if (!activeGameRef.current || autoDrawRef.current || bingoClaimActiveRef.current || announcingRef.current || gameWinnersRef.current.length > 0 || gameEndedRef.current) return;
+  const beginCalling = useCallback(() => {
+    if (!activeGameRef.current || autoDrawRef.current || bingoClaimActiveRef.current || gameWinnersRef.current.length > 0 || gameEndedRef.current) return;
 
-    announcingRef.current = true;
-    setCallingPhase('announcing');
     syncManagerRef.current.abort();
     stopCurrentAudio();
 
-    try {
-      if (!activeGameRef.current || !announcingRef.current || gameEndedRef.current) {
-        setCallingPhase('paused');
-        return;
-      }
-
-      await speakGameStarted(voiceRef.current, languageRef.current);
-    } finally {
-      announcingRef.current = false;
-    }
-
-    if (!activeGameRef.current || gameEndedRef.current) {
-      setCallingPhase('paused');
-      return;
-    }
-    await startCalling(true);
+    void speakGameStarted(voiceRef.current, languageRef.current);
+    void startCalling(true);
   }, [startCalling]);
 
   const drawFromServer = useCallback(async () => {
     const game = activeGameRef.current;
-    if (!game || isPausedRef.current || !autoDrawRef.current || announcingRef.current || bingoClaimActiveRef.current || gameWinnersRef.current.length > 0 || gameEndedRef.current) return null;
+    if (!game || isPausedRef.current || !autoDrawRef.current || bingoClaimActiveRef.current || gameWinnersRef.current.length > 0 || gameEndedRef.current) return null;
 
     const result = await ipc<{
       success: boolean;
@@ -580,7 +567,6 @@ export default function GameBoardPage() {
         && autoDrawRef.current
         && !!activeGameRef.current
         && !isPausedRef.current
-        && !announcingRef.current
         && !gameEndedRef.current
         && callingPhaseRef.current !== 'ended'
         && gameWinnersRef.current.length === 0,
@@ -726,18 +712,17 @@ export default function GameBoardPage() {
     bingoClaimActiveRef.current = false;
   };
 
-  const handleResume = useCallback(async () => {
+  const handleResume = useCallback(() => {
     if (!activeGameRef.current || bingoClaimActiveRef.current || gameWinnersRef.current.length > 0) return;
     setCheckModalOpen(false);
     if (getEffectiveDrawCount() === 0) {
-      await beginCalling();
-    } else {
-      if (isAmharicBundledVoice(voiceRef.current, languageRef.current)) {
-        stopCurrentAudio();
-        await playGameContinuedClip(voiceRef.current, languageRef.current);
-      }
-      await startCalling(true);
+      beginCalling();
+      return;
     }
+    if (isAmharicBundledVoice(voiceRef.current, languageRef.current)) {
+      void playGameContinuedClip(voiceRef.current, languageRef.current);
+    }
+    void startCalling(true);
   }, [beginCalling, startCalling, getEffectiveDrawCount]);
 
   const handleEndGame = useCallback(async () => {
@@ -754,7 +739,7 @@ export default function GameBoardPage() {
     syncManagerRef.current.abort();
     stopCurrentAudio();
     if (isAmharicBundledVoice(voiceRef.current, languageRef.current)) {
-      await playGameStoppedClip(voiceRef.current, languageRef.current);
+      void playGameStoppedClip(voiceRef.current, languageRef.current);
     }
 
     const result = await ipc<{ success: boolean; data?: { agentRevenue: number }; error?: string }>('games:end', game.id);

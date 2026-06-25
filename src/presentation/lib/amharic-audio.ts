@@ -5,7 +5,7 @@ import {
   allGameEventPaths,
   computeBallCallPath,
   computeCartellaPaths,
-  computeGameEventPath,
+  computeGameEventPaths,
   type GameEventKey,
 } from '@/shared/tts/bundled-audio-catalog';
 import { DEFAULT_AMHARIC_VOICE } from '@/shared/tts/voice-packs';
@@ -15,6 +15,19 @@ import { ipc } from '@/presentation/lib/ipc';
 
 let currentAudio: HTMLAudioElement | null = null;
 const clipCache = new Map<string, HTMLAudioElement>();
+
+/** Ball calls wait here so game event clips (Play/Pause/Resume) are never cut off. */
+let gameEventChain: Promise<unknown> = Promise.resolve();
+
+function enqueueGameEvent<T>(play: () => Promise<T>): Promise<T> {
+  const next = gameEventChain.then(play, play);
+  gameEventChain = next.then(() => undefined, () => undefined);
+  return next;
+}
+
+function afterGameEvents<T>(play: () => Promise<T>): Promise<T> {
+  return gameEventChain.then(play, play);
+}
 
 const CACHED_READY_MS = 400;
 const UNCACHED_READY_MS = 2500;
@@ -229,20 +242,27 @@ async function playRelativePaths(relativePaths: string[], readyTimeoutMs = UNCAC
 }
 
 async function playGameEventClip(event: GameEventKey): Promise<boolean> {
-  const relativePath = computeGameEventPath(event);
-  warmClip(relativePath);
-  const url = buildMediaUrl(relativePath);
+  return enqueueGameEvent(async () => {
+    const relativePaths = computeGameEventPaths(event);
+    for (const relativePath of relativePaths) {
+      warmClip(relativePath);
+    }
+    const primary = relativePaths[0];
+    const url = buildMediaUrl(primary);
 
-  if (isHttpServedUi()) {
+    if (isHttpServedUi()) {
+      for (const relativePath of relativePaths) {
+        if (await playCachedClip(buildMediaUrl(relativePath))) return true;
+      }
+      if (await playRelativePaths(relativePaths, 8000)) return true;
+      return playPathsViaNativeIpc(relativePaths);
+    }
+    if (isElectron()) {
+      return playRelativePaths(relativePaths, 8000);
+    }
     if (await playCachedClip(url)) return true;
-    if (await playRelativePaths([relativePath], 8000)) return true;
-    return playPathsViaNativeIpc([relativePath]);
-  }
-  if (isElectron()) {
-    return playRelativePaths([relativePath], 8000);
-  }
-  if (await playCachedClip(url)) return true;
-  return playRelativePaths([relativePath], 5000);
+    return playRelativePaths(relativePaths, 5000);
+  });
 }
 
 export function cancelBrowserSpeech(): void {
@@ -278,9 +298,11 @@ export function stopCurrentAudio(): void {
 
 /** Play bundled ball call — computes path from number, e.g. 42 → audio/G42.mp3 */
 export function playBallCallClip(number: number, _voiceType: string): Promise<boolean> {
-  const relativePath = computeBallCallPath(number);
-  warmClip(relativePath);
-  return playRelativePaths([relativePath], CACHED_READY_MS);
+  return afterGameEvents(() => {
+    const relativePath = computeBallCallPath(number);
+    warmClip(relativePath);
+    return playRelativePaths([relativePath], CACHED_READY_MS);
+  });
 }
 
 export function playCartellaClip(number: number, voiceType: string): Promise<boolean> {
@@ -292,6 +314,11 @@ export function playCartellaClip(number: number, voiceType: string): Promise<boo
 export function playGameStartedClip(voiceType: string, language?: string): Promise<boolean> {
   if (!isAmharicBundledVoice(voiceType, language)) return Promise.resolve(false);
   return playGameEventClip('started');
+}
+
+export function playGamePausedClip(voiceType: string, language?: string): Promise<boolean> {
+  if (!isAmharicBundledVoice(voiceType, language)) return Promise.resolve(false);
+  return playGameEventClip('paused');
 }
 
 export function playGameStoppedClip(voiceType: string, language?: string): Promise<boolean> {

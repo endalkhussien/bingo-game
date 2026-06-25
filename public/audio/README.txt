@@ -13,17 +13,18 @@ Folder: public/audio/
   G46.mp3 … G60.mp3
   O61.mp3 … O75.mp3
 
-GAME EVENTS (7 files)
----------------------
+GAME EVENTS (7 required + 1 optional)
+-------------------------------------
 Folder: public/audio/
 
-  game_started.mp3      (PLAY / start calling)
-  game_stopped.mp3      (pause / end game)
-  game_continued.mp3    (resume)
-  winner.mp3
-  not_winner.mp3
-  cartella_locked.mp3
-  shuffle.mp3
+  game_started.mp3      → Play (first start)
+  game_continued.mp3    → Resume (after pause)
+  game_paused.mp3       → Pause (optional — falls back to game_stopped.mp3)
+  game_stopped.mp3      → End Game
+  winner.mp3            → Valid BINGO winner
+  not_winner.mp3        → False BINGO / eliminated cartella
+  cartella_locked.mp3   → Banned cartella
+  shuffle.mp3           → Cartella shuffle button
 
 CARTELLA PICK VOICE
 -------------------

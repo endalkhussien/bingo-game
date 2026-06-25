@@ -1,7 +1,7 @@
 import {
   computeBallCallPath,
   computeCartellaPaths,
-  computeGameEventPath,
+  computeGameEventPaths,
   GAME_EVENT_FILENAMES,
   type GameEventKey,
 } from './bundled-audio-catalog';
@@ -27,7 +27,7 @@ export function cartellaClipCandidates(number: number, voiceType: string): strin
 
 export function eventClipCandidates(event: GameEventKey, voiceType: string): string[] {
   if (voiceType === 'ENGLISH') return [];
-  return [computeGameEventPath(event)];
+  return computeGameEventPaths(event);
 }
 
 export const GAME_EVENT_CLIP_FILES = GAME_EVENT_FILENAMES;
