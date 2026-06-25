@@ -5,7 +5,7 @@ import path from 'path';
 import { promisify } from 'util';
 import { buildCartellaAnnouncement } from '../../src/shared/tts/voice-map';
 import { getBallCallSpeechParts } from '../../src/shared/tts/ball-call';
-import { cartellaRelativePaths } from '../../src/shared/tts/audio-paths';
+import { computeCartellaPaths } from '../../src/shared/tts/bundled-audio-catalog';
 import { resolveFirstMediaFile } from '../utils/media-protocol';
 
 const execFileAsync = promisify(execFile);
@@ -72,7 +72,7 @@ async function playEnglishLetter(letter: string): Promise<boolean> {
 }
 
 async function playBundledCartella(number: number, _voiceType: string): Promise<boolean> {
-  const audioPath = resolveFirstMediaFile(cartellaRelativePaths(number));
+  const audioPath = resolveFirstMediaFile(computeCartellaPaths(number));
   if (audioPath && await playAudioFile(audioPath)) return true;
   return false;
 }

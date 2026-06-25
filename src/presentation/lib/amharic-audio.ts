@@ -1,12 +1,14 @@
 import { getBallLetter } from '@/domain/services/bingo-engine';
 import { formatAmharicBallCall, getBallCallAudioKey } from '@/shared/tts/amharic-ball-call';
 import {
-  ballCallClipCandidates,
-  cartellaClipCandidates,
-  eventClipCandidates,
-  GAME_EVENT_CLIP_FILES,
-  DEFAULT_AMHARIC_VOICE,
-} from '@/shared/tts/voice-packs';
+  allBallCallPaths,
+  allGameEventPaths,
+  computeBallCallPath,
+  computeCartellaPaths,
+  computeGameEventPath,
+  type GameEventKey,
+} from '@/shared/tts/bundled-audio-catalog';
+import { DEFAULT_AMHARIC_VOICE } from '@/shared/tts/voice-packs';
 import { isAmharicBundledVoice } from '@/shared/tts/amharic-voice';
 import { isElectron } from '@/shared/runtime';
 
@@ -15,7 +17,6 @@ const eventClipCache = new Map<string, HTMLAudioElement>();
 
 function buildMediaUrl(relativePath: string): string {
   const clean = relativePath.replace(/^\/+/, '');
-  // Prefer same-origin HTTP — Electron serves out/ via the embedded static server (reliable for MP3).
   if (typeof window !== 'undefined') {
     const origin = window.location?.origin;
     if (origin && origin !== 'null' && origin.startsWith('http')) {
@@ -114,14 +115,13 @@ function playUrl(url: string, readyTimeoutMs = 2500): Promise<boolean> {
   });
 }
 
-async function playFirstAvailable(relativePaths: string[], readyTimeoutMs = 2500): Promise<boolean> {
+async function playRelativePaths(relativePaths: string[], readyTimeoutMs = 2500): Promise<boolean> {
   for (const relativePath of relativePaths) {
     if (await playUrl(buildMediaUrl(relativePath), readyTimeoutMs)) return true;
   }
   return false;
 }
 
-/** Play a short game event clip immediately (uses warmed cache when available). */
 function playCachedEventClip(url: string): Promise<boolean> {
   if (typeof window === 'undefined') return Promise.resolve(false);
 
@@ -184,49 +184,34 @@ function playCachedEventClip(url: string): Promise<boolean> {
   });
 }
 
-async function playEventClip(relativePaths: string[]): Promise<boolean> {
-  for (const relativePath of relativePaths) {
-    warmEventClip(relativePath);
-    if (await playCachedEventClip(buildMediaUrl(relativePath))) return true;
-  }
-  return false;
+async function playGameEventClip(event: GameEventKey): Promise<boolean> {
+  const relativePath = computeGameEventPath(event);
+  warmEventClip(relativePath);
+  if (await playCachedEventClip(buildMediaUrl(relativePath))) return true;
+  return playRelativePaths([relativePath], 5000);
 }
 
-/** Stop any MP3 and browser/system speech so clips never overlap TTS. */
 export function cancelBrowserSpeech(): void {
   if (typeof window !== 'undefined' && window.speechSynthesis) {
     window.speechSynthesis.cancel();
   }
 }
 
-/** Warm browser cache for ball-call clips of one or all voice packs. */
-export function preloadBallCallClips(voiceType?: string): void {
+/** Preload all ball-call clips listed in the audio manifest (public/audio/). */
+export function preloadBallCallClips(_voiceType?: string): void {
   if (typeof window === 'undefined') return;
-  const voiceTypes = voiceType ? [voiceType] : [DEFAULT_AMHARIC_VOICE];
-
-  for (const vt of voiceTypes) {
-    for (let n = 1; n <= 75; n++) {
-      for (const rel of ballCallClipCandidates(n, vt)) {
-        const audio = new Audio(buildMediaUrl(rel));
-        audio.preload = 'auto';
-        audio.load();
-      }
-    }
+  for (const rel of allBallCallPaths()) {
+    const audio = new Audio(buildMediaUrl(rel));
+    audio.preload = 'auto';
+    audio.load();
   }
 }
 
-/** Warm cache for game event clips. */
-export function preloadGameEventClips(voiceType?: string): void {
+/** Preload all game event clips from public/audio/. */
+export function preloadGameEventClips(_voiceType?: string): void {
   if (typeof window === 'undefined') return;
-  const voiceTypes = voiceType ? [voiceType] : [DEFAULT_AMHARIC_VOICE];
-  const eventFiles = Object.values(GAME_EVENT_CLIP_FILES);
-
-  for (const vt of voiceTypes) {
-    for (const file of eventFiles) {
-      for (const rel of eventClipCandidates(file, vt)) {
-        warmEventClip(rel);
-      }
-    }
+  for (const rel of allGameEventPaths()) {
+    warmEventClip(rel);
   }
 }
 
@@ -239,53 +224,49 @@ export function stopCurrentAudio(): void {
   }
 }
 
-export function playBallCallClip(number: number, voiceType: string): Promise<boolean> {
-  return playFirstAvailable(ballCallClipCandidates(number, voiceType));
+/** Play bundled ball call — computes path from number, e.g. 42 → audio/G42.mp3 */
+export function playBallCallClip(number: number, _voiceType: string): Promise<boolean> {
+  return playRelativePaths([computeBallCallPath(number)]);
 }
 
 export function playCartellaClip(number: number, voiceType: string): Promise<boolean> {
   if (!isAmharicBundledVoice(voiceType, 'am')) return Promise.resolve(false);
-  return playFirstAvailable(cartellaClipCandidates(number, DEFAULT_AMHARIC_VOICE));
+  return playRelativePaths(computeCartellaPaths(number));
 }
 
-/** Play bundled MP3 clips for game events (Amharic Male 1). */
-function playBundledEventClip(filename: string): Promise<boolean> {
-  return playEventClip(eventClipCandidates(filename, DEFAULT_AMHARIC_VOICE));
+export function playGameStartedClip(voiceType: string, language?: string): Promise<boolean> {
+  if (!isAmharicBundledVoice(voiceType, language)) return Promise.resolve(false);
+  return playGameEventClip('started');
 }
 
-export function playGameStartedClip(voiceType: string): Promise<boolean> {
-  if (!isAmharicBundledVoice(voiceType, 'am')) return Promise.resolve(false);
-  return playBundledEventClip(GAME_EVENT_CLIP_FILES.started);
+export function playGameStoppedClip(voiceType: string, language?: string): Promise<boolean> {
+  if (!isAmharicBundledVoice(voiceType, language)) return Promise.resolve(false);
+  return playGameEventClip('stopped');
 }
 
-export function playGameStoppedClip(voiceType: string): Promise<boolean> {
-  if (!isAmharicBundledVoice(voiceType, 'am')) return Promise.resolve(false);
-  return playBundledEventClip(GAME_EVENT_CLIP_FILES.stopped);
+export function playGameContinuedClip(voiceType: string, language?: string): Promise<boolean> {
+  if (!isAmharicBundledVoice(voiceType, language)) return Promise.resolve(false);
+  return playGameEventClip('continued');
 }
 
-export function playGameContinuedClip(voiceType: string): Promise<boolean> {
-  if (!isAmharicBundledVoice(voiceType, 'am')) return Promise.resolve(false);
-  return playBundledEventClip(GAME_EVENT_CLIP_FILES.continued);
+export function playWinnerClip(voiceType: string, language?: string): Promise<boolean> {
+  if (!isAmharicBundledVoice(voiceType, language)) return Promise.resolve(false);
+  return playGameEventClip('winner');
 }
 
-export function playWinnerClip(voiceType: string): Promise<boolean> {
-  if (!isAmharicBundledVoice(voiceType, 'am')) return Promise.resolve(false);
-  return playBundledEventClip(GAME_EVENT_CLIP_FILES.winner);
+export function playNotWinnerClip(voiceType: string, language?: string): Promise<boolean> {
+  if (!isAmharicBundledVoice(voiceType, language)) return Promise.resolve(false);
+  return playGameEventClip('notWinner');
 }
 
-export function playNotWinnerClip(voiceType: string): Promise<boolean> {
-  if (!isAmharicBundledVoice(voiceType, 'am')) return Promise.resolve(false);
-  return playBundledEventClip(GAME_EVENT_CLIP_FILES.notWinner);
+export function playCartellaLockedClip(voiceType: string, language?: string): Promise<boolean> {
+  if (!isAmharicBundledVoice(voiceType, language)) return Promise.resolve(false);
+  return playGameEventClip('cartellaLocked');
 }
 
-export function playCartellaLockedClip(voiceType: string): Promise<boolean> {
-  if (!isAmharicBundledVoice(voiceType, 'am')) return Promise.resolve(false);
-  return playBundledEventClip(GAME_EVENT_CLIP_FILES.cartellaLocked);
-}
-
-export function playShuffleClip(voiceType: string): Promise<boolean> {
-  if (!isAmharicBundledVoice(voiceType, 'am')) return Promise.resolve(false);
-  return playBundledEventClip(GAME_EVENT_CLIP_FILES.shuffle);
+export function playShuffleClip(voiceType: string, language?: string): Promise<boolean> {
+  if (!isAmharicBundledVoice(voiceType, language)) return Promise.resolve(false);
+  return playGameEventClip('shuffle');
 }
 
 export async function playBallCallAudio(number: number, language: string, voiceType: string): Promise<boolean> {

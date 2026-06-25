@@ -151,6 +151,9 @@ console.log('========================================');
 console.log(`  ${brand.appName} — Windows installer build`);
 console.log('========================================\n');
 
+console.log('→ Generating audio manifest from public/ …\n');
+run('node scripts/generate-audio-manifest.mjs');
+
 ensureAmharicAudio();
 
 ensureAppIcon();

@@ -377,7 +377,7 @@ export default function GameBoardPage() {
     stopCurrentAudio();
 
     if (options?.playPausedClip && isAmharicBundledVoice(voiceRef.current, languageRef.current)) {
-      await playGameStoppedClip(voiceRef.current);
+      await playGameStoppedClip(voiceRef.current, languageRef.current);
     }
 
     if (!pauseOnServer || !activeGameRef.current) return;
@@ -674,7 +674,7 @@ export default function GameBoardPage() {
       setLiveAnnouncement(ann);
       window.setTimeout(() => setLiveAnnouncement(null), 8000);
       if (isAmharicBundledVoice(voiceRef.current, languageRef.current)) {
-        await playWinnerClip(voiceRef.current);
+        await playWinnerClip(voiceRef.current, languageRef.current);
       }
       await refreshBalance();
     } else if (result.banned || result.eliminated) {
@@ -693,8 +693,8 @@ export default function GameBoardPage() {
       setLiveAnnouncement(ann);
       window.setTimeout(() => setLiveAnnouncement(null), 5000);
       if (isAmharicBundledVoice(voiceRef.current, languageRef.current)) {
-        if (result.banned) await playCartellaLockedClip(voiceRef.current);
-        else await playNotWinnerClip(voiceRef.current);
+        if (result.banned) await playCartellaLockedClip(voiceRef.current, languageRef.current);
+        else await playNotWinnerClip(voiceRef.current, languageRef.current);
       }
     }
 
@@ -729,7 +729,7 @@ export default function GameBoardPage() {
     } else {
       if (isAmharicBundledVoice(voiceRef.current, languageRef.current)) {
         stopCurrentAudio();
-        await playGameContinuedClip(voiceRef.current);
+        await playGameContinuedClip(voiceRef.current, languageRef.current);
       }
       await startCalling(true);
     }
@@ -749,7 +749,7 @@ export default function GameBoardPage() {
     syncManagerRef.current.abort();
     stopCurrentAudio();
     if (isAmharicBundledVoice(voiceRef.current, languageRef.current)) {
-      await playGameStoppedClip(voiceRef.current);
+      await playGameStoppedClip(voiceRef.current, languageRef.current);
     }
 
     const result = await ipc<{ success: boolean; data?: { agentRevenue: number }; error?: string }>('games:end', game.id);
