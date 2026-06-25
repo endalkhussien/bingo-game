@@ -80,10 +80,7 @@ async function main() {
     await writeIfNeeded(path.join(AUDIO_DIR, file), phrase, 'am');
   }
 
-  console.log(`Cartella clips (1–${cartellaMax})…`);
-  for (let n = 1; n <= cartellaMax; n++) {
-    await writeIfNeeded(path.join(CARTELLA_DIR, `${n}.mp3`), formatCartellaPhrase(n), 'am');
-  }
+  console.log(`Cartella pick voice is disabled — skipping 1–${cartellaMax} cartella clips.`);
 
   console.log('\nDone. Replace placeholders with your own recordings in public/audio/.');
 }

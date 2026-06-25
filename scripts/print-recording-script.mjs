@@ -7,7 +7,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { toAmharicNumber, formatCartellaPhrase } from './amharic-numbers.mjs';
+import { toAmharicNumber } from './amharic-numbers.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, '..');
@@ -35,8 +35,6 @@ function ballFilename(n) {
   return letter ? `${letter}${n}.mp3` : `${n}.mp3`;
 }
 
-const cartellaMax = brand.cartellaCount ?? 500;
-
 const lines = [
   `${brand.appName} — Recording checklist`,
   '====================================',
@@ -56,18 +54,9 @@ for (let n = 1; n <= 75; n++) {
 }
 
 lines.push('');
-lines.push(`CARTELLA PICK VOICE (1–${cartellaMax}) — folder: public/audio/cartella/`);
-lines.push('------------------------------------------------');
-lines.push('When agent taps a cartella on the game board, play this clip.');
-lines.push('Say the full phrase including "ካርቴላ".');
 lines.push('');
-lines.push('FILENAME    |  SAY THIS (Amharic)');
-lines.push('------------|------------------------------------------');
-
-for (let n = 1; n <= cartellaMax; n++) {
-  lines.push(`${String(n).padEnd(11)}.mp3 |  ${formatCartellaPhrase(n)}`);
-}
-
+lines.push('NOTE: Cartella pick voice (1.mp3… per cartella number) is NOT used.');
+lines.push('Only public/audio/ ball calls and game events above are required.');
 lines.push('');
 lines.push('GAME EVENTS (7 required) — folder: public/audio/');
 lines.push('------------------------------------------------');

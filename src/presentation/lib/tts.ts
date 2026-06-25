@@ -3,6 +3,7 @@ import { isAmharicBundledVoice } from '@/shared/tts/amharic-voice';
 import { DEFAULT_AMHARIC_VOICE } from '@/shared/tts/voice-packs';
 import { getBallCallSpeechParts } from '@/shared/tts/ball-call';
 import { buildCartellaAnnouncement, buildGameStartedAnnouncement } from '@/shared/tts/voice-map';
+import { ENABLE_CARTELLA_PICK_VOICE } from '@/shared/constants';
 import { playBallCallAudio, playCartellaClip, playGameStartedClip, playGameContinuedClip, playShuffleClip } from './amharic-audio';
 import { ipc } from './ipc';
 import { isElectron } from '@/shared/runtime';
@@ -87,6 +88,7 @@ export async function speakBallCall(number: number, voiceType: string, language:
 }
 
 export function speakCartella(number: number, voiceType: string, language: string): void {
+  if (!ENABLE_CARTELLA_PICK_VOICE) return;
   queue = queue.then(async () => {
     if (isAmharicBundledVoice(voiceType, language)) {
       if (await playCartellaClip(number, DEFAULT_AMHARIC_VOICE)) return;

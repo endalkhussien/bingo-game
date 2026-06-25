@@ -7,6 +7,7 @@ import { buildCartellaAnnouncement } from '../../src/shared/tts/voice-map';
 import { getBallCallSpeechParts } from '../../src/shared/tts/ball-call';
 import { computeBallCallPath, computeCartellaPaths, computeGameEventPath, type GameEventKey } from '../../src/shared/tts/bundled-audio-catalog';
 import { DEFAULT_AMHARIC_VOICE } from '../../src/shared/tts/voice-packs';
+import { ENABLE_CARTELLA_PICK_VOICE } from '../../src/shared/constants';
 import { resolveFirstMediaFile } from '../utils/media-protocol';
 
 const execFileAsync = promisify(execFile);
@@ -190,6 +191,10 @@ export async function speakNumber(
 ): Promise<SpeakResult> {
   if (mode === 'ball') {
     return speakBallCall(number, language, voiceType);
+  }
+
+  if (!ENABLE_CARTELLA_PICK_VOICE) {
+    return { success: false, error: 'Cartella pick voice is disabled.' };
   }
 
   const payload = buildCartellaAnnouncement(number, voiceType, language);

@@ -1,7 +1,8 @@
-Waliya Amharic audio — public/ only
-===================================
+Waliya Amharic audio — public/audio/ only
+=========================================
 
-All game voice files live under public/. Do not use voice pack subfolders.
+All game voice files live in public/audio/. You do not need public/sounds/cartella/
+or public/audio/cartella/ — cartella pick voice is disabled.
 
 BALL CALLS (75 files)
 ---------------------
@@ -23,18 +24,12 @@ Folder: public/audio/
   game_stopped.mp3      → End Game
   winner.mp3            → Valid BINGO winner
   not_winner.mp3        → False BINGO / eliminated cartella
-  cartella_locked.mp3   → Banned cartella
+  cartella_locked.mp3   → Banned cartella (game event, not pick voice)
   shuffle.mp3           → Cartella shuffle button
-
-CARTELLA PICK VOICE
--------------------
-Folder: public/sounds/cartella/  (or public/audio/cartella/)
-
-  1.mp3 … 150.mp3  (up to your hall cartella max)
 
 VOICE SETTING ON GAME BOARD
 ---------------------------
-Choose "Amharic Male 1" and language "Amharic" to use these MP3 files.
+Choose "Amharic Male 1" to use these MP3 files.
 
 FORMAT
 ------

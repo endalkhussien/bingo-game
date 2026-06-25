@@ -4,7 +4,6 @@
  * All Amharic Male 1 clips:
  *   public/audio/B1.mp3 … O75.mp3          (ball calls)
  *   public/audio/game_started.mp3, …       (game events)
- *   public/sounds/cartella/1.mp3 …         (cartella pick)
  */
 import { getBallCallAudioKey } from './amharic-ball-call';
 import manifest from './audio-manifest.json';
