@@ -395,15 +395,39 @@ export default function GameBoardPage() {
     setCallingPhase('calling');
   }, []);
 
+  const getEffectiveDrawCount = useCallback(
+    () => Math.max(activeGameRef.current?.drawnNumbers?.length ?? 0, calledRef.current.length),
+    [],
+  );
+
   const beginCalling = useCallback(() => {
     if (!activeGameRef.current || autoDrawRef.current || bingoClaimActiveRef.current || gameWinnersRef.current.length > 0 || gameEndedRef.current) return;
 
     syncManagerRef.current.abort();
     stopCurrentAudio();
 
-    void speakGameStarted(voiceRef.current, languageRef.current);
-    void startCalling(true);
+    void (async () => {
+      await speakGameStarted(voiceRef.current, languageRef.current);
+      if (!activeGameRef.current || gameEndedRef.current || bingoClaimActiveRef.current || gameWinnersRef.current.length > 0) return;
+      startCalling(true);
+    })();
   }, [startCalling]);
+
+  const handleResume = useCallback(() => {
+    if (!activeGameRef.current || bingoClaimActiveRef.current || gameWinnersRef.current.length > 0) return;
+    setCheckModalOpen(false);
+    if (getEffectiveDrawCount() === 0) {
+      beginCalling();
+      return;
+    }
+    void (async () => {
+      if (isAmharicBundledVoice(voiceRef.current, languageRef.current)) {
+        await playGameContinuedClip(voiceRef.current, languageRef.current);
+      }
+      if (!activeGameRef.current || bingoClaimActiveRef.current || gameWinnersRef.current.length > 0) return;
+      startCalling(true);
+    })();
+  }, [beginCalling, startCalling, getEffectiveDrawCount]);
 
   const drawFromServer = useCallback(async () => {
     const game = activeGameRef.current;
@@ -434,11 +458,6 @@ export default function GameBoardPage() {
     setDrawError('');
     return result.data;
   }, []);
-
-  const getEffectiveDrawCount = useCallback(
-    () => Math.max(activeGameRef.current?.drawnNumbers?.length ?? 0, calledRef.current.length),
-    [],
-  );
 
   const handleCreateGame = async () => {
     const bet = parseFloat(betAmount);
@@ -702,19 +721,6 @@ export default function GameBoardPage() {
     setBingoClaimActive(false);
     bingoClaimActiveRef.current = false;
   };
-
-  const handleResume = useCallback(() => {
-    if (!activeGameRef.current || bingoClaimActiveRef.current || gameWinnersRef.current.length > 0) return;
-    setCheckModalOpen(false);
-    if (getEffectiveDrawCount() === 0) {
-      beginCalling();
-      return;
-    }
-    if (isAmharicBundledVoice(voiceRef.current, languageRef.current)) {
-      void playGameContinuedClip(voiceRef.current, languageRef.current);
-    }
-    void startCalling(true);
-  }, [beginCalling, startCalling, getEffectiveDrawCount]);
 
   const handleEndGame = useCallback(async () => {
     const game = activeGameRef.current;
