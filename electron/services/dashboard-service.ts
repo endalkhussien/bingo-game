@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm';
 import { getDb } from './database-service';
 import { agents, games, gameRevenue, rechargeRequests } from '../../src/infrastructure/database/schema';
 import { getOperatorWalletBalance } from './operator-wallet-service';
+import { DEFAULT_AGENT_COMMISSION_RATE } from '../../src/shared/constants';
 
 export async function getAdminDashboard() {
   const db = getDb();
@@ -69,7 +70,7 @@ export async function getAgentDashboard(agentId: string) {
     totalGames: agentGames.length,
     totalRevenue,
     totalProfit,
-    commissionRate: agent?.commissionRate ?? 20,
+    commissionRate: agent?.commissionRate ?? DEFAULT_AGENT_COMMISSION_RATE,
     adminCommissionRate: agent?.adminCommissionRate ?? 20,
   };
 }

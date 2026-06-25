@@ -6,6 +6,7 @@ import { useAuth } from '@/presentation/providers/auth-provider';
 import { PageHeader } from '@/presentation/components/shared/page-header';
 import { APP_NAME } from '@/shared/brand';
 import { calculateGameEconomics } from '@/shared/prize';
+import { DEFAULT_AGENT_COMMISSION_RATE } from '@/shared/constants';
 import { TextInput } from '@/presentation/components/shared/text-input';
 import { TextArea } from '@/presentation/components/shared/text-area';
 
@@ -14,7 +15,7 @@ export default function AgentSettingsPage() {
   const [oldPw, setOldPw] = useState('');
   const [newPw, setNewPw] = useState('');
   const [orgKey, setOrgKey] = useState('');
-  const [commissionRate, setCommissionRate] = useState('20');
+  const [commissionRate, setCommissionRate] = useState(String(DEFAULT_AGENT_COMMISSION_RATE));
   const [msg, setMsg] = useState('');
   const [err, setErr] = useState('');
 
@@ -27,6 +28,8 @@ export default function AgentSettingsPage() {
   useEffect(() => {
     if (agent?.commissionRate != null) {
       setCommissionRate(String(agent.commissionRate));
+    } else {
+      setCommissionRate(String(DEFAULT_AGENT_COMMISSION_RATE));
     }
   }, [agent?.commissionRate]);
 

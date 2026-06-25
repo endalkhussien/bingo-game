@@ -15,7 +15,7 @@ export const agents = sqliteTable('agents', {
   id: text('id').primaryKey(),
   userId: text('user_id').notNull().unique().references(() => users.id),
   phone: text('phone'),
-  commissionRate: real('commission_rate').notNull().default(20),
+  commissionRate: real('commission_rate').notNull().default(10),
   /** Admin/platform share taken from the agent's commission earnings (%) */
   adminCommissionRate: real('admin_commission_rate').notNull().default(20),
   walletBalance: real('wallet_balance').notNull().default(0),
@@ -101,7 +101,7 @@ export const games = sqliteTable('games', {
   language: text('language').notNull().default('am'),
   numberRangeMax: integer('number_range_max').notNull().default(75),
   maxPlayers: integer('max_players').notNull().default(150),
-  commissionRate: real('commission_rate').notNull().default(20),
+  commissionRate: real('commission_rate').notNull().default(10),
   commissionReserved: real('commission_reserved').notNull().default(0),
   status: text('status').notNull().default('DRAFT'),
   selectedNumbers: text('selected_numbers'),

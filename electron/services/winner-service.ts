@@ -7,6 +7,7 @@ import {
   normalizeWinningPattern,
   verifyTicketWin,
 } from '../../src/domain/services/winner-verification';
+import { DEFAULT_AGENT_COMMISSION_RATE } from '../../src/shared/constants';
 import type { Game } from '../../src/infrastructure/database/schema';
 
 export interface ScannedWinner {
@@ -72,7 +73,7 @@ export async function scanAndRecordWinners(
 
   const activeTickets = tickets.filter((t) => t.status !== 'CANCELLED');
   const totalBets = game.betAmount * activeTickets.length;
-  const commissionRate = game.commissionRate ?? 20;
+  const commissionRate = game.commissionRate ?? DEFAULT_AGENT_COMMISSION_RATE;
   const commission = totalBets * (commissionRate / 100);
   const totalPrize = totalBets - commission;
   const prizeEach = totalPrize / qualified.length;
