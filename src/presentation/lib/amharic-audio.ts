@@ -9,6 +9,7 @@ import {
   type GameEventKey,
 } from '@/shared/tts/bundled-audio-catalog';
 import { DEFAULT_AMHARIC_VOICE } from '@/shared/tts/voice-packs';
+import { ENABLE_CARTELLA_PICK_VOICE } from '@/shared/constants';
 import { isAmharicBundledVoice } from '@/shared/tts/amharic-voice';
 import { isElectron } from '@/shared/runtime';
 import { ipc } from '@/presentation/lib/ipc';
@@ -306,6 +307,7 @@ export function playBallCallClip(number: number, _voiceType: string): Promise<bo
 }
 
 export function playCartellaClip(number: number, voiceType: string): Promise<boolean> {
+  if (!ENABLE_CARTELLA_PICK_VOICE) return Promise.resolve(false);
   if (!isAmharicBundledVoice(voiceType, 'am')) return Promise.resolve(false);
   for (const rel of computeCartellaPaths(number)) warmClip(rel);
   return playRelativePaths(computeCartellaPaths(number), CACHED_READY_MS);

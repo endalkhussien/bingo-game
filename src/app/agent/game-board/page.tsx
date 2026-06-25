@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { Eye, EyeOff, Volume2, VolumeX } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
 import { ipc } from '@/presentation/lib/ipc';
 import { useAuth } from '@/presentation/providers/auth-provider';
 import { useUiLanguage } from '@/presentation/providers/ui-language-provider';
@@ -10,7 +10,7 @@ import { CheckCardModal } from '@/presentation/components/bingo/check-card-modal
 import { WINNING_PATTERNS, DRAW_INTERVALS, VOICE_TYPES, MIN_BET, DEFAULT_JACKPOT_MAX_CALLS, DEFAULT_CALL_COOLDOWN_MS, GAME_COMMISSION_OPTIONS, MIN_PLAYERS_TO_START } from '@/shared/constants';
 import { isAmharicBundledVoice } from '@/shared/tts/amharic-voice';
 import { DRAW_BALL_COUNT, INITIAL_CARTELLA_COUNT } from '@/shared/brand';
-import { speakBallCall, speakCartella, speakGameStarted, speakShuffle, loadVoices } from '@/presentation/lib/tts';
+import { speakBallCall, speakGameStarted, speakShuffle, loadVoices } from '@/presentation/lib/tts';
 import { stopCurrentAudio, preloadBallCallClips, preloadGameEventClips, playGameContinuedClip, playGamePausedClip, playGameStoppedClip, playWinnerClip, playNotWinnerClip, playCartellaLockedClip } from '@/presentation/lib/amharic-audio';
 import { AudioSyncManager, runAutoCallLoop } from '@/presentation/lib/audio-sync-manager';
 import { calculateTotalPot, calculateGameEconomics, calculateWinnerPrize, calculateWalletReserveRequired, calculateMaxAffordablePlayers, canAffordGamePlayers } from '@/shared/prize';
@@ -117,9 +117,6 @@ export default function GameBoardPage() {
   const [commissionPickerOpen, setCommissionPickerOpen] = useState(false);
   const commissionPickerRef = useRef<HTMLDivElement>(null);
   const commissionInitializedRef = useRef(false);
-  const [cartellaVoiceMuted, setCartellaVoiceMuted] = useState(false);
-
-  const CARTELLA_VOICE_KEY = 'waliya-cartella-voice-muted';
 
   const adminCommissionRate = agent?.adminCommissionRate ?? 20;
   const walletBalance = agent?.walletBalance ?? 0;
@@ -232,9 +229,6 @@ export default function GameBoardPage() {
     document.addEventListener('mousedown', onPointerDown);
     return () => document.removeEventListener('mousedown', onPointerDown);
   }, [commissionPickerOpen]);
-  useEffect(() => {
-    setCartellaVoiceMuted(localStorage.getItem(CARTELLA_VOICE_KEY) === '1');
-  }, []);
   // UI language (header) is separate from game voice — controlled by the Voice dropdown only.
   useEffect(() => {
     ipc<{ cardNumber: string }[]>('cards:list').then((rows) => {
@@ -330,9 +324,6 @@ export default function GameBoardPage() {
         return prev;
       }
       setBetError('');
-      if (!cartellaVoiceMuted) {
-        speakCartella(num, voice, language);
-      }
       return [...prev, num];
     });
   };
@@ -953,21 +944,6 @@ export default function GameBoardPage() {
                 {showProfit ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
-            {!activeGame && (
-              <button
-                type="button"
-                onClick={() => {
-                  const next = !cartellaVoiceMuted;
-                  setCartellaVoiceMuted(next);
-                  localStorage.setItem(CARTELLA_VOICE_KEY, next ? '1' : '0');
-                }}
-                className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-gray-50"
-                title={cartellaVoiceMuted ? t('unmute') : t('mute')}
-              >
-                {cartellaVoiceMuted ? <VolumeX className="h-4 w-4 text-red-500" /> : <Volume2 className="h-4 w-4 text-green-600" />}
-                {t('cartellaVoice')}: {cartellaVoiceMuted ? t('mute') : t('unmute')}
-              </button>
-            )}
           </div>
 
           {!activeGame && walletBalance <= 0 && (

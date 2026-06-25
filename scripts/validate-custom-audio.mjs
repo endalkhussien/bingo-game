@@ -84,7 +84,7 @@ const brand = JSON.parse(fs.readFileSync(path.join(root, 'brand.config.json'), '
 const cartellaMax = brand.initialCartellaCount ?? 150;
 
 const result = checkAudioDir(audioDir, 'Amharic voice (public/audio/)', {
-  requireCartella: true,
+  requireCartella: false,
   cartellaMax,
 });
 
@@ -119,4 +119,4 @@ if (failed > 0) {
   console.error('  npm run generate:amharic-audio');
   process.exit(1);
 }
-console.log('Audio validation OK. Next: npm run pack:win');
+console.log('Audio validation OK (public/audio/ ball calls + game events only). Next: npm run pack:win');
