@@ -30,6 +30,34 @@ function buildMediaUrl(relativePath: string): string {
   return `/${clean}`;
 }
 
+/** True when UI is served over HTTP (Next dev server or embedded static server). */
+function isHttpServedUi(): boolean {
+  if (typeof window === 'undefined') return false;
+  const origin = window.location?.origin;
+  return Boolean(origin && origin !== 'null' && origin.startsWith('http'));
+}
+
+async function playPathsViaHttp(relativePaths: string[], readyTimeoutMs: number): Promise<boolean> {
+  for (const relativePath of relativePaths) {
+    if (await playUrl(buildMediaUrl(relativePath), readyTimeoutMs)) return true;
+  }
+  return false;
+}
+
+async function playPathsViaNativeIpc(relativePaths: string[]): Promise<boolean> {
+  if (!isElectron()) return false;
+  try {
+    const result = await ipc<{ success: boolean; error?: string }>('audio:play-paths', relativePaths);
+    if (result?.success) return true;
+    if (result?.error) {
+      console.warn('[Waliya audio]', result.error);
+    }
+  } catch (err) {
+    console.warn('[Waliya audio] native playback failed', err);
+  }
+  return false;
+}
+
 function warmEventClip(relativePath: string): void {
   if (typeof window === 'undefined') return;
   const url = buildMediaUrl(relativePath);
@@ -117,22 +145,15 @@ function playUrl(url: string, readyTimeoutMs = 2500): Promise<boolean> {
 }
 
 async function playRelativePaths(relativePaths: string[], readyTimeoutMs = 2500): Promise<boolean> {
-  if (isElectron()) {
-    try {
-      const result = await ipc<{ success: boolean; error?: string }>('audio:play-paths', relativePaths);
-      if (result?.success) return true;
-      if (result?.error) {
-        console.warn('[Waliya audio]', result.error);
-      }
-    } catch (err) {
-      console.warn('[Waliya audio] native playback failed', err);
-    }
+  // npm run dev loads the UI from Next (http://127.0.0.1:3000) — serve clips from public/ via HTML Audio first.
+  if (isHttpServedUi()) {
+    if (await playPathsViaHttp(relativePaths, readyTimeoutMs)) return true;
+    if (await playPathsViaNativeIpc(relativePaths)) return true;
+    return false;
   }
 
-  for (const relativePath of relativePaths) {
-    if (await playUrl(buildMediaUrl(relativePath), readyTimeoutMs)) return true;
-  }
-  return false;
+  if (await playPathsViaNativeIpc(relativePaths)) return true;
+  return playPathsViaHttp(relativePaths, readyTimeoutMs);
 }
 
 function playCachedEventClip(url: string): Promise<boolean> {
@@ -199,12 +220,17 @@ function playCachedEventClip(url: string): Promise<boolean> {
 
 async function playGameEventClip(event: GameEventKey): Promise<boolean> {
   const relativePath = computeGameEventPath(event);
+  warmEventClip(relativePath);
+  if (isHttpServedUi()) {
+    if (await playCachedEventClip(buildMediaUrl(relativePath))) return true;
+    if (await playPathsViaHttp([relativePath], 8000)) return true;
+    return playPathsViaNativeIpc([relativePath]);
+  }
   if (isElectron()) {
     return playRelativePaths([relativePath], 8000);
   }
-  warmEventClip(relativePath);
   if (await playCachedEventClip(buildMediaUrl(relativePath))) return true;
-  return playRelativePaths([relativePath], 5000);
+  return playPathsViaHttp([relativePath], 5000);
 }
 
 export function cancelBrowserSpeech(): void {
