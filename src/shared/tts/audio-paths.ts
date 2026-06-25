@@ -1,23 +1,24 @@
-import { getBallCallAudioKey } from './amharic-ball-call';
+import {
+  computeBallCallPath,
+  computeCartellaPaths,
+  computeGameEventPath,
+  GAME_EVENT_FILENAMES,
+  type GameEventKey,
+} from './bundled-audio-catalog';
 
-/**
- * Relative paths under public/ (copied to out/ on build).
- * First existing file wins at playback — order matters.
- */
-
-/** Ball call clips — e.g. audio/B1.mp3 … audio/O75.mp3 */
+/** @deprecated Use bundled-audio-catalog directly */
 export function ballCallRelativePaths(number: number): string[] {
-  const key = getBallCallAudioKey(number);
-  return [`audio/${key}.mp3`];
+  return [computeBallCallPath(number)];
 }
 
-/** Cartella pick voice — e.g. sounds/cartella/1.mp3 or audio/cartella/1.mp3 */
+/** @deprecated Use bundled-audio-catalog directly */
 export function cartellaRelativePaths(number: number): string[] {
-  const file = `${number}.mp3`;
-  return [`audio/cartella/${file}`, `sounds/cartella/${file}`];
+  return computeCartellaPaths(number);
 }
 
-/** Game event clips — e.g. audio/game_started.mp3 */
+/** @deprecated Use bundled-audio-catalog directly */
 export function gameEventRelativePaths(filename: string): string[] {
   return [`audio/${filename}`];
 }
+
+export { GAME_EVENT_FILENAMES, type GameEventKey };

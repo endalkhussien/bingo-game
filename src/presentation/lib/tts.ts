@@ -124,9 +124,9 @@ export async function speakPlainText(text: string, lang: string, voiceType: stri
 /** Announce game start — Amharic Male 1 uses game_started.mp3 from public/audio/. */
 export async function speakGameStarted(voiceType: string, language: string): Promise<void> {
   if (isAmharicBundledVoice(voiceType, language)) {
-    const played = await playGameStartedClip(voiceType);
+    const played = await playGameStartedClip(voiceType, language);
     if (!played) {
-      await playGameContinuedClip(voiceType);
+      await playGameContinuedClip(voiceType, language);
     }
     return;
   }
@@ -137,7 +137,7 @@ export async function speakGameStarted(voiceType: string, language: string): Pro
 /** Cartella shuffle — Amharic Male 1 uses shuffle.mp3; grid order stays fixed. */
 export function speakShuffle(voiceType: string, language: string): void {
   if (!isAmharicBundledVoice(voiceType, language)) return;
-  void playShuffleClip(voiceType);
+  void playShuffleClip(voiceType, language);
 }
 
 export async function testVoice(voiceType: string, language: string, sample = 42): Promise<string> {
