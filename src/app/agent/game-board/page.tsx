@@ -557,6 +557,11 @@ export default function GameBoardPage() {
     }
   };
 
+  const drawFromServerRef = useRef(drawFromServer);
+  const applyDrawResultRef = useRef(applyDrawResult);
+  useEffect(() => { drawFromServerRef.current = drawFromServer; }, [drawFromServer]);
+  useEffect(() => { applyDrawResultRef.current = applyDrawResult; }, [applyDrawResult]);
+
   useEffect(() => {
     if (!autoDraw || !activeGame?.id || isPaused || bingoClaimActive || hasWinner) return;
 
@@ -579,9 +584,9 @@ export default function GameBoardPage() {
         && !gameEndedRef.current
         && callingPhaseRef.current !== 'ended'
         && gameWinnersRef.current.length === 0,
-      drawNumber: drawFromServer,
+      drawNumber: () => drawFromServerRef.current(),
       onDraw: (data) => {
-        applyDrawResult({
+        applyDrawResultRef.current({
           number: data.number,
           drawOrder: data.drawOrder ?? 0,
           drawnAt: data.drawnAt ?? Math.floor(Date.now() / 1000),
@@ -596,7 +601,7 @@ export default function GameBoardPage() {
       manager.abort();
       stopCurrentAudio();
     };
-  }, [autoDraw, activeGame?.id, isPaused, bingoClaimActive, hasWinner, drawFromServer, applyDrawResult]);
+  }, [autoDraw, activeGame?.id, isPaused, bingoClaimActive, hasWinner]);
 
   const handleBingoClaim = useCallback(async () => {
     if (!activeGame || bingoClaimActive) return;
