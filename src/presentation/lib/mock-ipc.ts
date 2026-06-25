@@ -997,4 +997,17 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
   },
   'tts:test': async (_v: unknown, _l: unknown, _s: unknown) => ({ success: true, engine: 'browser-mock', text: 'N ሰላሳ አራት' }),
   'tts:list-voices': async () => ['Microsoft Amharic [am-ET] (mock)'],
+  'audio:play-paths': async (paths: unknown) => {
+    const { playBallCallClip } = await import('@/presentation/lib/amharic-audio');
+    const list = Array.isArray(paths) ? paths : [];
+    const ballMatch = list[0]?.match(/\/([BINGO]\d+)\.mp3$/i);
+    if (ballMatch) {
+      const num = parseInt(ballMatch[1].replace(/^[BINGO]/i, ''), 10);
+      if (Number.isFinite(num)) {
+        const ok = await playBallCallClip(num, 'AMHARIC_MALE');
+        return { success: ok, engine: ok ? 'browser-mp3' : 'missing' };
+      }
+    }
+    return { success: false, error: 'mock: clip not found' };
+  },
 };

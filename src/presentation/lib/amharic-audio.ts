@@ -11,6 +11,7 @@ import {
 import { DEFAULT_AMHARIC_VOICE } from '@/shared/tts/voice-packs';
 import { isAmharicBundledVoice } from '@/shared/tts/amharic-voice';
 import { isElectron } from '@/shared/runtime';
+import { ipc } from '@/presentation/lib/ipc';
 
 let currentAudio: HTMLAudioElement | null = null;
 const eventClipCache = new Map<string, HTMLAudioElement>();
@@ -116,6 +117,18 @@ function playUrl(url: string, readyTimeoutMs = 2500): Promise<boolean> {
 }
 
 async function playRelativePaths(relativePaths: string[], readyTimeoutMs = 2500): Promise<boolean> {
+  if (isElectron()) {
+    try {
+      const result = await ipc<{ success: boolean; error?: string }>('audio:play-paths', relativePaths);
+      if (result?.success) return true;
+      if (result?.error) {
+        console.warn('[Waliya audio]', result.error);
+      }
+    } catch (err) {
+      console.warn('[Waliya audio] native playback failed', err);
+    }
+  }
+
   for (const relativePath of relativePaths) {
     if (await playUrl(buildMediaUrl(relativePath), readyTimeoutMs)) return true;
   }
@@ -186,6 +199,9 @@ function playCachedEventClip(url: string): Promise<boolean> {
 
 async function playGameEventClip(event: GameEventKey): Promise<boolean> {
   const relativePath = computeGameEventPath(event);
+  if (isElectron()) {
+    return playRelativePaths([relativePath], 8000);
+  }
   warmEventClip(relativePath);
   if (await playCachedEventClip(buildMediaUrl(relativePath))) return true;
   return playRelativePaths([relativePath], 5000);

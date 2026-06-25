@@ -19,7 +19,7 @@ import * as operatorWallet from '../services/operator-wallet-service';
 import * as vendorTopup from '../services/vendor-topup-service';
 import * as factoryReset from '../services/factory-reset-service';
 import { isAdminRole, isVendorRole } from '../../src/shared/roles';
-import { speakNumber, speakBallCall, speakPlainText, listInstalledVoices } from '../tts/tts-engine';
+import { speakNumber, speakBallCall, speakPlainText, listInstalledVoices, playBundledClip } from '../tts/tts-engine';
 import { closeCallerDisplayWindow, openCallerDisplayWindow } from '../utils/caller-display-window';
 import { normalizeVendorTopupCodeInput } from '../../src/shared/voucher/vendor-topup-code';
 
@@ -407,6 +407,12 @@ export function registerIpcHandlers() {
   ipcMain.handle('tts:list-voices', async (event) => {
     await requireAuth(event);
     return listInstalledVoices();
+  });
+
+  /** Play bundled MP3 from public/audio/ — used by game board for Amharic voice. */
+  ipcMain.handle('audio:play-paths', async (_event, relativePaths: string[]) => {
+    const paths = Array.isArray(relativePaths) ? relativePaths.map(String) : [];
+    return playBundledClip(paths);
   });
 
   // ── Audit ──
