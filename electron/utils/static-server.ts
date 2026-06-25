@@ -42,6 +42,11 @@ function resolveFile(root: string, urlPath: string): string | null {
     return resolvedFile;
   }
 
+  // Never serve SPA HTML for audio files — browser would get silence.
+  if (/\.(mp3|wav|ogg|m4a)$/i.test(urlPath) || urlPath.startsWith('/audio/') || urlPath.startsWith('/sounds/')) {
+    return null;
+  }
+
   if (urlPath.endsWith('/')) {
     const indexHtml = path.join(resolvedFile, 'index.html');
     if (fs.existsSync(indexHtml)) return indexHtml;

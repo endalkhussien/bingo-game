@@ -5,7 +5,8 @@ import path from 'path';
 import { promisify } from 'util';
 import { buildCartellaAnnouncement } from '../../src/shared/tts/voice-map';
 import { getBallCallSpeechParts } from '../../src/shared/tts/ball-call';
-import { computeCartellaPaths } from '../../src/shared/tts/bundled-audio-catalog';
+import { computeBallCallPath, computeCartellaPaths, computeGameEventPath, type GameEventKey } from '../../src/shared/tts/bundled-audio-catalog';
+import { DEFAULT_AMHARIC_VOICE } from '../../src/shared/tts/voice-packs';
 import { resolveFirstMediaFile } from '../utils/media-protocol';
 
 const execFileAsync = promisify(execFile);
@@ -32,7 +33,7 @@ $media.Play()
 $deadline = (Get-Date).AddSeconds(4)
 while (-not $media.NaturalDuration.HasTimeSpan -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 40 }
 if ($media.NaturalDuration.HasTimeSpan) {
-  $ms = [Math]::Min(6000, [int]$media.NaturalDuration.TimeSpan.TotalMilliseconds + 150)
+  $ms = [Math]::Min(15000, [int]$media.NaturalDuration.TimeSpan.TotalMilliseconds + 200)
   Start-Sleep -Milliseconds $ms
 } else { exit 1 }
 $media.Stop()
@@ -40,7 +41,7 @@ $media.Close()
 `;
     try {
       await execFileAsync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', ps], {
-        timeout: 8000,
+        timeout: 20000,
         windowsHide: true,
         env: { ...process.env, WALIYA_AUDIO_PATH: path.resolve(audioPath) },
       });
@@ -71,10 +72,29 @@ async function playEnglishLetter(letter: string): Promise<boolean> {
   return speakEspeak(letter, 'en', false);
 }
 
-async function playBundledCartella(number: number, _voiceType: string): Promise<boolean> {
-  const audioPath = resolveFirstMediaFile(computeCartellaPaths(number));
-  if (audioPath && await playAudioFile(audioPath)) return true;
-  return false;
+/** Play first existing bundled clip from public/ (out/ after build). */
+export async function playBundledClip(relativePaths: string[]): Promise<SpeakResult> {
+  const audioPath = resolveFirstMediaFile(relativePaths);
+  if (!audioPath) {
+    return { success: false, error: `Missing clip: ${relativePaths.join(' | ')}` };
+  }
+  const ok = await playAudioFile(audioPath);
+  return ok
+    ? { success: true, engine: 'bundled-mp3' }
+    : { success: false, error: `Playback failed: ${audioPath}` };
+}
+
+export async function playBundledBallCall(number: number): Promise<SpeakResult> {
+  return playBundledClip([computeBallCallPath(number)]);
+}
+
+export async function playBundledGameEvent(event: GameEventKey): Promise<SpeakResult> {
+  return playBundledClip([computeGameEventPath(event)]);
+}
+
+async function playBundledCartella(number: number): Promise<boolean> {
+  const result = await playBundledClip(computeCartellaPaths(number));
+  return result.success;
 }
 
 async function speakWindowsSapi(text: string, lang: string): Promise<boolean> {
@@ -129,14 +149,15 @@ async function speakEspeak(text: string, lang: string, preferFemale: boolean): P
   return false;
 }
 
-/** Combined Amharic phrase — MP3 only in renderer; never use Windows SAPI here. */
+/** Amharic ball calls — play bundled MP3 from public/audio/ via native player. */
 export async function speakBallCall(
   number: number,
   language: string,
   voiceType: string,
 ): Promise<SpeakResult> {
-  if (language === 'am') {
-    return { success: false, error: 'Amharic ball calls use bundled MP3 in the app window.' };
+  const useBundled = language === 'am' || language.startsWith('am') || voiceType === DEFAULT_AMHARIC_VOICE;
+  if (useBundled) {
+    return playBundledBallCall(number);
   }
 
   const preferFemale = voiceType.includes('FEMALE');
@@ -174,7 +195,7 @@ export async function speakNumber(
   const payload = buildCartellaAnnouncement(number, voiceType, language);
 
   if (payload.isAmharic) {
-    if (await playBundledCartella(number, voiceType)) {
+    if (await playBundledCartella(number)) {
       return { success: true, engine: 'bundled-mp3' };
     }
     return { success: false, error: 'Cartella MP3 missing.' };
