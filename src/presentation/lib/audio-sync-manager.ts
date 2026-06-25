@@ -83,7 +83,7 @@ export class AudioSyncManager {
       if (this.aborted) return;
       this.emit('audio-end');
 
-      // Fixed rhythm: each ball cycle takes exactly paceMs (voice + gap).
+      // Minimum gap between ball calls — voice clip length is never cut short.
       const remaining = Math.max(0, paceMs - (Date.now() - cycleStart));
       if (remaining > 0 && !this.aborted) {
         this.emit('cooldown-start');
@@ -123,15 +123,6 @@ export async function runAutoCallLoop(
   syncManager.setCooldownMs(options.cooldownMs);
 
   while (options.shouldContinue() && !options.isPaused()) {
-    if (syncManager.isLocked()) {
-      if (!options.shouldContinue() || options.isPaused()) {
-        syncManager.abort();
-        break;
-      }
-      await delay(20);
-      continue;
-    }
-
     const drawn = await options.drawNumber();
     if (!drawn || !options.shouldContinue() || options.isPaused()) break;
 

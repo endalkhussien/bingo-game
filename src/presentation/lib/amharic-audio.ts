@@ -14,7 +14,10 @@ import { isElectron } from '@/shared/runtime';
 import { ipc } from '@/presentation/lib/ipc';
 
 let currentAudio: HTMLAudioElement | null = null;
-const eventClipCache = new Map<string, HTMLAudioElement>();
+const clipCache = new Map<string, HTMLAudioElement>();
+
+const CACHED_READY_MS = 400;
+const UNCACHED_READY_MS = 2500;
 
 function buildMediaUrl(relativePath: string): string {
   const clean = relativePath.replace(/^\/+/, '');
@@ -37,11 +40,16 @@ function isHttpServedUi(): boolean {
   return Boolean(origin && origin !== 'null' && origin.startsWith('http'));
 }
 
-async function playPathsViaHttp(relativePaths: string[], readyTimeoutMs: number): Promise<boolean> {
-  for (const relativePath of relativePaths) {
-    if (await playUrl(buildMediaUrl(relativePath), readyTimeoutMs)) return true;
+function warmClip(relativePath: string): HTMLAudioElement {
+  const url = buildMediaUrl(relativePath);
+  let audio = clipCache.get(url);
+  if (!audio) {
+    audio = new Audio(url);
+    audio.preload = 'auto';
+    clipCache.set(url, audio);
+    audio.load();
   }
-  return false;
+  return audio;
 }
 
 async function playPathsViaNativeIpc(relativePaths: string[]): Promise<boolean> {
@@ -58,16 +66,6 @@ async function playPathsViaNativeIpc(relativePaths: string[]): Promise<boolean> 
   return false;
 }
 
-function warmEventClip(relativePath: string): void {
-  if (typeof window === 'undefined') return;
-  const url = buildMediaUrl(relativePath);
-  if (eventClipCache.has(url)) return;
-  const audio = new Audio(url);
-  audio.preload = 'auto';
-  audio.load();
-  eventClipCache.set(url, audio);
-}
-
 function waitForCanPlay(audio: HTMLAudioElement, timeoutMs: number): Promise<boolean> {
   return new Promise((resolve) => {
     if (audio.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) {
@@ -81,6 +79,7 @@ function waitForCanPlay(audio: HTMLAudioElement, timeoutMs: number): Promise<boo
       settled = true;
       audio.removeEventListener('canplaythrough', onReady);
       audio.removeEventListener('loadeddata', onReady);
+      audio.removeEventListener('canplay', onReady);
       audio.removeEventListener('error', onError);
       window.clearTimeout(timer);
       resolve(ok);
@@ -92,80 +91,22 @@ function waitForCanPlay(audio: HTMLAudioElement, timeoutMs: number): Promise<boo
 
     audio.addEventListener('canplaythrough', onReady, { once: true });
     audio.addEventListener('loadeddata', onReady, { once: true });
+    audio.addEventListener('canplay', onReady, { once: true });
     audio.addEventListener('error', onError, { once: true });
     audio.load();
   });
 }
 
-function playUrl(url: string, readyTimeoutMs = 2500): Promise<boolean> {
+function playCachedClip(url: string, readyTimeoutMs = CACHED_READY_MS): Promise<boolean> {
   if (typeof window === 'undefined') return Promise.resolve(false);
 
   return new Promise((resolve) => {
     let settled = false;
-    const audio = new Audio(url);
-    audio.preload = 'auto';
-
-    const settle = (ok: boolean) => {
-      if (settled) return;
-      settled = true;
-      window.clearTimeout(safetyTimer);
-      if (currentAudio === audio) currentAudio = null;
-      resolve(ok);
-    };
-
-    const safetyTimer = window.setTimeout(() => {
-      audio.pause();
-      settle(false);
-    }, 10000);
-
-    void (async () => {
-      try {
-        cancelBrowserSpeech();
-        if (currentAudio) {
-          currentAudio.pause();
-          currentAudio.currentTime = 0;
-        }
-        currentAudio = audio;
-
-        const ready = await waitForCanPlay(audio, readyTimeoutMs);
-        if (!ready) {
-          settle(false);
-          return;
-        }
-
-        audio.onended = () => settle(true);
-        audio.onerror = () => settle(false);
-
-        await audio.play();
-      } catch {
-        settle(false);
-      }
-    })();
-  });
-}
-
-async function playRelativePaths(relativePaths: string[], readyTimeoutMs = 2500): Promise<boolean> {
-  // npm run dev loads the UI from Next (http://127.0.0.1:3000) — serve clips from public/ via HTML Audio first.
-  if (isHttpServedUi()) {
-    if (await playPathsViaHttp(relativePaths, readyTimeoutMs)) return true;
-    if (await playPathsViaNativeIpc(relativePaths)) return true;
-    return false;
-  }
-
-  if (await playPathsViaNativeIpc(relativePaths)) return true;
-  return playPathsViaHttp(relativePaths, readyTimeoutMs);
-}
-
-function playCachedEventClip(url: string): Promise<boolean> {
-  if (typeof window === 'undefined') return Promise.resolve(false);
-
-  return new Promise((resolve) => {
-    let settled = false;
-    let audio = eventClipCache.get(url);
+    let audio = clipCache.get(url);
     if (!audio) {
       audio = new Audio(url);
       audio.preload = 'auto';
-      eventClipCache.set(url, audio);
+      clipCache.set(url, audio);
     }
 
     const finish = (ok: boolean) => {
@@ -175,6 +116,7 @@ function playCachedEventClip(url: string): Promise<boolean> {
       window.clearTimeout(readyTimer);
       audio!.removeEventListener('loadeddata', onReady);
       audio!.removeEventListener('canplay', onReady);
+      audio!.removeEventListener('canplaythrough', onReady);
       if (currentAudio === audio) currentAudio = null;
       resolve(ok);
     };
@@ -182,7 +124,7 @@ function playCachedEventClip(url: string): Promise<boolean> {
     const safetyTimer = window.setTimeout(() => {
       audio!.pause();
       finish(false);
-    }, 15000);
+    }, 20000);
 
     let readyTimer = 0;
     const onReady = () => {
@@ -213,24 +155,94 @@ function playCachedEventClip(url: string): Promise<boolean> {
 
     audio.addEventListener('loadeddata', onReady, { once: true });
     audio.addEventListener('canplay', onReady, { once: true });
+    audio.addEventListener('canplaythrough', onReady, { once: true });
     audio.load();
-    readyTimer = window.setTimeout(() => finish(false), 2500);
+    readyTimer = window.setTimeout(() => finish(false), readyTimeoutMs);
   });
+}
+
+function playUrl(url: string, readyTimeoutMs = UNCACHED_READY_MS): Promise<boolean> {
+  if (typeof window === 'undefined') return Promise.resolve(false);
+
+  return new Promise((resolve) => {
+    let settled = false;
+    const audio = new Audio(url);
+    audio.preload = 'auto';
+
+    const settle = (ok: boolean) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(safetyTimer);
+      if (currentAudio === audio) currentAudio = null;
+      resolve(ok);
+    };
+
+    const safetyTimer = window.setTimeout(() => {
+      audio.pause();
+      settle(false);
+    }, 20000);
+
+    void (async () => {
+      try {
+        cancelBrowserSpeech();
+        if (currentAudio) {
+          currentAudio.pause();
+          currentAudio.currentTime = 0;
+        }
+        currentAudio = audio;
+
+        const ready = await waitForCanPlay(audio, readyTimeoutMs);
+        if (!ready) {
+          settle(false);
+          return;
+        }
+
+        audio.onended = () => settle(true);
+        audio.onerror = () => settle(false);
+
+        await audio.play();
+      } catch {
+        settle(false);
+      }
+    })();
+  });
+}
+
+async function playRelativePaths(relativePaths: string[], readyTimeoutMs = UNCACHED_READY_MS): Promise<boolean> {
+  for (const relativePath of relativePaths) {
+    warmClip(relativePath);
+    const url = buildMediaUrl(relativePath);
+    const cachedReadyMs = clipCache.has(url) ? CACHED_READY_MS : readyTimeoutMs;
+
+    if (isHttpServedUi()) {
+      if (await playCachedClip(url, cachedReadyMs)) return true;
+      if (await playUrl(url, readyTimeoutMs)) return true;
+      continue;
+    }
+
+    if (await playCachedClip(url, cachedReadyMs)) return true;
+    if (await playUrl(url, readyTimeoutMs)) return true;
+  }
+
+  if (await playPathsViaNativeIpc(relativePaths)) return true;
+  return false;
 }
 
 async function playGameEventClip(event: GameEventKey): Promise<boolean> {
   const relativePath = computeGameEventPath(event);
-  warmEventClip(relativePath);
+  warmClip(relativePath);
+  const url = buildMediaUrl(relativePath);
+
   if (isHttpServedUi()) {
-    if (await playCachedEventClip(buildMediaUrl(relativePath))) return true;
-    if (await playPathsViaHttp([relativePath], 8000)) return true;
+    if (await playCachedClip(url)) return true;
+    if (await playRelativePaths([relativePath], 8000)) return true;
     return playPathsViaNativeIpc([relativePath]);
   }
   if (isElectron()) {
     return playRelativePaths([relativePath], 8000);
   }
-  if (await playCachedEventClip(buildMediaUrl(relativePath))) return true;
-  return playPathsViaHttp([relativePath], 5000);
+  if (await playCachedClip(url)) return true;
+  return playRelativePaths([relativePath], 5000);
 }
 
 export function cancelBrowserSpeech(): void {
@@ -243,9 +255,7 @@ export function cancelBrowserSpeech(): void {
 export function preloadBallCallClips(_voiceType?: string): void {
   if (typeof window === 'undefined') return;
   for (const rel of allBallCallPaths()) {
-    const audio = new Audio(buildMediaUrl(rel));
-    audio.preload = 'auto';
-    audio.load();
+    warmClip(rel);
   }
 }
 
@@ -253,7 +263,7 @@ export function preloadBallCallClips(_voiceType?: string): void {
 export function preloadGameEventClips(_voiceType?: string): void {
   if (typeof window === 'undefined') return;
   for (const rel of allGameEventPaths()) {
-    warmEventClip(rel);
+    warmClip(rel);
   }
 }
 
@@ -268,12 +278,15 @@ export function stopCurrentAudio(): void {
 
 /** Play bundled ball call — computes path from number, e.g. 42 → audio/G42.mp3 */
 export function playBallCallClip(number: number, _voiceType: string): Promise<boolean> {
-  return playRelativePaths([computeBallCallPath(number)]);
+  const relativePath = computeBallCallPath(number);
+  warmClip(relativePath);
+  return playRelativePaths([relativePath], CACHED_READY_MS);
 }
 
 export function playCartellaClip(number: number, voiceType: string): Promise<boolean> {
   if (!isAmharicBundledVoice(voiceType, 'am')) return Promise.resolve(false);
-  return playRelativePaths(computeCartellaPaths(number));
+  for (const rel of computeCartellaPaths(number)) warmClip(rel);
+  return playRelativePaths(computeCartellaPaths(number), CACHED_READY_MS);
 }
 
 export function playGameStartedClip(voiceType: string, language?: string): Promise<boolean> {
