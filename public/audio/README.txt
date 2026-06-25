@@ -21,7 +21,7 @@ Folder: public/audio/
   game_stopped.mp3      (pause / end game)
   game_continued.mp3    (resume)
   winner.mp3
-  not_winner.mp3
+  not_winner.mp3        (false BINGO — eliminated cartella)
   cartella_locked.mp3
   shuffle.mp3
 

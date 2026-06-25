@@ -11,13 +11,13 @@ const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const audioDir = path.join(root, 'public', 'audio');
 
 const EVENT_FILES = [
-  'game_started.mp3',
-  'game_stopped.mp3',
-  'game_continued.mp3',
-  'winner.mp3',
-  'not_winner.mp3',
-  'cartella_locked.mp3',
-  'shuffle.mp3',
+  ['game_started.mp3', 'PLAY / start calling'],
+  ['game_stopped.mp3', 'Pause or end game'],
+  ['game_continued.mp3', 'Resume calling'],
+  ['winner.mp3', 'Valid BINGO winner'],
+  ['not_winner.mp3', 'False BINGO / eliminated cartella'],
+  ['cartella_locked.mp3', 'Banned cartella'],
+  ['shuffle.mp3', 'Cartella shuffle'],
 ];
 
 function getBallLetter(n) {
@@ -48,7 +48,7 @@ function checkAudioDir(packDir, label, { requireCartella = false, cartellaMax = 
     else if (fs.statSync(full).size < 500) empty.push(name);
   }
 
-  for (const file of EVENT_FILES) {
+  for (const [file] of EVENT_FILES) {
     const full = path.join(packDir, file);
     if (!fs.existsSync(full)) missing.push(file);
     else if (fs.statSync(full).size < 500) empty.push(file);
@@ -108,6 +108,11 @@ if (result.ok) {
 console.log('');
 if (failed > 0) {
   console.error(`${failed} required check(s) failed.`);
+  console.error('');
+  console.error('Fix missing clips (does not overwrite your existing recordings):');
+  console.error('  npm run generate:amharic-audio');
+  console.error('');
+  console.error('Or record your own MP3 and save it under public/audio/ with the exact name shown above.');
   process.exit(1);
 }
 console.log('Audio validation OK. Next: npm run pack:win');
