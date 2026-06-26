@@ -5,7 +5,8 @@ Drop your MP3 recordings here. Choose **Amharic Male 1** on the game board.
 
 BUTTON → AUDIO FILE
 -------------------
-  Play (first start)     game_started.mp3
+  Shuffle (before first Play)  shuffle.mp3
+  Play (first start)           game_started.mp3
   Pause                  game_stopped.mp3
   Resume                 game_continued.mp3
   End Game               game_stopped.mp3

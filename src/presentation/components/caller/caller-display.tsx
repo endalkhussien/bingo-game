@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Play, Square, Maximize2, Minimize2, Shuffle, Trophy, Ban } from 'lucide-react';
 import { BingoBallBoard } from '@/presentation/components/caller/bingo-ball-board';
+import { DrawShuffleOverlay } from '@/presentation/components/caller/draw-shuffle-overlay';
 import { MinchCartellaPreview } from '@/presentation/components/caller/minch-cartella-preview';
 import { useLiveGame } from '@/presentation/hooks/use-live-game';
 import { ipc } from '@/presentation/lib/ipc';
@@ -57,9 +58,10 @@ function CallerDisplayView({
   const maxBalls = game.maxBalls ?? 75;
   const recent = [...called].slice(-8);
   const callingPhase = game.callingPhase ?? (game.status === 'PAUSED' ? 'paused' : 'ready');
+  const isShuffling = callingPhase === 'shuffling';
   const isAnnouncing = callingPhase === 'announcing';
   const isCalling = callingPhase === 'calling';
-  const isPaused = !isCalling;
+  const isPaused = !isCalling && !isShuffling;
   const claimActive = !!game.bingoClaimActive;
   const hasWinner = (game.winners?.length ?? 0) > 0;
   const announcement = game.announcement;
@@ -107,6 +109,7 @@ function CallerDisplayView({
 
   return (
     <div className="relative flex h-full min-h-screen flex-col overflow-hidden bg-[#141c2e] text-white select-none">
+      <DrawShuffleOverlay active={isShuffling} />
       {announcement && (
         <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/75 p-6">
           <div className={cn(
@@ -210,7 +213,7 @@ function CallerDisplayView({
           <button
             type="button"
             onClick={onPlay}
-            disabled={isAnnouncing || hasWinner}
+            disabled={isAnnouncing || isShuffling || hasWinner}
             className="inline-flex min-h-[3.5rem] min-w-[8.5rem] items-center justify-center gap-2 rounded-2xl bg-[#22c55e] px-8 py-4 text-xl font-bold text-white shadow-lg hover:bg-[#16a34a] disabled:opacity-50"
           >
             <Play className="h-7 w-7 fill-white" />

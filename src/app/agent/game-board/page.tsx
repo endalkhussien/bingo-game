@@ -7,11 +7,11 @@ import { useAuth } from '@/presentation/providers/auth-provider';
 import { useUiLanguage } from '@/presentation/providers/ui-language-provider';
 import { NumberGrid } from '@/presentation/components/bingo/number-grid';
 import { CheckCardModal } from '@/presentation/components/bingo/check-card-modal';
-import { WINNING_PATTERNS, DRAW_INTERVALS, VOICE_TYPES, MIN_BET, DEFAULT_JACKPOT_MAX_CALLS, DEFAULT_CALL_COOLDOWN_MS, GAME_COMMISSION_OPTIONS, MIN_PLAYERS_TO_START, DEFAULT_AGENT_COMMISSION_RATE } from '@/shared/constants';
+import { WINNING_PATTERNS, DRAW_INTERVALS, VOICE_TYPES, MIN_BET, DEFAULT_JACKPOT_MAX_CALLS, DEFAULT_CALL_COOLDOWN_MS, GAME_COMMISSION_OPTIONS, MIN_PLAYERS_TO_START, DEFAULT_AGENT_COMMISSION_RATE, PRE_GAME_SHUFFLE_MS } from '@/shared/constants';
 import { DRAW_BALL_COUNT, INITIAL_CARTELLA_COUNT } from '@/shared/brand';
 import { speakBallCall, speakGameStarted, speakShuffle, loadVoices } from '@/presentation/lib/tts';
 import { stopCurrentAudio, preloadBallCallClips, preloadGameEventClips } from '@/presentation/lib/amharic-audio';
-import { playOnGamePause, playOnGameResume, playOnGameEnd, playOnWinner, playOnNotWinner } from '@/presentation/lib/game-voice';
+import { playOnGamePause, playOnGameResume, playOnGameEnd, playOnWinner, playOnNotWinner, playOnShuffle } from '@/presentation/lib/game-voice';
 import { AudioSyncManager, runAutoCallLoop } from '@/presentation/lib/audio-sync-manager';
 import { calculateTotalPot, calculateGameEconomics, calculateWinnerPrize, calculateWalletReserveRequired, calculateMaxAffordablePlayers, canAffordGamePlayers } from '@/shared/prize';
 import { broadcastLiveGame, subscribeGameControl, toHallSnapshot, type LiveGameSnapshot, type CallingPhase, type LiveGameAnnouncement } from '@/presentation/lib/live-game-sync';
@@ -91,7 +91,7 @@ function buildLiveSnapshot(
 }
 
 export default function GameBoardPage() {
-  const { agent, refreshBalance } = useAuth();
+  const { agent, refreshBalance, refreshAgent } = useAuth();
   const { t } = useUiLanguage();
   const [betAmount, setBetAmount] = useState('10');
   const [interval, setInterval_] = useState(DEFAULT_CALL_COOLDOWN_MS);
@@ -405,8 +405,20 @@ export default function GameBoardPage() {
 
     syncManagerRef.current.abort();
     stopCurrentAudio();
+    preloadBallCallClips(voiceRef.current);
+    preloadGameEventClips(voiceRef.current);
 
     void (async () => {
+      setCallingPhase('shuffling');
+      await Promise.all([
+        playOnShuffle(voiceRef.current, languageRef.current),
+        new Promise<void>((resolve) => window.setTimeout(resolve, PRE_GAME_SHUFFLE_MS)),
+      ]);
+      if (!activeGameRef.current || gameEndedRef.current || bingoClaimActiveRef.current || gameWinnersRef.current.length > 0) {
+        setCallingPhase('ready');
+        return;
+      }
+
       await speakGameStarted(voiceRef.current, languageRef.current);
       if (!activeGameRef.current || gameEndedRef.current || bingoClaimActiveRef.current || gameWinnersRef.current.length > 0) return;
       startCalling(true);
@@ -475,13 +487,18 @@ export default function GameBoardPage() {
       setBetError('Select at least one card number.');
       return;
     }
-    const commission = parseFloat(commissionPercent);
+    const commission = parseFloat(commissionPercent) || DEFAULT_AGENT_COMMISSION_RATE;
     if (isNaN(commission) || commission < 0 || commission > 100) {
       setBetError('Commission must be between 0% and 100%.');
       return;
     }
+    const reserve = calculateWalletReserveRequired(bet, selected.length, commission, adminCommissionRate);
+    if (walletBalance < reserve.reserveRequired) {
+      setBetError(`Insufficient TBG balance. Need at least ${reserve.reserveRequired.toFixed(0)} ETB commission for ${selected.length} cartellas.`);
+      return;
+    }
     if (!canAffordGamePlayers(walletBalance, bet, selected.length, commission)) {
-      setBetError(`Insufficient TBG balance. Need at least ${walletReserve.reserveRequired.toFixed(0)} ETB commission for ${selected.length} cartellas.`);
+      setBetError(`Insufficient TBG balance. Need at least ${reserve.reserveRequired.toFixed(0)} ETB commission for ${selected.length} cartellas.`);
       return;
     }
     if (selected.length > maxAffordablePlayers) {
@@ -537,6 +554,7 @@ export default function GameBoardPage() {
       setLiveAnnouncement(null);
       setBingoClaimActive(false);
       await refreshBalance();
+      void refreshAgent();
       const rate = parseFloat(commissionPercent) || DEFAULT_AGENT_COMMISSION_RATE;
       const snapshot = toHallSnapshot(buildLiveSnapshot(game, [], [], rate, 'ready', {
         bingoClaimActive: false,
@@ -753,15 +771,16 @@ export default function GameBoardPage() {
       setCheckModalOpen(false);
       setHallMode(false);
       broadcastLiveGame({ type: 'game-ended' });
-      await ipc('window:close-caller-display').catch(() => {});
-      await refreshBalance();
+      void ipc('window:close-caller-display').catch(() => {});
+      void refreshBalance();
+      void refreshAgent();
     } else {
       gameEndedRef.current = false;
       setCallingPhase('paused');
       callingPhaseRef.current = 'paused';
       setBetError(result.error ?? 'Could not end game. Check TBG wallet balance and try again.');
     }
-  }, [refreshBalance]);
+  }, [refreshBalance, refreshAgent]);
 
   const handleHallPlay = useCallback(() => {
     if (gameWinnersRef.current.length > 0) return;

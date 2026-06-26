@@ -4,7 +4,7 @@ export const LIVE_GAME_CHANNEL = 'tebib-live-game';
 export const LIVE_GAME_STORAGE_KEY = 'tebib_live_game_snapshot';
 export const GAME_CONTROL_CHANNEL = 'tebib-game-control';
 
-export type CallingPhase = 'ready' | 'announcing' | 'calling' | 'paused' | 'ended';
+export type CallingPhase = 'ready' | 'shuffling' | 'announcing' | 'calling' | 'paused' | 'ended';
 
 export type GameControlMessage =
   | { type: 'start-calling' }

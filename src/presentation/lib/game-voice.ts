@@ -17,6 +17,7 @@ import {
   playWinnerClip,
   playNotWinnerClip,
   playCartellaLockedClip,
+  playShuffleClip,
   playBallCallClip,
 } from './amharic-audio';
 import { isAmharicBundledVoice } from '@/shared/tts/amharic-voice';
@@ -58,6 +59,11 @@ export function playOnNotWinner(voiceType: string, language?: string): Promise<b
 export function playOnCartellaBanned(voiceType: string, language?: string): Promise<boolean> {
   if (!shouldPlay(voiceType, language)) return Promise.resolve(false);
   return playCartellaLockedClip(voiceType, language);
+}
+
+export function playOnShuffle(voiceType: string, language?: string): Promise<boolean> {
+  if (!shouldPlay(voiceType, language)) return Promise.resolve(false);
+  return playShuffleClip(voiceType, language);
 }
 
 export function playBallCall(number: number, voiceType: string, language?: string): Promise<boolean> {
