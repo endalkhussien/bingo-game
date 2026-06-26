@@ -178,8 +178,10 @@ async function playMp3Paths(relativePaths: string[]): Promise<boolean> {
   return playRelativePathsDirect(relativePaths);
 }
 
-function playGameEvent(event: GameEventKey): Promise<boolean> {
-  return enqueue(() => playMp3Paths(computeGameEventPaths(event)));
+/** Button/event clips — play immediately on click, interrupt any ball call. */
+function playGameEventImmediate(event: GameEventKey): Promise<boolean> {
+  stopCurrentAudio();
+  return playMp3Paths(computeGameEventPaths(event));
 }
 
 export function cancelBrowserSpeech(): void {
@@ -236,42 +238,42 @@ export function playBallCallClip(number: number, _voiceType: string): Promise<bo
 
 export function playGameStartedClip(voiceType: string, language?: string): Promise<boolean> {
   if (!isAmharicBundledVoice(voiceType, language)) return Promise.resolve(false);
-  return playGameEvent('started');
+  return playGameEventImmediate('started');
 }
 
 export function playGamePausedClip(voiceType: string, language?: string): Promise<boolean> {
   if (!isAmharicBundledVoice(voiceType, language)) return Promise.resolve(false);
-  return playGameEvent('paused');
+  return playGameEventImmediate('paused');
 }
 
 export function playGameStoppedClip(voiceType: string, language?: string): Promise<boolean> {
   if (!isAmharicBundledVoice(voiceType, language)) return Promise.resolve(false);
-  return playGameEvent('stopped');
+  return playGameEventImmediate('stopped');
 }
 
 export function playGameContinuedClip(voiceType: string, language?: string): Promise<boolean> {
   if (!isAmharicBundledVoice(voiceType, language)) return Promise.resolve(false);
-  return playGameEvent('continued');
+  return playGameEventImmediate('continued');
 }
 
 export function playWinnerClip(voiceType: string, language?: string): Promise<boolean> {
   if (!isAmharicBundledVoice(voiceType, language)) return Promise.resolve(false);
-  return playGameEvent('winner');
+  return playGameEventImmediate('winner');
 }
 
 export function playNotWinnerClip(voiceType: string, language?: string): Promise<boolean> {
   if (!isAmharicBundledVoice(voiceType, language)) return Promise.resolve(false);
-  return playGameEvent('notWinner');
+  return playGameEventImmediate('notWinner');
 }
 
 export function playCartellaLockedClip(voiceType: string, language?: string): Promise<boolean> {
   if (!isAmharicBundledVoice(voiceType, language)) return Promise.resolve(false);
-  return playGameEvent('cartellaLocked');
+  return playGameEventImmediate('cartellaLocked');
 }
 
 export function playShuffleClip(voiceType: string, language?: string): Promise<boolean> {
   if (!isAmharicBundledVoice(voiceType, language)) return Promise.resolve(false);
-  return playGameEvent('shuffle');
+  return playGameEventImmediate('shuffle');
 }
 
 export async function playBallCallAudio(number: number, language: string, voiceType: string): Promise<boolean> {

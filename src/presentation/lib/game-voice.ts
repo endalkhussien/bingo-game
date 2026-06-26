@@ -1,6 +1,7 @@
 /**
  * Game voice workflow — maps UI actions to public/audio/ event clips.
  *
+ * Event clips play immediately on button click (interrupt ball calls).
  * PLAY (first start)  → game_started.mp3
  * PAUSE               → game_paused.mp3
  * RESUME              → game_continued.mp3
