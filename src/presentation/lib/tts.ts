@@ -2,7 +2,7 @@ import { formatAmharicBallCall } from '@/shared/tts/amharic-ball-call';
 import { isAmharicBundledVoice } from '@/shared/tts/amharic-voice';
 import { getBallCallSpeechParts } from '@/shared/tts/ball-call';
 import { buildGameStartedAnnouncement } from '@/shared/tts/voice-map';
-import { playBallCallAudio, playShuffleClip } from './amharic-audio';
+import { playBallCallAudio, playShuffleClip, describeBallCallFile } from './amharic-audio';
 import { playOnGamePlay } from './game-voice';
 import { ipc } from './ipc';
 import { isElectron } from '@/shared/runtime';
@@ -112,13 +112,14 @@ export function speakShuffle(voiceType: string, language: string): void {
 }
 
 export async function testVoice(voiceType: string, language: string, sample = 42): Promise<string> {
+  const file = describeBallCallFile(sample);
   const label = language === 'am'
     ? formatAmharicBallCall(sample)
     : `${getBallCallSpeechParts(sample, language).letter} ${sample}`;
   const ok = await speakBallCall(sample, voiceType, language);
   return ok
-    ? `Ball call: "${label}"`
-    : `Ball call: "${label}" (no audio file — add public/audio/G42.mp3 for sample 42)`;
+    ? `Playing ${file} — ball ${sample} (${label})`
+    : `Could not play ${file}. Check the file exists (npm run audio:map) and run npm run setup:audio. Voice must be Amharic Male 1.`;
 }
 
 export function loadVoices(): void {

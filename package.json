@@ -30,6 +30,7 @@
     "test:smoke": "node scripts/smoke-test.mjs",
     "recording:script": "node scripts/print-recording-script.mjs",
     "validate:audio": "node scripts/validate-custom-audio.mjs",
+    "audio:map": "node scripts/print-audio-map.mjs",
     "validate:release": "node scripts/validate-release.mjs",
     "test:cross-pc": "node scripts/test-cross-pc-flow.mjs",
     "test:calling-engine": "npx tsx scripts/test-calling-engine.mjs",

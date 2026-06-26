@@ -23,7 +23,8 @@ BALL CALLS (75 files)
   G46.mp3 … G60.mp3
   O61.mp3 … O75.mp3
 
-  Example: board shows 42 → plays G42.mp3
+  Example: board shows 42 → plays N42.mp3  (N column = numbers 31–45)
+  Example: board shows 46 → plays G46.mp3  (G column = numbers 46–60)
 
 AFTER ADDING OR REPLACING FILES
 -------------------------------

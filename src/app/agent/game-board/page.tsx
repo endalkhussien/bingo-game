@@ -9,7 +9,7 @@ import { NumberGrid } from '@/presentation/components/bingo/number-grid';
 import { CheckCardModal } from '@/presentation/components/bingo/check-card-modal';
 import { WINNING_PATTERNS, DRAW_INTERVALS, VOICE_TYPES, MIN_BET, DEFAULT_JACKPOT_MAX_CALLS, DEFAULT_CALL_COOLDOWN_MS, GAME_COMMISSION_OPTIONS, MIN_PLAYERS_TO_START, DEFAULT_AGENT_COMMISSION_RATE, MIN_PRE_GAME_SHUFFLE_MS } from '@/shared/constants';
 import { DRAW_BALL_COUNT, INITIAL_CARTELLA_COUNT } from '@/shared/brand';
-import { speakBallCall, speakGameStarted, loadVoices } from '@/presentation/lib/tts';
+import { speakBallCall, speakGameStarted, loadVoices, testVoice } from '@/presentation/lib/tts';
 import { stopCurrentAudio, preloadBallCallClips, preloadGameEventClips, unlockAudioPlayback } from '@/presentation/lib/amharic-audio';
 import { playOnGamePause, playOnGameResume, playOnGameEnd, playOnWinner, playOnNotWinner, playOnShuffle } from '@/presentation/lib/game-voice';
 import { AudioSyncManager, runAutoCallLoop } from '@/presentation/lib/audio-sync-manager';
@@ -115,6 +115,8 @@ export default function GameBoardPage() {
   const [gameWinners, setGameWinners] = useState<GameWinner[]>([]);
   const [commissionPercent, setCommissionPercent] = useState(String(DEFAULT_AGENT_COMMISSION_RATE));
   const [commissionPickerOpen, setCommissionPickerOpen] = useState(false);
+  const [voiceTestMessage, setVoiceTestMessage] = useState('');
+  const [voiceTesting, setVoiceTesting] = useState(false);
   const commissionPickerRef = useRef<HTMLDivElement>(null);
   const commissionInitializedRef = useRef(false);
 
@@ -286,8 +288,17 @@ export default function GameBoardPage() {
 
   const handleVoiceChange = (v: string) => {
     setVoice(v);
+    setVoiceTestMessage('');
     if (v === 'ENGLISH') setLanguage('en');
     else setLanguage('am');
+  };
+
+  const handleTestVoice = async () => {
+    setVoiceTesting(true);
+    setVoiceTestMessage('');
+    const msg = await testVoice(voice, language, 42);
+    setVoiceTestMessage(msg);
+    setVoiceTesting(false);
   };
 
   useEffect(() => {
@@ -398,13 +409,19 @@ export default function GameBoardPage() {
     });
   }, []);
 
-  const startCalling = useCallback((resumeOnServer = false) => {
+  const startCalling = useCallback(async (resumeOnServer = false) => {
     if (!activeGameRef.current || bingoClaimActiveRef.current || gameWinnersRef.current.length > 0 || gameEndedRef.current) return;
 
     if (resumeOnServer && activeGameRef.current) {
-      void ipc('games:resume', activeGameRef.current.id).then(() => {
-        setActiveGame((g) => g ? { ...g, status: 'RUNNING' } : g);
-      });
+      const result = await ipc<{ success?: boolean; error?: string }>('games:resume', activeGameRef.current.id);
+      if (!result?.success) {
+        setDrawError(result?.error ?? 'Could not start calling — game is still paused on server.');
+        return;
+      }
+      setActiveGame((g) => g ? { ...g, status: 'RUNNING' } : g);
+      if (activeGameRef.current) {
+        activeGameRef.current = { ...activeGameRef.current, status: 'RUNNING' };
+      }
     }
 
     isPausedRef.current = false;
@@ -445,7 +462,7 @@ export default function GameBoardPage() {
       broadcastLivePhase('announcing');
       await speakGameStarted(voiceRef.current, languageRef.current);
       if (!activeGameRef.current || gameEndedRef.current || bingoClaimActiveRef.current || gameWinnersRef.current.length > 0) return;
-      startCalling(true);
+      await startCalling(true);
     })();
   }, [startCalling, broadcastLivePhase]);
 
@@ -459,7 +476,7 @@ export default function GameBoardPage() {
     void (async () => {
       await playOnGameResume(voiceRef.current, languageRef.current);
       if (!activeGameRef.current || bingoClaimActiveRef.current || gameWinnersRef.current.length > 0) return;
-      startCalling(true);
+      await startCalling(true);
     })();
   }, [beginCalling, startCalling, getEffectiveDrawCount]);
 
@@ -561,6 +578,8 @@ export default function GameBoardPage() {
         totalPot: calculateTotalPot(bet, selected.length),
         winningPattern: pattern,
         commissionRate: commission,
+        voiceType: voice,
+        language,
       };
       setActiveGame(game);
       activeGameRef.current = game;
@@ -921,14 +940,29 @@ export default function GameBoardPage() {
 
             <div className="flex flex-col gap-1">
               <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Voice</span>
-              <select
-                value={voice}
-                onChange={(e) => handleVoiceChange(e.target.value)}
-                disabled={!!activeGame}
-                className="h-14 min-w-[9rem] rounded-lg border-2 border-gray-300 bg-white px-2 text-center text-lg font-bold text-gray-900 focus:border-amber-500 focus:outline-none disabled:bg-gray-100"
-              >
-                {VOICE_TYPES.map((v) => <option key={v.value} value={v.value}>{v.label}</option>)}
-              </select>
+              <div className="flex items-center gap-2">
+                <select
+                  value={voice}
+                  onChange={(e) => handleVoiceChange(e.target.value)}
+                  disabled={!!activeGame}
+                  className="h-14 min-w-[9rem] rounded-lg border-2 border-gray-300 bg-white px-2 text-center text-lg font-bold text-gray-900 focus:border-amber-500 focus:outline-none disabled:bg-gray-100"
+                >
+                  {VOICE_TYPES.map((v) => <option key={v.value} value={v.value}>{v.label}</option>)}
+                </select>
+                {!activeGame && (
+                  <button
+                    type="button"
+                    onClick={() => { void handleTestVoice(); }}
+                    disabled={voiceTesting}
+                    className="h-14 rounded-lg border-2 border-amber-500 bg-amber-50 px-3 text-sm font-bold text-amber-900 hover:bg-amber-100 disabled:opacity-50"
+                  >
+                    {voiceTesting ? 'Playing…' : 'Test Voice'}
+                  </button>
+                )}
+              </div>
+              {voiceTestMessage && !activeGame && (
+                <p className="max-w-xs text-xs text-gray-600">{voiceTestMessage}</p>
+              )}
             </div>
 
             <div ref={commissionPickerRef} className="relative flex flex-col gap-1">
