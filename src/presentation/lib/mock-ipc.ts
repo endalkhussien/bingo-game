@@ -6,7 +6,7 @@ import { validateBingoGrid } from '@/domain/services/card-generator';
 import { readPersistedLiveGame } from '@/presentation/lib/live-game-sync';
 import { generateAdminActivationCode, hashAdminActivationCode, parseAdminActivationCode } from '@/shared/voucher/admin-activation-code';
 import { generateVendorTopupCode, parseVendorTopupCode, hashVendorTopupCode } from '@/shared/voucher/vendor-topup-code';
-import { calculateWalletReserveRequired, calculateWinnerPrize, summarizeGameSettlement } from '@/shared/prize';
+import { calculateWalletReserveRequired, calculateWinnerPrize, calculateGameEconomics, summarizeGameSettlement } from '@/shared/prize';
 
 const SESSION_KEY = 'bingo_mock_session';
 const MOCK_ACTIVE_GAME_KEY = 'bingo_mock_active_game';
@@ -766,7 +766,10 @@ export const mockHandlers: Record<string, (...args: unknown[]) => unknown> = {
           mockOperatorWalletBalance += settlement.platformRevenue;
         }
       } else {
-        mockBalance += reservedCommission;
+        const joinEconomics = calculateGameEconomics(betAmount, totalJoined, agentRate, adminRate);
+        if (joinEconomics.adminCut > 0) {
+          mockOperatorWalletBalance += joinEconomics.adminCut;
+        }
       }
       if (currentSession?.agent) currentSession.agent.walletBalance = mockBalance;
     } else if (hasWinner && settlement.walletCommissionDue > 0) {

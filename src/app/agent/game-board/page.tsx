@@ -7,10 +7,10 @@ import { useAuth } from '@/presentation/providers/auth-provider';
 import { useUiLanguage } from '@/presentation/providers/ui-language-provider';
 import { NumberGrid } from '@/presentation/components/bingo/number-grid';
 import { CheckCardModal } from '@/presentation/components/bingo/check-card-modal';
-import { WINNING_PATTERNS, DRAW_INTERVALS, VOICE_TYPES, MIN_BET, DEFAULT_JACKPOT_MAX_CALLS, DEFAULT_CALL_COOLDOWN_MS, GAME_COMMISSION_OPTIONS, MIN_PLAYERS_TO_START, DEFAULT_AGENT_COMMISSION_RATE, PRE_GAME_SHUFFLE_MS } from '@/shared/constants';
+import { WINNING_PATTERNS, DRAW_INTERVALS, VOICE_TYPES, MIN_BET, DEFAULT_JACKPOT_MAX_CALLS, DEFAULT_CALL_COOLDOWN_MS, GAME_COMMISSION_OPTIONS, MIN_PLAYERS_TO_START, DEFAULT_AGENT_COMMISSION_RATE, MIN_PRE_GAME_SHUFFLE_MS } from '@/shared/constants';
 import { DRAW_BALL_COUNT, INITIAL_CARTELLA_COUNT } from '@/shared/brand';
-import { speakBallCall, speakGameStarted, speakShuffle, loadVoices } from '@/presentation/lib/tts';
-import { stopCurrentAudio, preloadBallCallClips, preloadGameEventClips } from '@/presentation/lib/amharic-audio';
+import { speakBallCall, speakGameStarted, loadVoices } from '@/presentation/lib/tts';
+import { stopCurrentAudio, preloadBallCallClips, preloadGameEventClips, unlockAudioPlayback } from '@/presentation/lib/amharic-audio';
 import { playOnGamePause, playOnGameResume, playOnGameEnd, playOnWinner, playOnNotWinner, playOnShuffle } from '@/presentation/lib/game-voice';
 import { AudioSyncManager, runAutoCallLoop } from '@/presentation/lib/audio-sync-manager';
 import { calculateTotalPot, calculateGameEconomics, calculateWinnerPrize, calculateWalletReserveRequired, calculateMaxAffordablePlayers, canAffordGamePlayers } from '@/shared/prize';
@@ -151,6 +151,8 @@ export default function GameBoardPage() {
   const calledRef = useRef<number[]>([]);
   const gameWinnersRef = useRef<GameWinner[]>([]);
   const gameEndedRef = useRef(false);
+  const gameEndingRef = useRef(false);
+  const callHistoryRef = useRef<CallHistoryEntry[]>([]);
 
   const playerCount = activeGame?.playerCount ?? activeGame?.selectedNumbers?.length ?? selected.length;
   const totalPot = activeGame?.totalPot ?? calculateTotalPot(parseFloat(betAmount || '0') || 0, playerCount);
@@ -247,6 +249,7 @@ export default function GameBoardPage() {
   useEffect(() => { isPausedRef.current = isPaused; }, [isPaused]);
   useEffect(() => { activeGameRef.current = activeGame; }, [activeGame]);
   useEffect(() => { calledRef.current = called; }, [called]);
+  useEffect(() => { callHistoryRef.current = callHistory; }, [callHistory]);
 
   useEffect(() => { callingPhaseRef.current = callingPhase; }, [callingPhase]);
   useEffect(() => { gameEndedRef.current = callingPhase === 'ended'; }, [callingPhase]);
@@ -264,6 +267,22 @@ export default function GameBoardPage() {
       })),
     });
   }, [activeGame, called, callHistory, commissionPercent, callingPhase, bingoClaimActive, bannedCartellas, gameWinners, liveAnnouncement]);
+
+  const broadcastLivePhase = useCallback((phase: CallingPhase) => {
+    const game = activeGameRef.current;
+    if (!game) return;
+    callingPhaseRef.current = phase;
+    const rate = game.commissionRate ?? (parseFloat(commissionPercent) || DEFAULT_AGENT_COMMISSION_RATE);
+    broadcastLiveGame({
+      type: 'game-update',
+      payload: toHallSnapshot(buildLiveSnapshot(game, calledRef.current, callHistoryRef.current, rate, phase, {
+        bingoClaimActive: bingoClaimActiveRef.current,
+        bannedCartellas: game.bannedCartellas ?? [],
+        winners: gameWinnersRef.current,
+        announcement: liveAnnouncement,
+      })),
+    });
+  }, [commissionPercent, liveAnnouncement]);
 
   const handleVoiceChange = (v: string) => {
     setVoice(v);
@@ -404,26 +423,31 @@ export default function GameBoardPage() {
     if (!activeGameRef.current || autoDrawRef.current || bingoClaimActiveRef.current || gameWinnersRef.current.length > 0 || gameEndedRef.current) return;
 
     syncManagerRef.current.abort();
-    stopCurrentAudio();
+    unlockAudioPlayback();
     preloadBallCallClips(voiceRef.current);
     preloadGameEventClips(voiceRef.current);
 
     void (async () => {
       setCallingPhase('shuffling');
+      broadcastLivePhase('shuffling');
+
       await Promise.all([
         playOnShuffle(voiceRef.current, languageRef.current),
-        new Promise<void>((resolve) => window.setTimeout(resolve, PRE_GAME_SHUFFLE_MS)),
+        new Promise<void>((resolve) => window.setTimeout(resolve, MIN_PRE_GAME_SHUFFLE_MS)),
       ]);
       if (!activeGameRef.current || gameEndedRef.current || bingoClaimActiveRef.current || gameWinnersRef.current.length > 0) {
         setCallingPhase('ready');
+        broadcastLivePhase('ready');
         return;
       }
 
+      setCallingPhase('announcing');
+      broadcastLivePhase('announcing');
       await speakGameStarted(voiceRef.current, languageRef.current);
       if (!activeGameRef.current || gameEndedRef.current || bingoClaimActiveRef.current || gameWinnersRef.current.length > 0) return;
       startCalling(true);
     })();
-  }, [startCalling]);
+  }, [startCalling, broadcastLivePhase]);
 
   const handleResume = useCallback(() => {
     if (!activeGameRef.current || bingoClaimActiveRef.current || gameWinnersRef.current.length > 0) return;
@@ -565,6 +589,9 @@ export default function GameBoardPage() {
       broadcastLiveGame({ type: 'game-started', payload: snapshot });
       broadcastLiveGame({ type: 'game-update', payload: snapshot });
       setHallMode(true);
+      unlockAudioPlayback();
+      preloadBallCallClips(voice);
+      preloadGameEventClips(voice);
     } else {
       setBetError(result.error ?? 'Failed to create game');
     }
@@ -611,7 +638,7 @@ export default function GameBoardPage() {
       cancelled = true;
       callingLoopIdRef.current += 1;
       manager.abort();
-      stopCurrentAudio();
+      if (!gameEndingRef.current) stopCurrentAudio();
     };
   }, [autoDraw, activeGame?.id, isPaused, bingoClaimActive, hasWinner]);
 
@@ -742,6 +769,7 @@ export default function GameBoardPage() {
     if (!game) return;
     if (!confirm('End this game and return to Game Board?')) return;
 
+    gameEndingRef.current = true;
     autoDrawRef.current = false;
     setAutoDraw(false);
     callingLoopIdRef.current += 1;
@@ -749,8 +777,8 @@ export default function GameBoardPage() {
     isPausedRef.current = true;
     setIsPaused(true);
     syncManagerRef.current.abort();
-    stopCurrentAudio();
-    void playOnGameEnd(voiceRef.current, languageRef.current);
+
+    await playOnGameEnd(voiceRef.current, languageRef.current);
 
     const result = await ipc<{ success: boolean; data?: { agentRevenue: number }; error?: string }>('games:end', game.id);
     if (result.success && result.data) {
@@ -772,14 +800,15 @@ export default function GameBoardPage() {
       setHallMode(false);
       broadcastLiveGame({ type: 'game-ended' });
       void ipc('window:close-caller-display').catch(() => {});
-      void refreshBalance();
-      void refreshAgent();
+      await refreshBalance();
+      await refreshAgent();
     } else {
       gameEndedRef.current = false;
       setCallingPhase('paused');
       callingPhaseRef.current = 'paused';
       setBetError(result.error ?? 'Could not end game. Check TBG wallet balance and try again.');
     }
+    gameEndingRef.current = false;
   }, [refreshBalance, refreshAgent]);
 
   const handleHallPlay = useCallback(() => {
@@ -1019,14 +1048,11 @@ export default function GameBoardPage() {
             selectedSet={selectedSet}
             onToggle={toggleNumber}
             onClear={() => setSelected([])}
-            onShuffle={() => speakShuffle(voice, language)}
             disabled={!canPickCartellas}
             lockedSet={bannedSet}
             staticMax={INITIAL_CARTELLA_COUNT}
             title={t('selectCartellas')}
             clearLabel={t('clearCards')}
-            shuffleLabel={t('shuffle')}
-            shuffledLabel={t('shuffled')}
           />
         </div>
       )}

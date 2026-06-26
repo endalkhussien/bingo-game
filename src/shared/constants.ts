@@ -42,8 +42,8 @@ export const GAME_COMMISSION_OPTIONS = [10, 20, 25, 30, 35, 40] as const;
 /** Default agent commission % for new agents and game board picker. */
 export const DEFAULT_AGENT_COMMISSION_RATE = 10;
 
-/** Visual shuffle before first ball call (display only — draw order unchanged). */
-export const PRE_GAME_SHUFFLE_MS = 2800;
+/** Minimum overlay time when shuffle audio is shorter than the animation. */
+export const MIN_PRE_GAME_SHUFFLE_MS = 1200;
 
 export const VOICE_TYPES = [
   { value: 'AMHARIC_MALE', label: 'Amharic Male 1' },

@@ -4,6 +4,7 @@ import {
   allBallCallPaths,
   allGameEventPaths,
   computeBallCallPath,
+  computeGameEventPath,
   computeGameEventPaths,
   BUNDLED_BALL_COUNT,
   type GameEventKey,
@@ -17,8 +18,9 @@ let stopGeneration = 0;
 let currentAudio: HTMLAudioElement | null = null;
 const clipCache = new Map<string, HTMLAudioElement>();
 
-const READY_TIMEOUT_MS = 800;
+const READY_TIMEOUT_MS = 2500;
 const PLAY_TIMEOUT_MS = 30000;
+let audioUnlocked = false;
 
 function buildMediaUrl(relativePath: string): string {
   const clean = relativePath.replace(/^\/+/, '');
@@ -175,6 +177,24 @@ export function preloadBallCallClips(_voiceType?: string): void {
 export function preloadGameEventClips(_voiceType?: string): void {
   if (typeof window === 'undefined') return;
   for (const rel of allGameEventPaths()) warmClip(rel);
+}
+
+/** Prime browser audio after a user gesture so later clips can play reliably. */
+export function unlockAudioPlayback(): void {
+  if (typeof window === 'undefined' || audioUnlocked) return;
+  audioUnlocked = true;
+  const primer = getCachedClip(computeGameEventPath('started'));
+  const prevVolume = primer.volume;
+  primer.volume = 0.001;
+  void primer.play()
+    .then(() => {
+      primer.pause();
+      primer.currentTime = 0;
+      primer.volume = prevVolume;
+    })
+    .catch(() => {
+      primer.volume = prevVolume;
+    });
 }
 
 export function stopCurrentAudio(): void {
