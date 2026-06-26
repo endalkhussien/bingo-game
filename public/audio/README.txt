@@ -31,6 +31,10 @@ Choose "Amharic Male 1" on the game board to use these files.
 
 AFTER ADDING FILES
 ------------------
+  npm run setup:audio
+  npm run dev
+
+Or step by step:
   npm run generate:audio-manifest
   npm run validate:audio
   npm run dev
