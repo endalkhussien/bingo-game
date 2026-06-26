@@ -19,11 +19,13 @@ function getBallLetter(n) {
   return '';
 }
 
-console.log('Ball number → MP3 file mapping (public/audio/)\n');
-console.log('  Board shows 42  →  plays N42.mp3  (N column: 31–45)');
-console.log('  Board shows 46  →  plays G46.mp3  (G column: 46–60)');
-console.log('  Board shows 7   →  plays B7.mp3   (B column: 1–15)');
-console.log('  Board shows 61  →  plays O61.mp3  (O column: 61–75)\n'); = [1, 7, 15, 16, 30, 31, 42, 45, 46, 60, 61, 75];
+console.log('Ball number -> MP3 file mapping (public/audio/)\n');
+console.log('  Board shows 42  ->  plays N42.mp3  (N column: 31-45)');
+console.log('  Board shows 46  ->  plays G46.mp3  (G column: 46-60)');
+console.log('  Board shows 7   ->  plays B7.mp3   (B column: 1-15)');
+console.log('  Board shows 61  ->  plays O61.mp3  (O column: 61-75)\n');
+
+const samples = [1, 7, 15, 16, 30, 31, 42, 45, 46, 60, 61, 75];
 for (const n of samples) {
   const file = `${getBallLetter(n)}${n}.mp3`;
   const full = path.join(audioDir, file);
