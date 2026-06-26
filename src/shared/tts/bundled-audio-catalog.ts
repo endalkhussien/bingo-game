@@ -52,7 +52,7 @@ export function computeGameEventPath(event: GameEventKey): string {
 
 export function computeGameEventPaths(event: GameEventKey): string[] {
   if (event === 'paused') {
-    return [computeGameEventPath('stopped')];
+    return [computeGameEventPath('paused'), computeGameEventPath('stopped')];
   }
   return [computeGameEventPath(event)];
 }

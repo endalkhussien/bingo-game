@@ -7,7 +7,7 @@ import { useAuth } from '@/presentation/providers/auth-provider';
 import { useUiLanguage } from '@/presentation/providers/ui-language-provider';
 import { NumberGrid } from '@/presentation/components/bingo/number-grid';
 import { CheckCardModal } from '@/presentation/components/bingo/check-card-modal';
-import { WINNING_PATTERNS, DRAW_INTERVALS, VOICE_TYPES, MIN_BET, DEFAULT_JACKPOT_MAX_CALLS, DEFAULT_CALL_COOLDOWN_MS, GAME_COMMISSION_OPTIONS, MIN_PLAYERS_TO_START, DEFAULT_AGENT_COMMISSION_RATE, MIN_PRE_GAME_SHUFFLE_MS } from '@/shared/constants';
+import { WINNING_PATTERNS, DRAW_INTERVALS, VOICE_TYPES, MIN_BET, DEFAULT_JACKPOT_MAX_CALLS, DEFAULT_CALL_COOLDOWN_MS, GAME_COMMISSION_OPTIONS, MIN_PLAYERS_TO_START, DEFAULT_AGENT_COMMISSION_RATE, PRE_GAME_SHUFFLE_MS } from '@/shared/constants';
 import { DRAW_BALL_COUNT, INITIAL_CARTELLA_COUNT } from '@/shared/brand';
 import { speakBallCall, speakGameStarted, loadVoices, testVoice } from '@/presentation/lib/tts';
 import { stopCurrentAudio, preloadBallCallClips, preloadGameEventClips, unlockAudioPlayback } from '@/presentation/lib/amharic-audio';
@@ -448,10 +448,8 @@ export default function GameBoardPage() {
       setCallingPhase('shuffling');
       broadcastLivePhase('shuffling');
 
-      await Promise.all([
-        playOnShuffle(voiceRef.current, languageRef.current),
-        new Promise<void>((resolve) => window.setTimeout(resolve, MIN_PRE_GAME_SHUFFLE_MS)),
-      ]);
+      void playOnShuffle(voiceRef.current, languageRef.current);
+      await new Promise<void>((resolve) => window.setTimeout(resolve, PRE_GAME_SHUFFLE_MS));
       if (!activeGameRef.current || gameEndedRef.current || bingoClaimActiveRef.current || gameWinnersRef.current.length > 0) {
         setCallingPhase('ready');
         broadcastLivePhase('ready');

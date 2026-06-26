@@ -19,8 +19,8 @@ export const WINNING_PATTERNS = [
 
 export const DEFAULT_JACKPOT_MAX_CALLS = 45;
 
-/** Fixed gap between ball calls — voice + pause always equals this (default 2 sec). */
-export const DEFAULT_CALL_COOLDOWN_MS = 2000;
+/** Fixed gap between ball calls — voice + pause always equals this (default 1.6 sec). */
+export const DEFAULT_CALL_COOLDOWN_MS = 1600;
 
 /** Minimum cartellas required to create a game. */
 export const MIN_PLAYERS_TO_START = 3;
@@ -29,6 +29,7 @@ export const MIN_PLAYERS_TO_START = 3;
 export const ENABLE_CARTELLA_PICK_VOICE = false;
 
 export const DRAW_INTERVALS = [
+  { value: 1600, label: '1.6 seconds' },
   { value: 2000, label: '2 seconds' },
   { value: 3000, label: '3 seconds' },
   { value: 4000, label: '4 seconds' },
@@ -42,8 +43,8 @@ export const GAME_COMMISSION_OPTIONS = [10, 20, 25, 30, 35, 40] as const;
 /** Default agent commission % for new agents and game board picker. */
 export const DEFAULT_AGENT_COMMISSION_RATE = 10;
 
-/** Minimum overlay time when shuffle audio is shorter than the animation. */
-export const MIN_PRE_GAME_SHUFFLE_MS = 1200;
+/** Brief pre-game shuffle overlay when Play is clicked (shuffle.mp3 plays in parallel). */
+export const PRE_GAME_SHUFFLE_MS = 650;
 
 export const VOICE_TYPES = [
   { value: 'AMHARIC_MALE', label: 'Amharic Male 1' },

@@ -37,7 +37,8 @@ console.log('\nGame events:\n');
 const events = [
   ['shuffle.mp3', 'Play (pre-game shuffle)'],
   ['game_started.mp3', 'Play (first start)'],
-  ['game_stopped.mp3', 'Pause / End Game'],
+  ['game_paused.mp3', 'Pause'],
+  ['game_stopped.mp3', 'End Game / fallback if pause clip missing'],
   ['game_continued.mp3', 'Resume'],
   ['winner.mp3', 'Valid BINGO'],
   ['not_winner.mp3', 'False BINGO check'],

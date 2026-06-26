@@ -2,7 +2,7 @@
  * Game voice workflow — maps UI actions to public/audio/ event clips.
  *
  * PLAY (first start)  → game_started.mp3
- * PAUSE               → game_stopped.mp3
+ * PAUSE               → game_paused.mp3
  * RESUME              → game_continued.mp3
  * END GAME            → game_stopped.mp3
  * Valid BINGO         → winner.mp3
@@ -12,6 +12,7 @@
  */
 import {
   playGameStartedClip,
+  playGamePausedClip,
   playGameStoppedClip,
   playGameContinuedClip,
   playWinnerClip,
@@ -33,7 +34,7 @@ export function playOnGamePlay(voiceType: string, language?: string): Promise<bo
 
 export function playOnGamePause(voiceType: string, language?: string): Promise<boolean> {
   if (!shouldPlay(voiceType, language)) return Promise.resolve(false);
-  return playGameStoppedClip(voiceType, language);
+  return playGamePausedClip(voiceType, language);
 }
 
 export function playOnGameResume(voiceType: string, language?: string): Promise<boolean> {
