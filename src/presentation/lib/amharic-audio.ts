@@ -11,16 +11,16 @@ import {
 } from '@/shared/tts/bundled-audio-catalog';
 import { DEFAULT_AMHARIC_VOICE } from '@/shared/tts/voice-packs';
 import { isAmharicBundledVoice } from '@/shared/tts/amharic-voice';
+import { isElectron } from '@/shared/runtime';
+import { ipc } from '@/presentation/lib/ipc';
 
-/** One queue for custom MP3s in public/audio/ — silent when files are missing. */
+/** One queue for custom MP3s — events and ball calls play in order. */
 let audioQueue: Promise<void> = Promise.resolve();
 let stopGeneration = 0;
 let currentAudio: HTMLAudioElement | null = null;
-const clipCache = new Map<string, HTMLAudioElement>();
 
-const READY_TIMEOUT_MS = 2500;
-const PLAY_TIMEOUT_MS = 30000;
-let audioUnlocked = false;
+const READY_TIMEOUT_MS = 8000;
+const PLAY_TIMEOUT_MS = 45000;
 
 function buildMediaUrl(relativePath: string): string {
   const clean = relativePath.replace(/^\/+/, '');
@@ -30,7 +30,21 @@ function buildMediaUrl(relativePath: string): string {
       return `${origin}/${clean}`;
     }
   }
+  if (isElectron()) {
+    return `waliya-media:///${clean}`;
+  }
   return `/${clean}`;
+}
+
+function isHttpServedUi(): boolean {
+  if (typeof window === 'undefined') return false;
+  const origin = window.location?.origin;
+  return Boolean(origin && origin !== 'null' && origin.startsWith('http'));
+}
+
+function warnAudio(message: string, relativePaths: string[]): void {
+  if (typeof console === 'undefined') return;
+  console.warn('[Waliya audio]', message, relativePaths.join(' | '));
 }
 
 function enqueue<T>(task: () => Promise<T>): Promise<T> {
@@ -44,22 +58,6 @@ function enqueue<T>(task: () => Promise<T>): Promise<T> {
     () => undefined,
   );
   return next;
-}
-
-function getCachedClip(relativePath: string): HTMLAudioElement {
-  const cached = clipCache.get(relativePath);
-  if (cached) return cached;
-
-  const audio = new Audio(buildMediaUrl(relativePath));
-  audio.preload = 'auto';
-  clipCache.set(relativePath, audio);
-  audio.load();
-  return audio;
-}
-
-function warmClip(relativePath: string): void {
-  if (typeof window === 'undefined') return;
-  getCachedClip(relativePath);
 }
 
 function waitForCanPlay(audio: HTMLAudioElement, timeoutMs: number): Promise<boolean> {
@@ -88,67 +86,96 @@ function waitForCanPlay(audio: HTMLAudioElement, timeoutMs: number): Promise<boo
     audio.addEventListener('loadeddata', onReady, { once: true });
     audio.addEventListener('canplay', onReady, { once: true });
     audio.addEventListener('error', onError, { once: true });
+    audio.load();
   });
 }
 
-async function playCachedPath(relativePath: string, generation: number): Promise<boolean> {
-  if (typeof window === 'undefined') return false;
-  if (generation !== stopGeneration) return false;
+function playUrl(url: string, generation: number, relativePath: string): Promise<boolean> {
+  if (typeof window === 'undefined') return Promise.resolve(false);
+  if (generation !== stopGeneration) return Promise.resolve(false);
 
-  const audio = getCachedClip(relativePath);
-
-  return new Promise<boolean>((resolve) => {
+  return new Promise((resolve) => {
     let settled = false;
-    const finish = (ok: boolean) => {
+    const audio = new Audio(url);
+    audio.preload = 'auto';
+
+    const finish = (ok: boolean, reason?: string) => {
       if (settled) return;
       settled = true;
       window.clearTimeout(safetyTimer);
       if (currentAudio === audio) currentAudio = null;
+      if (!ok) warnAudio(reason ?? 'HTML playback failed', [relativePath]);
       resolve(ok && generation === stopGeneration);
     };
 
     const safetyTimer = window.setTimeout(() => {
       audio.pause();
-      finish(false);
+      finish(false, 'HTML playback timed out');
     }, PLAY_TIMEOUT_MS);
 
     void (async () => {
       cancelBrowserSpeech();
-      if (currentAudio && currentAudio !== audio) {
+      if (currentAudio) {
         currentAudio.pause();
         currentAudio.currentTime = 0;
       }
       currentAudio = audio;
-      audio.pause();
-      audio.currentTime = 0;
 
-      if (audio.readyState < HTMLMediaElement.HAVE_FUTURE_DATA) {
-        const ready = await waitForCanPlay(audio, READY_TIMEOUT_MS);
-        if (!ready) {
-          finish(false);
-          return;
-        }
+      const ready = await waitForCanPlay(audio, READY_TIMEOUT_MS);
+      if (!ready) {
+        finish(false, `Could not load ${relativePath} from ${url}`);
+        return;
       }
 
       audio.onended = () => finish(true);
-      audio.onerror = () => finish(false);
+      audio.onerror = () => finish(false, `Error playing ${relativePath}`);
 
       try {
         await audio.play();
-      } catch {
-        finish(false);
+      } catch (err) {
+        finish(false, `Browser blocked play() for ${relativePath}: ${err instanceof Error ? err.message : String(err)}`);
       }
     })();
   });
 }
 
-async function playMp3Paths(relativePaths: string[]): Promise<boolean> {
-  const generation = stopGeneration;
-  for (const relativePath of relativePaths) {
-    if (generation !== stopGeneration) return false;
-    if (await playCachedPath(relativePath, generation)) return true;
+async function playPathsViaNativeIpc(relativePaths: string[]): Promise<boolean> {
+  if (!isElectron()) return false;
+  try {
+    const result = await ipc<{ success?: boolean; error?: string }>('audio:play-paths', relativePaths);
+    if (result?.success) return true;
+    if (result?.error) warnAudio(result.error, relativePaths);
+  } catch (err) {
+    warnAudio(`Native playback failed: ${err instanceof Error ? err.message : String(err)}`, relativePaths);
   }
   return false;
+}
+
+/** Play bundled clips — Electron native player first, then HTTP / waliya-media. */
+export async function playRelativePathsDirect(relativePaths: string[]): Promise<boolean> {
+  const generation = stopGeneration;
+  if (generation !== stopGeneration) return false;
+  if (!relativePaths.length) return false;
+
+  if (isElectron()) {
+    if (await playPathsViaNativeIpc(relativePaths)) return true;
+  }
+
+  for (const relativePath of relativePaths) {
+    if (generation !== stopGeneration) return false;
+    const url = buildMediaUrl(relativePath);
+    if (await playUrl(url, generation, relativePath)) return true;
+  }
+
+  warnAudio(
+    'No clip played — check public/audio/ file names (run npm run audio:map) and npm run setup:audio',
+    relativePaths,
+  );
+  return false;
+}
+
+async function playMp3Paths(relativePaths: string[]): Promise<boolean> {
+  return playRelativePathsDirect(relativePaths);
 }
 
 function playGameEvent(event: GameEventKey): Promise<boolean> {
@@ -161,7 +188,13 @@ export function cancelBrowserSpeech(): void {
   }
 }
 
-/** Warm browser cache for all ball + event clips (call on voice select / game start). */
+function warmClip(relativePath: string): void {
+  if (typeof window === 'undefined') return;
+  const audio = new Audio(buildMediaUrl(relativePath));
+  audio.preload = 'auto';
+  audio.load();
+}
+
 export function preloadBallCallClips(_voiceType?: string): void {
   if (typeof window === 'undefined') return;
   const fromManifest = allBallCallPaths();
@@ -179,22 +212,9 @@ export function preloadGameEventClips(_voiceType?: string): void {
   for (const rel of allGameEventPaths()) warmClip(rel);
 }
 
-/** Prime browser audio after a user gesture so later clips can play reliably. */
+/** Mark audio ready after a user click — no silent/muted playback. */
 export function unlockAudioPlayback(): void {
-  if (typeof window === 'undefined' || audioUnlocked) return;
-  audioUnlocked = true;
-  const primer = getCachedClip(computeGameEventPath('started'));
-  const prevVolume = primer.volume;
-  primer.volume = 0.001;
-  void primer.play()
-    .then(() => {
-      primer.pause();
-      primer.currentTime = 0;
-      primer.volume = prevVolume;
-    })
-    .catch(() => {
-      primer.volume = prevVolume;
-    });
+  // Intentionally empty — Electron allows autoplay; user clicks Play to start voice.
 }
 
 export function stopCurrentAudio(): void {
@@ -209,8 +229,9 @@ export function stopCurrentAudio(): void {
 }
 
 export function playBallCallClip(number: number, _voiceType: string): Promise<boolean> {
-  warmClip(computeBallCallPath(number));
-  return enqueue(() => playMp3Paths([computeBallCallPath(number)]));
+  const relativePath = computeBallCallPath(number);
+  warmClip(relativePath);
+  return enqueue(() => playMp3Paths([relativePath]));
 }
 
 export function playGameStartedClip(voiceType: string, language?: string): Promise<boolean> {
@@ -279,6 +300,10 @@ export function getBallCallDisplayText(number: number, language: string): string
   if (language === 'am') return formatAmharicBallCall(number);
   const letter = getBallLetter(number);
   return letter ? `${letter} ${number}` : String(number);
+}
+
+export function describeBallCallFile(number: number): string {
+  return `public/audio/${getBallCallAudioKey(number)}.mp3`;
 }
 
 export { formatAmharicBallCall, getBallCallAudioKey };
