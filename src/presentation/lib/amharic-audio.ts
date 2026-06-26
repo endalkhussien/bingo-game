@@ -4,15 +4,13 @@ import {
   allBallCallPaths,
   allGameEventPaths,
   computeBallCallPath,
-  computeCartellaPaths,
   computeGameEventPaths,
   type GameEventKey,
 } from '@/shared/tts/bundled-audio-catalog';
 import { DEFAULT_AMHARIC_VOICE } from '@/shared/tts/voice-packs';
-import { ENABLE_CARTELLA_PICK_VOICE } from '@/shared/constants';
 import { isAmharicBundledVoice } from '@/shared/tts/amharic-voice';
 
-/** One audio queue — events and ball calls play in order, never overlap or deadlock. */
+/** One queue for custom MP3s in public/audio/ — silent when files are missing. */
 let audioQueue: Promise<void> = Promise.resolve();
 let stopGeneration = 0;
 let currentAudio: HTMLAudioElement | null = null;
@@ -75,7 +73,6 @@ function waitForCanPlay(audio: HTMLAudioElement, timeoutMs: number): Promise<boo
   });
 }
 
-/** Play first existing clip from public/audio/ — always uses a fresh Audio element. */
 async function playMp3Paths(relativePaths: string[]): Promise<boolean> {
   if (typeof window === 'undefined') return false;
   const generation = stopGeneration;
@@ -143,7 +140,6 @@ export function cancelBrowserSpeech(): void {
   }
 }
 
-/** Preload ball-call clips (browser cache warm-up). */
 export function preloadBallCallClips(_voiceType?: string): void {
   if (typeof window === 'undefined') return;
   for (const rel of allBallCallPaths()) {
@@ -153,7 +149,6 @@ export function preloadBallCallClips(_voiceType?: string): void {
   }
 }
 
-/** Preload game event clips from public/audio/. */
 export function preloadGameEventClips(_voiceType?: string): void {
   if (typeof window === 'undefined') return;
   for (const rel of allGameEventPaths()) {
@@ -163,7 +158,6 @@ export function preloadGameEventClips(_voiceType?: string): void {
   }
 }
 
-/** Stop playback and clear the queue so the next clip can start cleanly. */
 export function stopCurrentAudio(): void {
   stopGeneration += 1;
   cancelBrowserSpeech();
@@ -176,16 +170,8 @@ export function stopCurrentAudio(): void {
   audioQueue = Promise.resolve();
 }
 
-/** Play bundled ball call — number 42 → public/audio/G42.mp3 */
 export function playBallCallClip(number: number, _voiceType: string): Promise<boolean> {
-  const path = computeBallCallPath(number);
-  return enqueue(() => playMp3Paths([path]));
-}
-
-export function playCartellaClip(number: number, voiceType: string): Promise<boolean> {
-  if (!ENABLE_CARTELLA_PICK_VOICE) return Promise.resolve(false);
-  if (!isAmharicBundledVoice(voiceType, 'am')) return Promise.resolve(false);
-  return enqueue(() => playMp3Paths(computeCartellaPaths(number)));
+  return enqueue(() => playMp3Paths([computeBallCallPath(number)]));
 }
 
 export function playGameStartedClip(voiceType: string, language?: string): Promise<boolean> {

@@ -25,7 +25,7 @@ export const DEFAULT_CALL_COOLDOWN_MS = 2000;
 /** Minimum cartellas required to create a game. */
 export const MIN_PLAYERS_TO_START = 3;
 
-/** Cartella pick voice (sounds/cartella/1.mp3…) — disabled; use public/audio/ ball + event clips only. */
+/** Cartella pick voice — disabled; only public/audio/ ball + event clips are used. */
 export const ENABLE_CARTELLA_PICK_VOICE = false;
 
 export const DRAW_INTERVALS = [

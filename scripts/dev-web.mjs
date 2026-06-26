@@ -2,8 +2,8 @@
  * Starts Next.js dev server, trying ports 3000 → 3001 → 3002 if busy.
  * Writes chosen port to .dev-port for Electron wait script.
  */
-import { spawn, execSync } from 'child_process';
-import { writeFileSync, existsSync, readdirSync } from 'fs';
+import { spawn } from 'child_process';
+import { writeFileSync } from 'fs';
 import { createServer } from 'net';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -11,19 +11,6 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, '..');
 const ports = [3000, 3001, 3002];
-
-function ensureBallCallAudio() {
-  const audioDir = path.join(root, 'public', 'audio');
-  const count = existsSync(audioDir)
-    ? readdirSync(audioDir).filter((f) => f.endsWith('.mp3')).length
-    : 0;
-  if (count < 75) {
-    console.log(`→ Generating ball-call audio (${count}/75)…`);
-    execSync('node scripts/generate-amharic-audio.mjs', { cwd: root, stdio: 'inherit' });
-  }
-}
-
-ensureBallCallAudio();
 
 function portFree(port) {
   return new Promise((resolve) => {

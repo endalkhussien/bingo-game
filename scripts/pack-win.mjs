@@ -15,8 +15,6 @@ import { ensureBrandLogoImported, getBrandLogoPath } from './brand-logo.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, '..');
-const ballCallDir = path.join(root, 'public', 'audio');
-
 const buildEnv = {
   NODE_ENV: 'production',
   NEXT_TELEMETRY_DISABLED: '1',
@@ -38,40 +36,6 @@ function run(cmd, env = {}) {
       ...env,
     },
   });
-}
-
-function ensureAmharicAudio() {
-  const brand = loadBrand();
-  const requiredCartella = brand.initialCartellaCount ?? 150;
-  const cartellaDirs = [
-    path.join(ballCallDir, 'cartella'),
-    path.join(root, 'public', 'sounds', 'cartella'),
-  ];
-
-  const rootBallCount = fs.existsSync(ballCallDir)
-    ? fs.readdirSync(ballCallDir).filter((f) => /^[BINGO]\d+\.mp3$/i.test(f)).length
-    : 0;
-  let cartellaCount = 0;
-  for (const dir of cartellaDirs) {
-    if (fs.existsSync(dir)) {
-      cartellaCount = Math.max(
-        cartellaCount,
-        fs.readdirSync(dir).filter((f) => f.endsWith('.mp3')).length,
-      );
-    }
-  }
-
-  const needsBall = rootBallCount < 75;
-  const needsCartella = cartellaCount < requiredCartella;
-
-  if (needsBall || needsCartella) {
-    console.log(
-      `\n→ Audio: ${rootBallCount}/75 ball, ${cartellaCount}/${requiredCartella} cartella in public/audio/ — generating placeholders...\n`,
-    );
-    run('node scripts/generate-amharic-audio.mjs');
-  } else {
-    console.log(`\n→ Audio OK: ${rootBallCount} ball + ${cartellaCount} cartella (public/audio/)\n`);
-  }
 }
 
 function ensureAppIcon() {
@@ -153,8 +117,6 @@ console.log('========================================\n');
 
 console.log('→ Generating audio manifest from public/ …\n');
 run('node scripts/generate-audio-manifest.mjs');
-
-ensureAmharicAudio();
 
 ensureAppIcon();
 

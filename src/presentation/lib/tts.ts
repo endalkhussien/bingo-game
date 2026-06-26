@@ -1,10 +1,8 @@
 import { formatAmharicBallCall } from '@/shared/tts/amharic-ball-call';
 import { isAmharicBundledVoice } from '@/shared/tts/amharic-voice';
-import { DEFAULT_AMHARIC_VOICE } from '@/shared/tts/voice-packs';
 import { getBallCallSpeechParts } from '@/shared/tts/ball-call';
-import { buildCartellaAnnouncement, buildGameStartedAnnouncement } from '@/shared/tts/voice-map';
-import { ENABLE_CARTELLA_PICK_VOICE } from '@/shared/constants';
-import { playBallCallAudio, playCartellaClip, playGameStartedClip, playGameContinuedClip, playShuffleClip } from './amharic-audio';
+import { buildGameStartedAnnouncement } from '@/shared/tts/voice-map';
+import { playBallCallAudio, playGameStartedClip, playGameContinuedClip, playShuffleClip } from './amharic-audio';
 import { ipc } from './ipc';
 import { isElectron } from '@/shared/runtime';
 
@@ -60,10 +58,10 @@ async function speakBrowser(text: string, lang: string, preferFemale: boolean): 
   });
 }
 
-/** Play ball call — Amharic Male 1 uses bundled MP3 from public/audio/. */
+/** Play ball call — Amharic Male 1 uses MP3 from public/audio/ when present. */
 export async function speakBallCall(number: number, voiceType: string, language: string): Promise<boolean> {
   if (isAmharicBundledVoice(voiceType, language)) {
-    return playBallCallAudio(number, language, DEFAULT_AMHARIC_VOICE);
+    return playBallCallAudio(number, language, voiceType);
   }
 
   const preferFemale = voiceType.includes('FEMALE');
@@ -85,30 +83,6 @@ export async function speakBallCall(number: number, voiceType: string, language:
   }
 
   return speakBrowser(numberText, 'en-US', preferFemale);
-}
-
-export function speakCartella(number: number, voiceType: string, language: string): void {
-  if (!ENABLE_CARTELLA_PICK_VOICE) return;
-  queue = queue.then(async () => {
-    if (isAmharicBundledVoice(voiceType, language)) {
-      if (await playCartellaClip(number, DEFAULT_AMHARIC_VOICE)) return;
-      if (isElectron()) {
-        const result = await ipc<{ success: boolean }>('tts:speak', number, voiceType, language, 'cartella');
-        if (result?.success) return;
-      }
-      const payload = buildCartellaAnnouncement(number, voiceType, language);
-      await speakBrowser(payload.text, payload.lang, payload.preferFemale);
-      return;
-    }
-
-    if (isElectron()) {
-      const result = await ipc<{ success: boolean }>('tts:speak', number, voiceType, language, 'cartella');
-      if (result?.success) return;
-    }
-
-    const payload = buildCartellaAnnouncement(number, voiceType, language);
-    await speakBrowser(payload.text, payload.lang, payload.preferFemale);
-  });
 }
 
 /** Speak arbitrary announcement text (English / non-Amharic only). */
@@ -133,7 +107,6 @@ export async function speakGameStarted(voiceType: string, language: string): Pro
   await speakPlainText(payload.text, payload.lang, voiceType);
 }
 
-/** Cartella shuffle — Amharic Male 1 uses shuffle.mp3; grid order stays fixed. */
 export function speakShuffle(voiceType: string, language: string): void {
   if (!isAmharicBundledVoice(voiceType, language)) return;
   void playShuffleClip(voiceType, language);
@@ -143,8 +116,10 @@ export async function testVoice(voiceType: string, language: string, sample = 42
   const label = language === 'am'
     ? formatAmharicBallCall(sample)
     : `${getBallCallSpeechParts(sample, language).letter} ${sample}`;
-  await speakBallCall(sample, voiceType, language);
-  return `Ball call: "${label}"`;
+  const ok = await speakBallCall(sample, voiceType, language);
+  return ok
+    ? `Ball call: "${label}"`
+    : `Ball call: "${label}" (no audio file — add public/audio/G42.mp3 for sample 42)`;
 }
 
 export function loadVoices(): void {
