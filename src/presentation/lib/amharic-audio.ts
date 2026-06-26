@@ -5,6 +5,7 @@ import {
   allGameEventPaths,
   computeBallCallPath,
   computeGameEventPaths,
+  BUNDLED_BALL_COUNT,
   type GameEventKey,
 } from '@/shared/tts/bundled-audio-catalog';
 import { DEFAULT_AMHARIC_VOICE } from '@/shared/tts/voice-packs';
@@ -14,8 +15,9 @@ import { isAmharicBundledVoice } from '@/shared/tts/amharic-voice';
 let audioQueue: Promise<void> = Promise.resolve();
 let stopGeneration = 0;
 let currentAudio: HTMLAudioElement | null = null;
+const clipCache = new Map<string, HTMLAudioElement>();
 
-const READY_TIMEOUT_MS = 5000;
+const READY_TIMEOUT_MS = 800;
 const PLAY_TIMEOUT_MS = 30000;
 
 function buildMediaUrl(relativePath: string): string {
@@ -42,13 +44,28 @@ function enqueue<T>(task: () => Promise<T>): Promise<T> {
   return next;
 }
 
-function waitForCanPlay(audio: HTMLAudioElement, timeoutMs: number): Promise<boolean> {
-  return new Promise((resolve) => {
-    if (audio.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) {
-      resolve(true);
-      return;
-    }
+function getCachedClip(relativePath: string): HTMLAudioElement {
+  const cached = clipCache.get(relativePath);
+  if (cached) return cached;
 
+  const audio = new Audio(buildMediaUrl(relativePath));
+  audio.preload = 'auto';
+  clipCache.set(relativePath, audio);
+  audio.load();
+  return audio;
+}
+
+function warmClip(relativePath: string): void {
+  if (typeof window === 'undefined') return;
+  getCachedClip(relativePath);
+}
+
+function waitForCanPlay(audio: HTMLAudioElement, timeoutMs: number): Promise<boolean> {
+  if (audio.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) {
+    return Promise.resolve(true);
+  }
+
+  return new Promise((resolve) => {
     let settled = false;
     const finish = (ok: boolean) => {
       if (settled) return;
@@ -69,64 +86,66 @@ function waitForCanPlay(audio: HTMLAudioElement, timeoutMs: number): Promise<boo
     audio.addEventListener('loadeddata', onReady, { once: true });
     audio.addEventListener('canplay', onReady, { once: true });
     audio.addEventListener('error', onError, { once: true });
-    audio.load();
   });
 }
 
-async function playMp3Paths(relativePaths: string[]): Promise<boolean> {
+async function playCachedPath(relativePath: string, generation: number): Promise<boolean> {
   if (typeof window === 'undefined') return false;
-  const generation = stopGeneration;
+  if (generation !== stopGeneration) return false;
 
-  for (const relativePath of relativePaths) {
-    if (generation !== stopGeneration) return false;
+  const audio = getCachedClip(relativePath);
 
-    const url = buildMediaUrl(relativePath);
-    const played = await new Promise<boolean>((resolve) => {
-      let settled = false;
-      const audio = new Audio(url);
-      audio.preload = 'auto';
+  return new Promise<boolean>((resolve) => {
+    let settled = false;
+    const finish = (ok: boolean) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(safetyTimer);
+      if (currentAudio === audio) currentAudio = null;
+      resolve(ok && generation === stopGeneration);
+    };
 
-      const finish = (ok: boolean) => {
-        if (settled) return;
-        settled = true;
-        window.clearTimeout(safetyTimer);
-        if (currentAudio === audio) currentAudio = null;
-        resolve(ok && generation === stopGeneration);
-      };
+    const safetyTimer = window.setTimeout(() => {
+      audio.pause();
+      finish(false);
+    }, PLAY_TIMEOUT_MS);
 
-      const safetyTimer = window.setTimeout(() => {
-        audio.pause();
-        finish(false);
-      }, PLAY_TIMEOUT_MS);
+    void (async () => {
+      cancelBrowserSpeech();
+      if (currentAudio && currentAudio !== audio) {
+        currentAudio.pause();
+        currentAudio.currentTime = 0;
+      }
+      currentAudio = audio;
+      audio.pause();
+      audio.currentTime = 0;
 
-      void (async () => {
-        cancelBrowserSpeech();
-        if (currentAudio) {
-          currentAudio.pause();
-          currentAudio.currentTime = 0;
-        }
-        currentAudio = audio;
-
+      if (audio.readyState < HTMLMediaElement.HAVE_FUTURE_DATA) {
         const ready = await waitForCanPlay(audio, READY_TIMEOUT_MS);
         if (!ready) {
           finish(false);
           return;
         }
+      }
 
-        audio.onended = () => finish(true);
-        audio.onerror = () => finish(false);
+      audio.onended = () => finish(true);
+      audio.onerror = () => finish(false);
 
-        try {
-          await audio.play();
-        } catch {
-          finish(false);
-        }
-      })();
-    });
+      try {
+        await audio.play();
+      } catch {
+        finish(false);
+      }
+    })();
+  });
+}
 
-    if (played) return true;
+async function playMp3Paths(relativePaths: string[]): Promise<boolean> {
+  const generation = stopGeneration;
+  for (const relativePath of relativePaths) {
+    if (generation !== stopGeneration) return false;
+    if (await playCachedPath(relativePath, generation)) return true;
   }
-
   return false;
 }
 
@@ -140,22 +159,22 @@ export function cancelBrowserSpeech(): void {
   }
 }
 
+/** Warm browser cache for all ball + event clips (call on voice select / game start). */
 export function preloadBallCallClips(_voiceType?: string): void {
   if (typeof window === 'undefined') return;
-  for (const rel of allBallCallPaths()) {
-    const audio = new Audio(buildMediaUrl(rel));
-    audio.preload = 'auto';
-    audio.load();
+  const fromManifest = allBallCallPaths();
+  if (fromManifest.length > 0) {
+    for (const rel of fromManifest) warmClip(rel);
+    return;
+  }
+  for (let n = 1; n <= BUNDLED_BALL_COUNT; n++) {
+    warmClip(computeBallCallPath(n));
   }
 }
 
 export function preloadGameEventClips(_voiceType?: string): void {
   if (typeof window === 'undefined') return;
-  for (const rel of allGameEventPaths()) {
-    const audio = new Audio(buildMediaUrl(rel));
-    audio.preload = 'auto';
-    audio.load();
-  }
+  for (const rel of allGameEventPaths()) warmClip(rel);
 }
 
 export function stopCurrentAudio(): void {
@@ -164,13 +183,13 @@ export function stopCurrentAudio(): void {
   if (currentAudio) {
     currentAudio.pause();
     currentAudio.currentTime = 0;
-    currentAudio.src = '';
     currentAudio = null;
   }
   audioQueue = Promise.resolve();
 }
 
 export function playBallCallClip(number: number, _voiceType: string): Promise<boolean> {
+  warmClip(computeBallCallPath(number));
   return enqueue(() => playMp3Paths([computeBallCallPath(number)]));
 }
 

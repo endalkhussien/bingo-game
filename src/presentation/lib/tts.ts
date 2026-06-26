@@ -2,7 +2,8 @@ import { formatAmharicBallCall } from '@/shared/tts/amharic-ball-call';
 import { isAmharicBundledVoice } from '@/shared/tts/amharic-voice';
 import { getBallCallSpeechParts } from '@/shared/tts/ball-call';
 import { buildGameStartedAnnouncement } from '@/shared/tts/voice-map';
-import { playBallCallAudio, playGameStartedClip, playGameContinuedClip, playShuffleClip } from './amharic-audio';
+import { playBallCallAudio, playShuffleClip } from './amharic-audio';
+import { playOnGamePlay } from './game-voice';
 import { ipc } from './ipc';
 import { isElectron } from '@/shared/runtime';
 
@@ -100,7 +101,7 @@ export async function speakPlainText(text: string, lang: string, voiceType: stri
 /** Announce game start — Amharic Male 1 uses game_started.mp3 from public/audio/. */
 export async function speakGameStarted(voiceType: string, language: string): Promise<void> {
   if (isAmharicBundledVoice(voiceType, language)) {
-    await playGameStartedClip(voiceType, language);
+    await playOnGamePlay(voiceType, language);
     return;
   }
   const payload = buildGameStartedAnnouncement(language, voiceType);

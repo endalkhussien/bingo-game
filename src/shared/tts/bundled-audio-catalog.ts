@@ -52,7 +52,7 @@ export function computeGameEventPath(event: GameEventKey): string {
 
 export function computeGameEventPaths(event: GameEventKey): string[] {
   if (event === 'paused') {
-    return ['audio/game_paused.mp3', 'audio/game_stopped.mp3'];
+    return [computeGameEventPath('stopped')];
   }
   return [computeGameEventPath(event)];
 }

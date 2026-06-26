@@ -17,6 +17,7 @@
     "desktop:dev": "npm run generate:audio-manifest && npm run build:electron && concurrently -k -n NEXT,ELECTRON -c blue,magenta \"npm run dev:next\" \"npm run dev:electron\"",
     "dev:electron": "node scripts/wait-for-next.mjs && node scripts/launch-electron.mjs",
     "generate:audio-manifest": "node scripts/generate-audio-manifest.mjs",
+    "setup:audio": "npm run generate:audio-manifest && npm run validate:audio",
     "build": "npm run generate:audio-manifest && npm run build:next && npm run build:electron",
     "build:next": "cross-env NODE_ENV=production next build",
     "build:electron": "tsc -p tsconfig.electron.json",

@@ -6,7 +6,7 @@ import {
 } from '../../src/infrastructure/database/schema';
 import { CallingEngine } from '../../src/domain/services/calling-engine';
 import { normalizeWinningPattern } from '../../src/domain/services/winner-verification';
-import { MIN_BET, CARTELLA_MAX, MIN_PLAYERS_TO_START } from '../../src/shared/constants';
+import { MIN_BET, CARTELLA_MAX, MIN_PLAYERS_TO_START, DEFAULT_AGENT_COMMISSION_RATE } from '../../src/shared/constants';
 import { DRAW_BALL_COUNT } from '../../src/shared/brand';
 import { calculateTotalPot, calculateWinnerPrize, calculateWalletReserveRequired, summarizeGameSettlement } from '../../src/shared/prize';
 import { deductGameCommission, refundGameCommission, reserveGameCommission } from './wallet-service';
@@ -72,9 +72,21 @@ export async function createGame(agentId: string, config: {
     };
   }
 
-  const commissionRate = config.commissionRate ?? agent.commissionRate ?? 20;
+  const commissionRate = config.commissionRate ?? agent.commissionRate ?? DEFAULT_AGENT_COMMISSION_RATE;
   if (commissionRate < 0 || commissionRate > 100) {
     return { success: false, error: 'Commission must be between 0% and 100%.' };
+  }
+
+  const allCards = await db.select().from(bingoCards).where(eq(bingoCards.agentId, agentId)).all();
+  const cardByNumber = new Map(allCards.map((c) => [c.cardNumber, c]));
+  const missing = config.selectedNumbers.filter((n) => !cardByNumber.has(String(n)));
+  if (missing.length > 0) {
+    const shown = missing.slice(0, 8).join(', ');
+    const extra = missing.length > 8 ? ` (+${missing.length - 8} more)` : '';
+    return {
+      success: false,
+      error: `Cartella(s) not in your deck: ${shown}${extra}. Add them on Bingo Cards first.`,
+    };
   }
 
   const adminCommissionRate = agent.adminCommissionRate ?? 20;
@@ -103,18 +115,6 @@ export async function createGame(agentId: string, config: {
         error: reserve.error ?? `Insufficient wallet balance to reserve game commission (${commission.toFixed(0)} ETB).`,
       };
     }
-  }
-
-  const allCards = await db.select().from(bingoCards).where(eq(bingoCards.agentId, agentId)).all();
-  const cardByNumber = new Map(allCards.map((c) => [c.cardNumber, c]));
-  const missing = config.selectedNumbers.filter((n) => !cardByNumber.has(String(n)));
-  if (missing.length > 0) {
-    const shown = missing.slice(0, 8).join(', ');
-    const extra = missing.length > 8 ? ` (+${missing.length - 8} more)` : '';
-    return {
-      success: false,
-      error: `Cartella(s) not in your deck: ${shown}${extra}. Add them on Bingo Cards first.`,
-    };
   }
 
   try {
@@ -209,7 +209,7 @@ async function formatActiveGame(game: typeof games.$inferSelect) {
   const playerCount = gameCardRows.length;
   const activePlayerCount = activeTickets.length;
   const totalPot = calculateTotalPot(game.betAmount, activePlayerCount);
-  const commissionRate = game.commissionRate ?? 20;
+  const commissionRate = game.commissionRate ?? DEFAULT_AGENT_COMMISSION_RATE;
   const { prize } = calculateWinnerPrize(game.betAmount, activePlayerCount, commissionRate);
 
   const cardIds = gameCardRows.map((gc) => gc.cardId);
@@ -415,7 +415,7 @@ export async function validateWinner(gameId: string, agentId: string, cardNumber
   const gameCardRows = await db.select().from(gameCards).where(eq(gameCards.gameId, gameId)).all();
   const activeCount = gameCardRows.filter((t) => t.status !== 'CANCELLED').length;
   const agent = await db.select().from(agents).where(eq(agents.id, agentId)).get();
-  const commissionRate = game.commissionRate ?? agent?.commissionRate ?? 20;
+  const commissionRate = game.commissionRate ?? agent?.commissionRate ?? DEFAULT_AGENT_COMMISSION_RATE;
   const { totalPot, prize } = calculateWinnerPrize(game.betAmount, activeCount, commissionRate);
 
   await db.insert(winners).values({
@@ -461,7 +461,7 @@ export async function endGame(gameId: string, agentId: string) {
   if (existingRevenue) return { success: false, error: 'Game already settled' };
 
   const agent = await db.select().from(agents).where(eq(agents.id, agentId)).get();
-  const agentCommissionRate = game.commissionRate ?? agent?.commissionRate ?? 20;
+  const agentCommissionRate = game.commissionRate ?? agent?.commissionRate ?? DEFAULT_AGENT_COMMISSION_RATE;
   const adminCommissionRate = agent?.adminCommissionRate ?? 20;
 
   const gameCardRows = await db.select().from(gameCards).where(eq(gameCards.gameId, gameId)).all();
@@ -585,7 +585,7 @@ export async function listGames(agentId: string, filters?: { status?: string; st
       date: game.createdAt,
       betAmount: game.betAmount,
       playersNumber: gameCardRows.length,
-      commissionPercent: game.commissionRate ?? 20,
+      commissionPercent: game.commissionRate ?? DEFAULT_AGENT_COMMISSION_RATE,
       profit: revenue?.agentRevenue ?? 0,
       status: game.status,
     });
