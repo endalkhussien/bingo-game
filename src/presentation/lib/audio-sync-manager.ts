@@ -67,8 +67,6 @@ export class AudioSyncManager {
     playAudio: (n: number) => Promise<boolean>,
     cooldownMs?: number,
   ): Promise<void> {
-    if (this.locked) return;
-
     this.aborted = false;
     this.locked = true;
     this.emit('lock');
@@ -83,7 +81,6 @@ export class AudioSyncManager {
       if (this.aborted) return;
       this.emit('audio-end');
 
-      // Minimum gap between ball calls — voice clip length is never cut short.
       const remaining = Math.max(0, paceMs - (Date.now() - cycleStart));
       if (remaining > 0 && !this.aborted) {
         this.emit('cooldown-start');
