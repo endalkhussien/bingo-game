@@ -61,6 +61,7 @@ export async function openCallerDisplayWindow(parent: BrowserWindow | null): Pro
       contextIsolation: true,
       nodeIntegration: false,
       spellcheck: false,
+      autoplayPolicy: 'no-user-gesture-required',
     },
   });
 

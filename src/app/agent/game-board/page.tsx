@@ -422,7 +422,7 @@ export default function GameBoardPage() {
   const beginCalling = useCallback(() => {
     if (!activeGameRef.current || autoDrawRef.current || bingoClaimActiveRef.current || gameWinnersRef.current.length > 0 || gameEndedRef.current) return;
 
-    syncManagerRef.current.abort();
+    syncManagerRef.current.cancelLoop();
     unlockAudioPlayback();
     preloadBallCallClips(voiceRef.current);
     preloadGameEventClips(voiceRef.current);

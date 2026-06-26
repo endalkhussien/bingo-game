@@ -11,14 +11,15 @@ import {
 } from '@/shared/tts/bundled-audio-catalog';
 import { DEFAULT_AMHARIC_VOICE } from '@/shared/tts/voice-packs';
 import { isAmharicBundledVoice } from '@/shared/tts/amharic-voice';
+import { isElectron } from '@/shared/runtime';
+import { ipc } from '@/presentation/lib/ipc';
 
-/** One queue for custom MP3s in public/audio/ — silent when files are missing. */
+/** One queue for custom MP3s — events and ball calls play in order. */
 let audioQueue: Promise<void> = Promise.resolve();
 let stopGeneration = 0;
 let currentAudio: HTMLAudioElement | null = null;
-const clipCache = new Map<string, HTMLAudioElement>();
 
-const READY_TIMEOUT_MS = 2500;
+const READY_TIMEOUT_MS = 5000;
 const PLAY_TIMEOUT_MS = 30000;
 let audioUnlocked = false;
 
@@ -30,7 +31,16 @@ function buildMediaUrl(relativePath: string): string {
       return `${origin}/${clean}`;
     }
   }
+  if (isElectron()) {
+    return `waliya-media://${clean}`;
+  }
   return `/${clean}`;
+}
+
+function isHttpServedUi(): boolean {
+  if (typeof window === 'undefined') return false;
+  const origin = window.location?.origin;
+  return Boolean(origin && origin !== 'null' && origin.startsWith('http'));
 }
 
 function enqueue<T>(task: () => Promise<T>): Promise<T> {
@@ -44,22 +54,6 @@ function enqueue<T>(task: () => Promise<T>): Promise<T> {
     () => undefined,
   );
   return next;
-}
-
-function getCachedClip(relativePath: string): HTMLAudioElement {
-  const cached = clipCache.get(relativePath);
-  if (cached) return cached;
-
-  const audio = new Audio(buildMediaUrl(relativePath));
-  audio.preload = 'auto';
-  clipCache.set(relativePath, audio);
-  audio.load();
-  return audio;
-}
-
-function warmClip(relativePath: string): void {
-  if (typeof window === 'undefined') return;
-  getCachedClip(relativePath);
 }
 
 function waitForCanPlay(audio: HTMLAudioElement, timeoutMs: number): Promise<boolean> {
@@ -88,17 +82,19 @@ function waitForCanPlay(audio: HTMLAudioElement, timeoutMs: number): Promise<boo
     audio.addEventListener('loadeddata', onReady, { once: true });
     audio.addEventListener('canplay', onReady, { once: true });
     audio.addEventListener('error', onError, { once: true });
+    audio.load();
   });
 }
 
-async function playCachedPath(relativePath: string, generation: number): Promise<boolean> {
-  if (typeof window === 'undefined') return false;
-  if (generation !== stopGeneration) return false;
+function playUrl(url: string, generation: number): Promise<boolean> {
+  if (typeof window === 'undefined') return Promise.resolve(false);
+  if (generation !== stopGeneration) return Promise.resolve(false);
 
-  const audio = getCachedClip(relativePath);
-
-  return new Promise<boolean>((resolve) => {
+  return new Promise((resolve) => {
     let settled = false;
+    const audio = new Audio(url);
+    audio.preload = 'auto';
+
     const finish = (ok: boolean) => {
       if (settled) return;
       settled = true;
@@ -114,20 +110,16 @@ async function playCachedPath(relativePath: string, generation: number): Promise
 
     void (async () => {
       cancelBrowserSpeech();
-      if (currentAudio && currentAudio !== audio) {
+      if (currentAudio) {
         currentAudio.pause();
         currentAudio.currentTime = 0;
       }
       currentAudio = audio;
-      audio.pause();
-      audio.currentTime = 0;
 
-      if (audio.readyState < HTMLMediaElement.HAVE_FUTURE_DATA) {
-        const ready = await waitForCanPlay(audio, READY_TIMEOUT_MS);
-        if (!ready) {
-          finish(false);
-          return;
-        }
+      const ready = await waitForCanPlay(audio, READY_TIMEOUT_MS);
+      if (!ready) {
+        finish(false);
+        return;
       }
 
       audio.onended = () => finish(true);
@@ -142,13 +134,44 @@ async function playCachedPath(relativePath: string, generation: number): Promise
   });
 }
 
-async function playMp3Paths(relativePaths: string[]): Promise<boolean> {
-  const generation = stopGeneration;
-  for (const relativePath of relativePaths) {
-    if (generation !== stopGeneration) return false;
-    if (await playCachedPath(relativePath, generation)) return true;
+async function playPathsViaNativeIpc(relativePaths: string[]): Promise<boolean> {
+  if (!isElectron()) return false;
+  try {
+    const result = await ipc<{ success?: boolean; error?: string }>('audio:play-paths', relativePaths);
+    if (result?.success) return true;
+    if (result?.error) {
+      console.warn('[Waliya audio]', result.error);
+    }
+  } catch (err) {
+    console.warn('[Waliya audio] native playback failed', err);
   }
   return false;
+}
+
+/** Play bundled clips — HTTP/waliya-media first, then Electron native player. */
+export async function playRelativePathsDirect(relativePaths: string[]): Promise<boolean> {
+  const generation = stopGeneration;
+  if (generation !== stopGeneration) return false;
+
+  if (isHttpServedUi()) {
+    for (const relativePath of relativePaths) {
+      if (generation !== stopGeneration) return false;
+      if (await playUrl(buildMediaUrl(relativePath), generation)) return true;
+    }
+    if (generation !== stopGeneration) return false;
+    return playPathsViaNativeIpc(relativePaths);
+  }
+
+  if (await playPathsViaNativeIpc(relativePaths)) return true;
+  for (const relativePath of relativePaths) {
+    if (generation !== stopGeneration) return false;
+    if (await playUrl(buildMediaUrl(relativePath), generation)) return true;
+  }
+  return false;
+}
+
+async function playMp3Paths(relativePaths: string[]): Promise<boolean> {
+  return playRelativePathsDirect(relativePaths);
 }
 
 function playGameEvent(event: GameEventKey): Promise<boolean> {
@@ -159,6 +182,13 @@ export function cancelBrowserSpeech(): void {
   if (typeof window !== 'undefined' && window.speechSynthesis) {
     window.speechSynthesis.cancel();
   }
+}
+
+function warmClip(relativePath: string): void {
+  if (typeof window === 'undefined') return;
+  const audio = new Audio(buildMediaUrl(relativePath));
+  audio.preload = 'auto';
+  audio.load();
 }
 
 /** Warm browser cache for all ball + event clips (call on voice select / game start). */
@@ -183,18 +213,16 @@ export function preloadGameEventClips(_voiceType?: string): void {
 export function unlockAudioPlayback(): void {
   if (typeof window === 'undefined' || audioUnlocked) return;
   audioUnlocked = true;
-  const primer = getCachedClip(computeGameEventPath('started'));
-  const prevVolume = primer.volume;
-  primer.volume = 0.001;
-  void primer.play()
+  const audio = new Audio(buildMediaUrl(computeGameEventPath('started')));
+  const prevVolume = audio.volume;
+  audio.volume = 0.001;
+  void audio.play()
     .then(() => {
-      primer.pause();
-      primer.currentTime = 0;
-      primer.volume = prevVolume;
+      audio.pause();
+      audio.currentTime = 0;
+      audio.volume = prevVolume;
     })
-    .catch(() => {
-      primer.volume = prevVolume;
-    });
+    .catch(() => undefined);
 }
 
 export function stopCurrentAudio(): void {

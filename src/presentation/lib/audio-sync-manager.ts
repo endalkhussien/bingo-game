@@ -50,12 +50,17 @@ export class AudioSyncManager {
     this.cooldownMs = Math.max(0, ms);
   }
 
-  abort(): void {
+  /** Stop the auto-call loop without cancelling queued voice clips. */
+  cancelLoop(): void {
     this.aborted = true;
-    stopCurrentAudio();
     this.locked = false;
     this.emit('abort');
     this.emit('unlock');
+  }
+
+  abort(): void {
+    this.cancelLoop();
+    stopCurrentAudio();
   }
 
   private emit(event: AudioSyncEvent): void {

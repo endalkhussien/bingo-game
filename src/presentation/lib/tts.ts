@@ -7,8 +7,6 @@ import { playOnGamePlay } from './game-voice';
 import { ipc } from './ipc';
 import { isElectron } from '@/shared/runtime';
 
-let queue: Promise<void> = Promise.resolve();
-
 function waitForBrowserVoices(): Promise<SpeechSynthesisVoice[]> {
   if (typeof window === 'undefined' || !window.speechSynthesis) return Promise.resolve([]);
 
