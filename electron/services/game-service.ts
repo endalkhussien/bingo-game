@@ -8,7 +8,7 @@ import { CallingEngine } from '../../src/domain/services/calling-engine';
 import { normalizeWinningPattern } from '../../src/domain/services/winner-verification';
 import { MIN_BET, CARTELLA_MAX, MIN_PLAYERS_TO_START, DEFAULT_AGENT_COMMISSION_RATE } from '../../src/shared/constants';
 import { DRAW_BALL_COUNT } from '../../src/shared/brand';
-import { calculateTotalPot, calculateWinnerPrize, calculateWalletReserveRequired, summarizeGameSettlement } from '../../src/shared/prize';
+import { calculateTotalPot, calculateWinnerPrize, calculateWalletReserveRequired, calculateGameEconomics, summarizeGameSettlement } from '../../src/shared/prize';
 import { deductGameCommission, refundGameCommission, reserveGameCommission } from './wallet-service';
 import { creditOperatorWallet } from './operator-wallet-service';
 import { parseCardData } from '../../src/domain/services/card-generator';
@@ -513,9 +513,20 @@ export async function endGame(gameId: string, agentId: string) {
         );
       }
     } else {
-      const refund = await refundGameCommission(agentId, reservedCommission, game.gameCode);
-      if (!refund.success) {
-        return { success: false, error: refund.error ?? 'Could not refund reserved commission' };
+      // No winner — commission stays deducted (reserved at game create). Credit admin share only.
+      const joinEconomics = calculateGameEconomics(
+        game.betAmount,
+        totalJoinedPlayers,
+        agentCommissionRate,
+        adminCommissionRate,
+      );
+      if (joinEconomics.adminCut > 0) {
+        await creditOperatorWallet(
+          joinEconomics.adminCut,
+          `Admin share from game ${game.gameCode}`,
+          'game_commission',
+          gameId,
+        );
       }
     }
   } else if (hasWinner && settlement.walletCommissionDue > 0) {
