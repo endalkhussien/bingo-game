@@ -1,8 +1,6 @@
 #!/usr/bin/env node
 /**
- * Scan public/audio and public/sounds/cartella, write audio-manifest.json
- * so the app knows exactly which bundled MP3 files exist at build time.
- *
+ * Scan public/audio/ and write audio-manifest.json.
  * Run: npm run generate:audio-manifest
  */
 import fs from 'fs';
@@ -29,6 +27,7 @@ const EVENT_FILES = [
   'game_started.mp3',
   'game_stopped.mp3',
   'game_continued.mp3',
+  'game_paused.mp3',
   'winner.mp3',
   'not_winner.mp3',
   'cartella_locked.mp3',
@@ -44,25 +43,10 @@ function listMp3s(dir, prefix) {
 }
 
 const audioDir = path.join(root, 'public/audio');
-const cartellaDirs = [
-  { dir: path.join(audioDir, 'cartella'), prefix: 'audio/cartella' },
-  { dir: path.join(root, 'public/sounds/cartella'), prefix: 'sounds/cartella' },
-];
-
 const ballCalls = listMp3s(audioDir, 'audio').filter((p) => /\/[BINGO]\d+\.mp3$/i.test(p));
 const gameEvents = listMp3s(audioDir, 'audio').filter((p) =>
   EVENT_FILES.some((e) => p.endsWith(`/${e}`)),
 );
-
-let cartella = [];
-for (const { dir, prefix } of cartellaDirs) {
-  cartella.push(...listMp3s(dir, prefix));
-}
-cartella = [...new Set(cartella)].sort((a, b) => {
-  const na = parseInt(a.match(/(\d+)\.mp3$/)?.[1] ?? '0', 10);
-  const nb = parseInt(b.match(/(\d+)\.mp3$/)?.[1], 10);
-  return na - nb;
-});
 
 const expectedBalls = [];
 for (let n = 1; n <= 75; n++) {
@@ -73,12 +57,10 @@ const manifest = {
   generatedAt: new Date().toISOString(),
   ballCalls: ballCalls.sort(),
   gameEvents: gameEvents.sort(),
-  cartella,
   expectedBallCalls: expectedBalls,
   counts: {
     ballCalls: ballCalls.length,
     gameEvents: gameEvents.length,
-    cartella: cartella.length,
   },
 };
 
@@ -86,9 +68,11 @@ fs.mkdirSync(path.dirname(outPath), { recursive: true });
 fs.writeFileSync(outPath, `${JSON.stringify(manifest, null, 2)}\n`);
 
 console.log(
-  `audio-manifest.json: ${manifest.counts.ballCalls} ball, ${manifest.counts.gameEvents} events, ${manifest.counts.cartella} cartella`,
+  `audio-manifest.json: ${manifest.counts.ballCalls} ball, ${manifest.counts.gameEvents} events`,
 );
 
-if (manifest.counts.ballCalls < 75) {
-  console.warn(`  warning: expected 75 ball-call files in public/audio/ (found ${manifest.counts.ballCalls})`);
+if (manifest.counts.ballCalls === 0 && manifest.counts.gameEvents === 0) {
+  console.log('  (no MP3s yet — add recordings to public/audio/)');
+} else if (manifest.counts.ballCalls < 75) {
+  console.warn(`  warning: ${manifest.counts.ballCalls}/75 ball-call files in public/audio/`);
 }

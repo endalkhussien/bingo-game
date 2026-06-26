@@ -3,9 +3,8 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { promisify } from 'util';
-import { buildCartellaAnnouncement } from '../../src/shared/tts/voice-map';
 import { getBallCallSpeechParts } from '../../src/shared/tts/ball-call';
-import { computeBallCallPath, computeCartellaPaths, computeGameEventPath, type GameEventKey } from '../../src/shared/tts/bundled-audio-catalog';
+import { computeBallCallPath, computeGameEventPath, type GameEventKey } from '../../src/shared/tts/bundled-audio-catalog';
 import { DEFAULT_AMHARIC_VOICE } from '../../src/shared/tts/voice-packs';
 import { ENABLE_CARTELLA_PICK_VOICE } from '../../src/shared/constants';
 import { resolveFirstMediaFile } from '../utils/media-protocol';
@@ -91,11 +90,6 @@ export async function playBundledBallCall(number: number): Promise<SpeakResult> 
 
 export async function playBundledGameEvent(event: GameEventKey): Promise<SpeakResult> {
   return playBundledClip([computeGameEventPath(event)]);
-}
-
-async function playBundledCartella(number: number): Promise<boolean> {
-  const result = await playBundledClip(computeCartellaPaths(number));
-  return result.success;
 }
 
 async function speakWindowsSapi(text: string, lang: string): Promise<boolean> {
@@ -197,24 +191,7 @@ export async function speakNumber(
     return { success: false, error: 'Cartella pick voice is disabled.' };
   }
 
-  const payload = buildCartellaAnnouncement(number, voiceType, language);
-
-  if (payload.isAmharic) {
-    if (await playBundledCartella(number)) {
-      return { success: true, engine: 'bundled-mp3' };
-    }
-    return { success: false, error: 'Cartella MP3 missing.' };
-  }
-
-  if (await speakWindowsSapi(payload.text, payload.lang)) {
-    return { success: true, engine: 'windows-sapi' };
-  }
-
-  if (await speakEspeak(payload.text, 'en', voiceType.includes('FEMALE'))) {
-    return { success: true, engine: 'espeak-ng' };
-  }
-
-  return { success: false, error: 'TTS failed' };
+  return { success: false, error: 'Cartella pick voice is not configured.' };
 }
 
 export async function speakPlainText(text: string, lang: string, voiceType: string): Promise<SpeakResult> {

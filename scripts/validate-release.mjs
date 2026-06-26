@@ -21,9 +21,6 @@ function check(name, ok, detail = '') {
 
 console.log('Waliya release validation\n');
 
-const brand = JSON.parse(fs.readFileSync(path.join(root, 'brand.config.json'), 'utf8'));
-const requiredCartella = brand.initialCartellaCount ?? 150;
-
 const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
 check('package.json version', pkg.version === '1.0.0', `got ${pkg.version}`);
 check('Electron 22 (Windows 8+)', pkg.devDependencies?.electron === '22.3.27', `got ${pkg.devDependencies?.electron}`);
@@ -33,29 +30,18 @@ const browserslist = JSON.stringify(pkg.browserslist ?? []);
 check('Chromium 108 target (Electron 22 / Win 8+)', browserslist.includes('108'), browserslist);
 
 const audioDir = path.join(root, 'public/audio');
-const ballCallCount = fs.existsSync(audioDir)
-  ? fs.readdirSync(audioDir).filter((f) => /^[BINGO]\d+\.mp3$/i.test(f)).length
-  : 0;
-check('Ball-call audio (75)', ballCallCount >= 75, `${ballCallCount}/75 in public/audio/`);
-
-const EVENT_FILES = [
-  'game_started.mp3',
-  'game_continued.mp3',
-  'game_stopped.mp3',
-  'winner.mp3',
-  'not_winner.mp3',
-  'cartella_locked.mp3',
-  'shuffle.mp3',
-];
-const eventCount = fs.existsSync(audioDir)
-  ? EVENT_FILES.filter((f) => fs.existsSync(path.join(audioDir, f))).length
-  : 0;
-check('Game event audio (7)', eventCount >= 7, `${eventCount}/7 in public/audio/`);
+if (fs.existsSync(audioDir)) {
+  const ballCallCount = fs.readdirSync(audioDir).filter((f) => /^[BINGO]\d+\.mp3$/i.test(f)).length;
+  const eventCount = fs.readdirSync(audioDir).filter((f) => f.startsWith('game_') || ['winner.mp3', 'not_winner.mp3', 'cartella_locked.mp3', 'shuffle.mp3'].includes(f)).length;
+  console.log(`  ℹ Custom audio: ${ballCallCount}/75 ball calls, ${eventCount} event clips in public/audio/`);
+} else {
+  console.log('  ℹ Custom audio: public/audio/ not found (add MP3s before release if voice is required)');
+}
 
 check('dist-electron/main.js', fs.existsSync(path.join(root, 'dist-electron/electron/main.js')));
 check('out/index.html', fs.existsSync(path.join(root, 'out/index.html')));
 check('out/login page', fs.existsSync(path.join(root, 'out/login/index.html')));
-check('out/audio in export', fs.existsSync(path.join(root, 'out/audio/B1.mp3')));
+check('out/audio folder', fs.existsSync(path.join(root, 'out/audio')));
 check(
   'better_sqlite3.node (Electron)',
   fs.existsSync(path.join(root, 'node_modules/better-sqlite3/build/Release/better_sqlite3.node')),

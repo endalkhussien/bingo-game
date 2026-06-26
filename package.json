@@ -27,7 +27,6 @@
     "pack:win": "node scripts/pack-win.mjs",
     "test": "playwright test",
     "test:smoke": "node scripts/smoke-test.mjs",
-    "generate:amharic-audio": "node scripts/generate-amharic-audio.mjs",
     "recording:script": "node scripts/print-recording-script.mjs",
     "validate:audio": "node scripts/validate-custom-audio.mjs",
     "validate:release": "node scripts/validate-release.mjs",

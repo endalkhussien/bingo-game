@@ -43,14 +43,11 @@ RUN A GAME
   5. STOP to pause, RESUME to continue
   6. BINGO! -> verify cartella -> End Game
 
-  Cartella voice: when you tap a cartella number, you hear "ካርቴላ …"
-  (mute/unmute on the game board). Uses bundled Amharic clips offline.
-
-VOICE QUALITY (optional — for your own recordings)
---------------------------------------------------
-  See public/audio/README.txt for the required MP3 layout.
+VOICE (optional — add your own recordings later)
+-------------------------------------------------
+  See public/audio/README.txt for file names.
   npm run recording:script   -> checklist of all phrases
-  Put your recordings in:    public/audio/  (and public/audio/cartella/)
+  Put MP3s in:               public/audio/
   npm run validate:audio && npm run pack:win
 
 ------------
