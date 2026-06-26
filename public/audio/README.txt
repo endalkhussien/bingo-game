@@ -1,8 +1,18 @@
 Custom voice — public/audio/
 ============================
 
-This folder is empty until you add your own MP3 recordings.
-The game runs without voice until files are present.
+Drop your MP3 recordings here. Choose **Amharic Male 1** on the game board.
+
+BUTTON → AUDIO FILE
+-------------------
+  Play (first start)     game_started.mp3
+  Pause                  game_stopped.mp3
+  Resume                 game_continued.mp3
+  End Game               game_stopped.mp3
+  Valid BINGO winner     winner.mp3
+  False BINGO (Check)    not_winner.mp3
+  Banned cartella        cartella_locked.mp3
+  Shuffle                shuffle.mp3
 
 BALL CALLS (75 files)
 ---------------------
@@ -12,29 +22,9 @@ BALL CALLS (75 files)
   G46.mp3 … G60.mp3
   O61.mp3 … O75.mp3
 
-  Example: drawn number 42 → file G42.mp3
+  Example: board shows 42 → plays G42.mp3
 
-GAME EVENTS (7 required + 1 optional)
--------------------------------------
-  game_started.mp3      Play
-  game_continued.mp3    Resume
-  game_paused.mp3       Pause (optional — falls back to game_stopped.mp3)
-  game_stopped.mp3      End Game
-  winner.mp3            Valid BINGO
-  not_winner.mp3        False BINGO
-  cartella_locked.mp3   Banned cartella
-  shuffle.mp3           Shuffle button
-
-VOICE SETTING
--------------
-Choose "Amharic Male 1" on the game board to use these files.
-
-AFTER ADDING FILES
-------------------
+AFTER ADDING OR REPLACING FILES
+-------------------------------
   npm run setup:audio
-  npm run dev
-
-Or step by step:
-  npm run generate:audio-manifest
-  npm run validate:audio
   npm run dev

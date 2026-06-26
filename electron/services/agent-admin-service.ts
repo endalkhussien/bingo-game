@@ -10,6 +10,7 @@ import { getOrganizationVoucherSecret } from './voucher-secret-service';
 import { setOrganizationVoucherSecret } from './voucher-secret-service';
 import { ensureInitialDeck } from './card-service';
 import { normalizeUsername, isValidAgentUsername } from '../../src/shared/auth/normalize-username';
+import { DEFAULT_AGENT_COMMISSION_RATE } from '../../src/shared/constants';
 
 export async function listAgents() {
   const db = getDb();
@@ -68,7 +69,7 @@ export async function createAgent(adminId: string, data: {
   });
   await db.insert(agents).values({
     id: agentId, userId, phone: data.phone ?? null,
-    commissionRate: data.commissionRate ?? 20,
+    commissionRate: data.commissionRate ?? DEFAULT_AGENT_COMMISSION_RATE,
     adminCommissionRate: Number.isFinite(data.adminCommissionRate) ? data.adminCommissionRate : 20,
     walletBalance: 0,
     status: 'ACTIVE', createdAt: now, updatedAt: now,
@@ -167,7 +168,7 @@ export async function activateAgentFromSetup(setupCode: string) {
     id: agentId,
     userId,
     phone: null,
-    commissionRate: 20,
+    commissionRate: DEFAULT_AGENT_COMMISSION_RATE,
     adminCommissionRate,
     walletBalance: 0,
     status: 'ACTIVE',
