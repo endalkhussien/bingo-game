@@ -21,7 +21,7 @@ let currentAudio: HTMLAudioElement | null = null;
 const clipCache = new Map<string, HTMLAudioElement>();
 
 const READY_TIMEOUT_MS = 8000;
-const BALL_READY_TIMEOUT_MS = 400;
+const BALL_READY_TIMEOUT_MS = 1200;
 const PLAY_TIMEOUT_MS = 45000;
 
 function buildMediaUrl(relativePath: string): string {
@@ -197,6 +197,31 @@ export function cancelBrowserSpeech(): void {
 function warmClip(relativePath: string): void {
   if (typeof window === 'undefined') return;
   getCachedClip(relativePath);
+}
+
+function waitForClipReady(relativePath: string, timeoutMs: number): Promise<boolean> {
+  if (typeof window === 'undefined') return Promise.resolve(false);
+  return waitForCanPlay(getCachedClip(relativePath), timeoutMs);
+}
+
+/** Load event + ball MP3s into cache so first draw and shuffle play without delay. */
+export async function prepareVoiceForLiveGame(maxWaitMs = 5000): Promise<void> {
+  if (typeof window === 'undefined') return;
+  preloadGameEventClips();
+  preloadBallCallClips();
+
+  const ballPaths = allBallCallPaths();
+  const paths = ballPaths.length > 0
+    ? [...new Set([...allGameEventPaths(), ...ballPaths])]
+    : [
+      ...allGameEventPaths(),
+      ...Array.from({ length: BUNDLED_BALL_COUNT }, (_, i) => computeBallCallPath(i + 1)),
+    ];
+
+  await Promise.race([
+    Promise.all(paths.map((p) => waitForClipReady(p, maxWaitMs))),
+    new Promise<void>((resolve) => window.setTimeout(resolve, maxWaitMs)),
+  ]);
 }
 
 export function preloadBallCallClips(_voiceType?: string): void {
