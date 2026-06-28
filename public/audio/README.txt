@@ -7,9 +7,9 @@ BUTTON → AUDIO FILE
 -------------------
   Shuffle (before first Play)  shuffle.mp3
   Play (first start)           game_started.mp3
-  Pause                  game_stopped.mp3
-  Resume                 game_continued.mp3
-  End Game               game_stopped.mp3
+  Pause                        game_paused.mp3
+  Resume                       game_continued.mp3
+  End Game                     game_stopped.mp3
   Valid BINGO winner     winner.mp3
   False BINGO (Check)    not_winner.mp3
   Banned cartella        cartella_locked.mp3

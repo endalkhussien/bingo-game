@@ -14,12 +14,14 @@ import { isAmharicBundledVoice } from '@/shared/tts/amharic-voice';
 import { isElectron } from '@/shared/runtime';
 import { ipc } from '@/presentation/lib/ipc';
 
-/** One queue for custom MP3s — events and ball calls play in order. */
+/** One queue — kept for stopCurrentAudio reset only. */
 let audioQueue: Promise<void> = Promise.resolve();
 let stopGeneration = 0;
 let currentAudio: HTMLAudioElement | null = null;
+const clipCache = new Map<string, HTMLAudioElement>();
 
 const READY_TIMEOUT_MS = 8000;
+const BALL_READY_TIMEOUT_MS = 1200;
 const PLAY_TIMEOUT_MS = 45000;
 
 function buildMediaUrl(relativePath: string): string {
@@ -36,28 +38,9 @@ function buildMediaUrl(relativePath: string): string {
   return `/${clean}`;
 }
 
-function isHttpServedUi(): boolean {
-  if (typeof window === 'undefined') return false;
-  const origin = window.location?.origin;
-  return Boolean(origin && origin !== 'null' && origin.startsWith('http'));
-}
-
 function warnAudio(message: string, relativePaths: string[]): void {
   if (typeof console === 'undefined') return;
   console.warn('[Waliya audio]', message, relativePaths.join(' | '));
-}
-
-function enqueue<T>(task: () => Promise<T>): Promise<T> {
-  const generation = stopGeneration;
-  const next = audioQueue.then(async () => {
-    if (generation !== stopGeneration) return false as T;
-    return task();
-  });
-  audioQueue = next.then(
-    () => undefined,
-    () => undefined,
-  );
-  return next;
 }
 
 function waitForCanPlay(audio: HTMLAudioElement, timeoutMs: number): Promise<boolean> {
@@ -90,14 +73,24 @@ function waitForCanPlay(audio: HTMLAudioElement, timeoutMs: number): Promise<boo
   });
 }
 
-function playUrl(url: string, generation: number, relativePath: string): Promise<boolean> {
+function getCachedClip(relativePath: string): HTMLAudioElement {
+  const cached = clipCache.get(relativePath);
+  if (cached) return cached;
+  const audio = new Audio(buildMediaUrl(relativePath));
+  audio.preload = 'auto';
+  clipCache.set(relativePath, audio);
+  audio.load();
+  return audio;
+}
+
+function playCachedPath(relativePath: string, generation: number, readyTimeoutMs = BALL_READY_TIMEOUT_MS): Promise<boolean> {
   if (typeof window === 'undefined') return Promise.resolve(false);
   if (generation !== stopGeneration) return Promise.resolve(false);
 
+  const audio = getCachedClip(relativePath);
+
   return new Promise((resolve) => {
     let settled = false;
-    const audio = new Audio(url);
-    audio.preload = 'auto';
 
     const finish = (ok: boolean, reason?: string) => {
       if (settled) return;
@@ -115,20 +108,29 @@ function playUrl(url: string, generation: number, relativePath: string): Promise
 
     void (async () => {
       cancelBrowserSpeech();
-      if (currentAudio) {
+      if (currentAudio && currentAudio !== audio) {
         currentAudio.pause();
         currentAudio.currentTime = 0;
       }
       currentAudio = audio;
-
-      const ready = await waitForCanPlay(audio, READY_TIMEOUT_MS);
-      if (!ready) {
-        finish(false, `Could not load ${relativePath} from ${url}`);
-        return;
-      }
+      audio.pause();
+      audio.currentTime = 0;
 
       audio.onended = () => finish(true);
       audio.onerror = () => finish(false, `Error playing ${relativePath}`);
+
+      try {
+        await audio.play();
+        return;
+      } catch {
+        // Preload may not be ready yet — wait briefly then retry.
+      }
+
+      const ready = await waitForCanPlay(audio, readyTimeoutMs);
+      if (!ready) {
+        finish(false, `Could not load ${relativePath}`);
+        return;
+      }
 
       try {
         await audio.play();
@@ -151,21 +153,23 @@ async function playPathsViaNativeIpc(relativePaths: string[]): Promise<boolean> 
   return false;
 }
 
-/** Play bundled clips — Electron native player first, then HTTP / waliya-media. */
-export async function playRelativePathsDirect(relativePaths: string[]): Promise<boolean> {
+async function playHtmlPaths(relativePaths: string[], generation: number, readyTimeoutMs: number): Promise<boolean> {
+  for (const relativePath of relativePaths) {
+    if (generation !== stopGeneration) return false;
+    if (await playCachedPath(relativePath, generation, readyTimeoutMs)) return true;
+  }
+  return false;
+}
+
+/** Play bundled clips — low-latency HTML first, native player as fallback. */
+export async function playRelativePathsDirect(relativePaths: string[], readyTimeoutMs = BALL_READY_TIMEOUT_MS): Promise<boolean> {
   const generation = stopGeneration;
   if (generation !== stopGeneration) return false;
   if (!relativePaths.length) return false;
 
-  if (isElectron()) {
-    if (await playPathsViaNativeIpc(relativePaths)) return true;
-  }
+  if (await playHtmlPaths(relativePaths, generation, readyTimeoutMs)) return true;
 
-  for (const relativePath of relativePaths) {
-    if (generation !== stopGeneration) return false;
-    const url = buildMediaUrl(relativePath);
-    if (await playUrl(url, generation, relativePath)) return true;
-  }
+  if (isElectron() && await playPathsViaNativeIpc(relativePaths)) return true;
 
   warnAudio(
     'No clip played — check public/audio/ file names (run npm run audio:map) and npm run setup:audio',
@@ -174,12 +178,14 @@ export async function playRelativePathsDirect(relativePaths: string[]): Promise<
   return false;
 }
 
-async function playMp3Paths(relativePaths: string[]): Promise<boolean> {
-  return playRelativePathsDirect(relativePaths);
+/** Button/event clips — play immediately on click, interrupt any ball call. */
+function playGameEventImmediate(event: GameEventKey): Promise<boolean> {
+  stopCurrentAudio();
+  return playMp3Paths(computeGameEventPaths(event), READY_TIMEOUT_MS);
 }
 
-function playGameEvent(event: GameEventKey): Promise<boolean> {
-  return enqueue(() => playMp3Paths(computeGameEventPaths(event)));
+async function playMp3Paths(relativePaths: string[], readyTimeoutMs = BALL_READY_TIMEOUT_MS): Promise<boolean> {
+  return playRelativePathsDirect(relativePaths, readyTimeoutMs);
 }
 
 export function cancelBrowserSpeech(): void {
@@ -190,9 +196,32 @@ export function cancelBrowserSpeech(): void {
 
 function warmClip(relativePath: string): void {
   if (typeof window === 'undefined') return;
-  const audio = new Audio(buildMediaUrl(relativePath));
-  audio.preload = 'auto';
-  audio.load();
+  getCachedClip(relativePath);
+}
+
+function waitForClipReady(relativePath: string, timeoutMs: number): Promise<boolean> {
+  if (typeof window === 'undefined') return Promise.resolve(false);
+  return waitForCanPlay(getCachedClip(relativePath), timeoutMs);
+}
+
+/** Load event + ball MP3s into cache so first draw and shuffle play without delay. */
+export async function prepareVoiceForLiveGame(maxWaitMs = 5000): Promise<void> {
+  if (typeof window === 'undefined') return;
+  preloadGameEventClips();
+  preloadBallCallClips();
+
+  const ballPaths = allBallCallPaths();
+  const paths = ballPaths.length > 0
+    ? [...new Set([...allGameEventPaths(), ...ballPaths])]
+    : [
+      ...allGameEventPaths(),
+      ...Array.from({ length: BUNDLED_BALL_COUNT }, (_, i) => computeBallCallPath(i + 1)),
+    ];
+
+  await Promise.race([
+    Promise.all(paths.map((p) => waitForClipReady(p, maxWaitMs))),
+    new Promise<void>((resolve) => window.setTimeout(resolve, maxWaitMs)),
+  ]);
 }
 
 export function preloadBallCallClips(_voiceType?: string): void {
@@ -231,47 +260,47 @@ export function stopCurrentAudio(): void {
 export function playBallCallClip(number: number, _voiceType: string): Promise<boolean> {
   const relativePath = computeBallCallPath(number);
   warmClip(relativePath);
-  return enqueue(() => playMp3Paths([relativePath]));
+  return playMp3Paths([relativePath]);
 }
 
 export function playGameStartedClip(voiceType: string, language?: string): Promise<boolean> {
   if (!isAmharicBundledVoice(voiceType, language)) return Promise.resolve(false);
-  return playGameEvent('started');
+  return playGameEventImmediate('started');
 }
 
 export function playGamePausedClip(voiceType: string, language?: string): Promise<boolean> {
   if (!isAmharicBundledVoice(voiceType, language)) return Promise.resolve(false);
-  return playGameEvent('paused');
+  return playGameEventImmediate('paused');
 }
 
 export function playGameStoppedClip(voiceType: string, language?: string): Promise<boolean> {
   if (!isAmharicBundledVoice(voiceType, language)) return Promise.resolve(false);
-  return playGameEvent('stopped');
+  return playGameEventImmediate('stopped');
 }
 
 export function playGameContinuedClip(voiceType: string, language?: string): Promise<boolean> {
   if (!isAmharicBundledVoice(voiceType, language)) return Promise.resolve(false);
-  return playGameEvent('continued');
+  return playGameEventImmediate('continued');
 }
 
 export function playWinnerClip(voiceType: string, language?: string): Promise<boolean> {
   if (!isAmharicBundledVoice(voiceType, language)) return Promise.resolve(false);
-  return playGameEvent('winner');
+  return playGameEventImmediate('winner');
 }
 
 export function playNotWinnerClip(voiceType: string, language?: string): Promise<boolean> {
   if (!isAmharicBundledVoice(voiceType, language)) return Promise.resolve(false);
-  return playGameEvent('notWinner');
+  return playGameEventImmediate('notWinner');
 }
 
 export function playCartellaLockedClip(voiceType: string, language?: string): Promise<boolean> {
   if (!isAmharicBundledVoice(voiceType, language)) return Promise.resolve(false);
-  return playGameEvent('cartellaLocked');
+  return playGameEventImmediate('cartellaLocked');
 }
 
 export function playShuffleClip(voiceType: string, language?: string): Promise<boolean> {
   if (!isAmharicBundledVoice(voiceType, language)) return Promise.resolve(false);
-  return playGameEvent('shuffle');
+  return playGameEventImmediate('shuffle');
 }
 
 export async function playBallCallAudio(number: number, language: string, voiceType: string): Promise<boolean> {

@@ -31,7 +31,7 @@ export function DrawShuffleOverlay({ active }: DrawShuffleOverlayProps) {
       setFlash(0);
       return;
     }
-    const timer = window.setInterval(() => setFlash((f) => f + 1), 90);
+    const timer = window.setInterval(() => setFlash((f) => f + 1), 45);
     return () => window.clearInterval(timer);
   }, [active]);
 

@@ -128,8 +128,6 @@ export async function runAutoCallLoop(
     const drawn = await options.drawNumber();
     if (!drawn || !options.shouldContinue() || options.isPaused()) break;
 
-    options.onDraw(drawn);
-
     if (!options.shouldContinue() || options.isPaused()) break;
 
     const v = drawn.voiceType ?? options.voiceType;
@@ -137,7 +135,11 @@ export async function runAutoCallLoop(
 
     await syncManager.callNumber(
       drawn.number,
-      (n) => options.playAudio(n, v, l),
+      async (n) => {
+        const audioPromise = options.playAudio(n, v, l);
+        options.onDraw(drawn);
+        return audioPromise;
+      },
       options.cooldownMs,
     );
 
